@@ -138,14 +138,14 @@ fun QiblaScreen(
                 // Sensor Accuracy Chip
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val (accuracyText, accuracyColor) = when (qiblaState.accuracy) {
-                        SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "Accurate" to Color(0xFF10B981)
-                        SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium" to Color(0xFFF59E0B)
-                        else -> "Calibrate" to Color(0xFFEF4444)
+                        SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "Accurate" to MaterialTheme.colorScheme.primary
+                        SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium" to MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> "Calibrate" to MaterialTheme.colorScheme.outline
                     }
 
                     Surface(
                         color = accuracyColor.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(100.dp),
                         modifier = Modifier.testTag("qibla_accuracy_indicator")
                     ) {
                         Row(
@@ -215,6 +215,17 @@ fun QiblaScreen(
                 .testTag("qibla_compass_dial"),
             contentAlignment = Alignment.Center
         ) {
+            val dialBorderColor = MaterialTheme.colorScheme.outlineVariant
+            val tickColor = MaterialTheme.colorScheme.outline
+            val northColor = MaterialTheme.colorScheme.primary
+            val southColor = MaterialTheme.colorScheme.outline
+            val needleColor = MaterialTheme.colorScheme.primary
+            val pointerOuter = MaterialTheme.colorScheme.primary
+            val pointerInner = MaterialTheme.colorScheme.surface
+            val sunIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val hubColor = if (isFacingQibla) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+            val hubTextColor = if (isFacingQibla) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+
             // Rotating Compass Rose Canvas
             Canvas(
                 modifier = Modifier
@@ -226,7 +237,7 @@ fun QiblaScreen(
 
                 // Outer Dial Ring
                 drawCircle(
-                    color = Color(0xFFE2E8F0),
+                    color = dialBorderColor,
                     radius = radius,
                     style = Stroke(width = 3.dp.toPx())
                 )
@@ -242,37 +253,36 @@ fun QiblaScreen(
                     val innerY = center.y - (radius - 8.dp.toPx() - tickLen) * cos(rad).toFloat()
 
                     drawLine(
-                        color = if (deg == 0) Color(0xFFEF4444) else Color(0xFF94A3B8),
+                        color = if (deg == 0) northColor else tickColor,
                         start = Offset(innerX, innerY),
                         end = Offset(outerX, outerY),
                         strokeWidth = if (isMajor) 2.5.dp.toPx() else 1.dp.toPx()
                     )
                 }
 
-                // True North Red Arrow
+                // True North Monochrome Arrow
                 val northPath = Path().apply {
                     moveTo(center.x, center.y - radius + 30.dp.toPx())
                     lineTo(center.x - 10.dp.toPx(), center.y - 40.dp.toPx())
                     lineTo(center.x + 10.dp.toPx(), center.y - 40.dp.toPx())
                     close()
                 }
-                drawPath(path = northPath, color = Color(0xFFEF4444))
+                drawPath(path = northPath, color = northColor)
 
-                // South Gray Arrow
+                // South Subtle Arrow
                 val southPath = Path().apply {
                     moveTo(center.x, center.y + radius - 30.dp.toPx())
                     lineTo(center.x - 8.dp.toPx(), center.y + 40.dp.toPx())
                     lineTo(center.x + 8.dp.toPx(), center.y + 40.dp.toPx())
                     close()
                 }
-                drawPath(path = southPath, color = Color(0xFF94A3B8))
+                drawPath(path = southPath, color = southColor)
 
-                // Kaaba Qibla Pointer (Green & Gold)
+                // Kaaba Qibla Pointer Needle
                 val qiblaRad = Math.toRadians(qiblaState.qiblaBearing.toDouble())
                 val qiblaX = center.x + (radius - 45.dp.toPx()) * sin(qiblaRad).toFloat()
                 val qiblaY = center.y - (radius - 45.dp.toPx()) * cos(qiblaRad).toFloat()
 
-                // Qibla Pointer Needle
                 val needlePath = Path().apply {
                     moveTo(qiblaX, qiblaY)
                     val baseLeftX = center.x + 14.dp.toPx() * sin(qiblaRad - Math.PI / 2).toFloat()
@@ -283,16 +293,16 @@ fun QiblaScreen(
                     lineTo(baseRightX, baseRightY)
                     close()
                 }
-                drawPath(needlePath, color = Color(0xFF059669))
+                drawPath(needlePath, color = needleColor)
 
-                // Golden Kaaba marker icon at tip of needle
+                // Kaaba marker icon at tip of needle
                 drawCircle(
-                    color = Color(0xFFD97706),
+                    color = pointerOuter,
                     radius = 9.dp.toPx(),
                     center = Offset(qiblaX, qiblaY)
                 )
                 drawCircle(
-                    color = Color(0xFFFDE68A),
+                    color = pointerInner,
                     radius = 4.dp.toPx(),
                     center = Offset(qiblaX, qiblaY)
                 )
@@ -301,14 +311,14 @@ fun QiblaScreen(
                 val sunRad = Math.toRadians(qiblaState.sunAzimuth.toDouble())
                 val sunX = center.x + (radius - 20.dp.toPx()) * sin(sunRad).toFloat()
                 val sunY = center.y - (radius - 20.dp.toPx()) * cos(sunRad).toFloat()
-                drawCircle(color = Color(0xFFF59E0B), radius = 6.dp.toPx(), center = Offset(sunX, sunY))
+                drawCircle(color = sunIndicatorColor, radius = 6.dp.toPx(), center = Offset(sunX, sunY))
             }
 
             // Central Kaaba Hub
             Surface(
                 modifier = Modifier.size(72.dp),
                 shape = CircleShape,
-                color = if (isFacingQibla) Color(0xFF047857) else Color(0xFF1E293B),
+                color = hubColor,
                 shadowElevation = 6.dp
             ) {
                 Column(
@@ -324,7 +334,7 @@ fun QiblaScreen(
                         text = "QIBLA",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = hubTextColor
                     )
                 }
             }
@@ -403,7 +413,7 @@ fun QiblaScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    color = Color(0xFFFEF3C7),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = CircleShape,
                     modifier = Modifier.size(40.dp)
                 ) {

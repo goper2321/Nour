@@ -11,44 +11,64 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+// Material 3 Expressive Monochrome Dark Color Scheme
 private val DarkColorScheme = darkColorScheme(
-    primary = EmeraldNightPrimary,
-    onPrimary = Color(0xFF064E3B),
-    primaryContainer = Color(0xFF064E3B),
-    onPrimaryContainer = Color(0xFFA7F3D0),
-    secondary = GoldNightAccent,
-    onSecondary = Color(0xFF78350F),
-    secondaryContainer = Color(0xFF78350F),
-    onSecondaryContainer = Color(0xFFFDE68A),
-    background = MidnightBackground,
-    onBackground = MidnightText,
-    surface = MidnightSurface,
-    onSurface = MidnightText,
-    surfaceVariant = MidnightSurfaceVariant,
-    onSurfaceVariant = MidnightTextMuted
+    primary = MonoPureWhite,
+    onPrimary = MonoPitchBlack,
+    primaryContainer = MonoGraphite,
+    onPrimaryContainer = MonoPureWhite,
+    secondary = MonoSilver,
+    onSecondary = MonoPitchBlack,
+    secondaryContainer = MonoCharcoal,
+    onSecondaryContainer = MonoPlatinum,
+    tertiary = MonoPlatinum,
+    onTertiary = MonoPitchBlack,
+    tertiaryContainer = MonoSlateDark,
+    onTertiaryContainer = MonoPureWhite,
+    background = MonoDarkBackground,
+    onBackground = MonoDarkTextPrimary,
+    surface = MonoDarkSurface,
+    onSurface = MonoDarkTextPrimary,
+    surfaceVariant = MonoDarkSurfaceVariant,
+    onSurfaceVariant = MonoDarkTextSecondary,
+    surfaceContainer = MonoDarkSurfaceContainer,
+    surfaceContainerHigh = MonoDarkSurfaceContainerHigh,
+    outline = MonoDarkOutline,
+    outlineVariant = MonoDarkOutlineVariant,
+    scrim = MonoPitchBlack
 )
 
+// Material 3 Expressive Monochrome Light Color Scheme
 private val LightColorScheme = lightColorScheme(
-    primary = EmeraldPrimary,
-    onPrimary = Color.White,
-    primaryContainer = EmeraldContainer,
-    onPrimaryContainer = OnEmeraldContainer,
-    secondary = GoldAccent,
-    onSecondary = Color.White,
-    secondaryContainer = GoldContainer,
-    onSecondaryContainer = OnGoldContainer,
-    background = SandBackground,
-    onBackground = SandText,
-    surface = SandSurface,
-    onSurface = SandText,
-    surfaceVariant = SandSurfaceVariant,
-    onSurfaceVariant = SandTextMuted
+    primary = MonoPitchBlack,
+    onPrimary = MonoPureWhite,
+    primaryContainer = MonoPearl,
+    onPrimaryContainer = MonoPitchBlack,
+    secondary = MonoSlateMedium,
+    onSecondary = MonoPureWhite,
+    secondaryContainer = MonoAlabaster,
+    onSecondaryContainer = MonoObsidian,
+    tertiary = MonoSlateLight,
+    onTertiary = MonoPureWhite,
+    tertiaryContainer = MonoPearl,
+    onTertiaryContainer = MonoCharcoal,
+    background = MonoLightBackground,
+    onBackground = MonoLightTextPrimary,
+    surface = MonoLightSurface,
+    onSurface = MonoLightTextPrimary,
+    surfaceVariant = MonoLightSurfaceVariant,
+    onSurfaceVariant = MonoLightTextSecondary,
+    surfaceContainer = MonoLightSurfaceContainer,
+    surfaceContainerHigh = MonoLightSurfaceContainerHigh,
+    outline = MonoLightOutline,
+    outlineVariant = MonoLightOutlineVariant,
+    scrim = MonoPitchBlack
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Set false to prioritize our handcrafted authentic emerald theme
+    dynamicColor: Boolean = false, // Set to false to prioritize our handcrafted Material 3 Expressive Monochrome theme
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -63,6 +83,8 @@ fun MyApplicationTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = ExpressiveShapes,
         content = content
     )
 }
+
