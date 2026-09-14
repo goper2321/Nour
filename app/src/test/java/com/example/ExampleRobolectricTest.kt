@@ -12,7 +12,11 @@ import com.example.features.prayer.models.PrayerName
 import com.example.features.prayer.models.UserLocation
 import com.example.features.qibla.QiblaCalculator
 import com.example.features.quran.data.QuranRepository
+import com.example.localization.AppLanguage
+import com.example.localization.AppStrings
+import com.example.localization.LocalizationManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -110,5 +114,46 @@ class ExampleRobolectricTest {
         assertTrue(hijri.formattedEn.contains("AH"))
         assertTrue(hijri.formattedAr.contains("هـ"))
         assertTrue(hijri.year >= 1445)
+    }
+
+    @Test
+    fun `app language enumeration supports codes and RTL attributes`() {
+        assertEquals(AppLanguage.ENGLISH, AppLanguage.fromCode("en"))
+        assertEquals(AppLanguage.ARABIC, AppLanguage.fromCode("ar"))
+        assertEquals(AppLanguage.FRENCH, AppLanguage.fromCode("fr"))
+        assertEquals(AppLanguage.TURKISH, AppLanguage.fromCode("tr"))
+        assertEquals(AppLanguage.INDONESIAN, AppLanguage.fromCode("id"))
+        assertEquals(AppLanguage.URDU, AppLanguage.fromCode("ur"))
+        // Fallback
+        assertEquals(AppLanguage.ENGLISH, AppLanguage.fromCode("unknown"))
+
+        assertTrue(AppLanguage.ARABIC.isRtl)
+        assertTrue(AppLanguage.URDU.isRtl)
+        assertFalse(AppLanguage.ENGLISH.isRtl)
+        assertFalse(AppLanguage.FRENCH.isRtl)
+    }
+
+    @Test
+    fun `localization manager saves and retrieves user language preference`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        
+        LocalizationManager.saveLanguage(context, AppLanguage.ARABIC)
+        val loadedLang = LocalizationManager.getSavedLanguage(context)
+        assertEquals(AppLanguage.ARABIC, loadedLang)
+
+        LocalizationManager.saveLanguage(context, AppLanguage.FRENCH)
+        assertEquals(AppLanguage.FRENCH, LocalizationManager.getSavedLanguage(context))
+    }
+
+    @Test
+    fun `app strings provide translations for all supported languages`() {
+        for (lang in AppLanguage.entries) {
+            val strings = AppStrings.forLanguage(lang)
+            assertNotNull(strings)
+            assertTrue("Nav settings should not be empty for ${lang.name}", strings.navSettings.isNotBlank())
+            assertTrue("Settings title should not be empty for ${lang.name}", strings.settingsTitle.isNotBlank())
+            assertTrue("Language title should not be empty for ${lang.name}", strings.languageSectionTitle.isNotBlank())
+            assertTrue("Next badge should not be empty for ${lang.name}", strings.nextBadge.isNotBlank())
+        }
     }
 }

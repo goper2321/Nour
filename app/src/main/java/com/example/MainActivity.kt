@@ -5,30 +5,42 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,9 +49,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
@@ -54,19 +68,30 @@ import com.example.features.prayer.ui.PrayerScreen
 import com.example.features.qibla.ui.QiblaScreen
 import com.example.features.quran.ui.QuranScreen
 import com.example.features.settings.ui.SettingsScreen
+import com.example.localization.AppLanguage
+import com.example.localization.AppStrings
+import com.example.localization.LocalAppLanguage
+import com.example.localization.LocalAppStrings
+import com.example.localization.LocalizationManager
 import com.example.ui.theme.MyApplicationTheme
 import java.util.Date
 
 enum class NourNavDestination(
-    val title: String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
     val testTag: String
 ) {
-    SALAH("Salah", Icons.Filled.Notifications, Icons.Outlined.Notifications, "nav_salah"),
-    QIBLA("Qibla", Icons.Filled.LocationOn, Icons.Outlined.LocationOn, "nav_qibla"),
-    QURAN("Qur'an", Icons.Filled.DateRange, Icons.Outlined.DateRange, "nav_quran"),
-    SETTINGS("Settings", Icons.Filled.Settings, Icons.Outlined.Settings, "nav_settings")
+    SALAH(Icons.Rounded.Schedule, Icons.Outlined.Schedule, "nav_salah"),
+    QIBLA(Icons.Rounded.Explore, Icons.Outlined.Explore, "nav_qibla"),
+    QURAN(Icons.Rounded.AutoStories, Icons.Outlined.AutoStories, "nav_quran"),
+    SETTINGS(Icons.Rounded.Settings, Icons.Outlined.Settings, "nav_settings");
+
+    fun getTitle(strings: AppStrings): String = when (this) {
+        SALAH -> strings.navSalah
+        QIBLA -> strings.navQibla
+        QURAN -> strings.navQuran
+        SETTINGS -> strings.navSettings
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -84,6 +109,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun NourMainApp() {
     val context = LocalContext.current
+
+    val savedLanguage = remember { LocalizationManager.getSavedLanguage(context) }
+    var currentLanguage by remember { mutableStateOf(savedLanguage) }
+    val strings = remember(currentLanguage) { AppStrings.forLanguage(currentLanguage) }
+    val layoutDirection = if (currentLanguage.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr
 
     var currentDestination by remember { mutableStateOf(NourNavDestination.SALAH) }
 
@@ -115,88 +145,161 @@ fun NourMainApp() {
         }
     }
 
-    Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("nour_main_scaffold"),
-        bottomBar = {
-            NavigationBar(
+    CompositionLocalProvider(
+        LocalLayoutDirection provides layoutDirection,
+        LocalAppLanguage provides currentLanguage,
+        LocalAppStrings provides strings
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isExpandedScreen = maxWidth >= 600.dp
+
+            Scaffold(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("nour_bottom_navigation"),
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 6.dp
-            ) {
-                NourNavDestination.values().forEach { destination ->
-                    val isSelected = currentDestination == destination
-                    NavigationBarItem(
-                        selected = isSelected,
-                        onClick = { currentDestination = destination },
-                        icon = {
-                            Icon(
-                                imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                                contentDescription = destination.title
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = destination.title,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
-                        ),
-                        modifier = Modifier.testTag(destination.testTag)
-                    )
+                    .fillMaxSize()
+                    .testTag("nour_main_scaffold"),
+                bottomBar = {
+                    if (!isExpandedScreen) {
+                        NavigationBar(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("nour_bottom_navigation"),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            tonalElevation = 3.dp
+                        ) {
+                            NourNavDestination.values().forEach { destination ->
+                                val isSelected = currentDestination == destination
+                                val title = destination.getTitle(strings)
+                                NavigationBarItem(
+                                    selected = isSelected,
+                                    onClick = { currentDestination = destination },
+                                    icon = {
+                                        Icon(
+                                            imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                                            contentDescription = title
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                                    ),
+                                    modifier = Modifier.testTag(destination.testTag)
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            AnimatedContent(
-                targetState = currentDestination,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "navigation_screen_transition"
-            ) { destination ->
-                when (destination) {
-                    NourNavDestination.SALAH -> {
-                        PrayerScreen(
-                            location = userLocation,
-                            calculationMethod = calculationMethod,
-                            madhab = madhab,
-                            highLatRule = highLatRule,
-                            adjustments = adjustments,
-                            onOpenAdjustments = { currentDestination = NourNavDestination.SETTINGS },
-                            onOpenSettings = { currentDestination = NourNavDestination.SETTINGS }
-                        )
+            ) { innerPadding ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    if (isExpandedScreen) {
+                        NavigationRail(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .testTag("nour_navigation_rail"),
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            header = {
+                                Spacer(modifier = Modifier.padding(top = 16.dp))
+                            }
+                        ) {
+                            NourNavDestination.values().forEach { destination ->
+                                val isSelected = currentDestination == destination
+                                val title = destination.getTitle(strings)
+                                NavigationRailItem(
+                                    selected = isSelected,
+                                    onClick = { currentDestination = destination },
+                                    icon = {
+                                        Icon(
+                                            imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
+                                            contentDescription = title
+                                        )
+                                    },
+                                    label = {
+                                        Text(
+                                            text = title,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    },
+                                    colors = NavigationRailItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                                    ),
+                                    modifier = Modifier.testTag(destination.testTag)
+                                )
+                            }
+                        }
                     }
-                    NourNavDestination.QIBLA -> {
-                        QiblaScreen(location = userLocation)
-                    }
-                    NourNavDestination.QURAN -> {
-                        QuranScreen()
-                    }
-                    NourNavDestination.SETTINGS -> {
-                        SettingsScreen(
-                            location = userLocation,
-                            calculationMethod = calculationMethod,
-                            madhab = madhab,
-                            highLatRule = highLatRule,
-                            adjustments = adjustments,
-                            onLocationChange = { userLocation = it },
-                            onMethodChange = { calculationMethod = it },
-                            onMadhabChange = { madhab = it },
-                            onHighLatRuleChange = { highLatRule = it },
-                            onAdjustmentsChange = { adjustments = it }
-                        )
+
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        AnimatedContent(
+                            targetState = currentDestination,
+                            transitionSpec = {
+                                (fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) +
+                                        scaleIn(
+                                            initialScale = 0.96f,
+                                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                                        ))
+                                    .togetherWith(
+                                        fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                                    )
+                            },
+                            label = "m3e_nav_transition"
+                        ) { destination ->
+                            when (destination) {
+                                NourNavDestination.SALAH -> {
+                                    PrayerScreen(
+                                        location = userLocation,
+                                        calculationMethod = calculationMethod,
+                                        madhab = madhab,
+                                        highLatRule = highLatRule,
+                                        adjustments = adjustments,
+                                        onOpenAdjustments = { currentDestination = NourNavDestination.SETTINGS },
+                                        onOpenSettings = { currentDestination = NourNavDestination.SETTINGS }
+                                    )
+                                }
+                                NourNavDestination.QIBLA -> {
+                                    QiblaScreen(location = userLocation)
+                                }
+                                NourNavDestination.QURAN -> {
+                                    QuranScreen()
+                                }
+                                NourNavDestination.SETTINGS -> {
+                                    SettingsScreen(
+                                        location = userLocation,
+                                        calculationMethod = calculationMethod,
+                                        madhab = madhab,
+                                        highLatRule = highLatRule,
+                                        adjustments = adjustments,
+                                        currentLanguage = currentLanguage,
+                                        onLocationChange = { userLocation = it },
+                                        onMethodChange = { calculationMethod = it },
+                                        onMadhabChange = { madhab = it },
+                                        onHighLatRuleChange = { highLatRule = it },
+                                        onAdjustmentsChange = { adjustments = it },
+                                        onLanguageChange = { newLang ->
+                                            currentLanguage = newLang
+                                            LocalizationManager.saveLanguage(context, newLang)
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

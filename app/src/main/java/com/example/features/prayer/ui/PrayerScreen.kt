@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -37,11 +38,17 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.WbTwilight
+import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.CardSubtleShape
+import com.example.ui.theme.PillShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import com.example.localization.LocalAppStrings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -138,7 +146,6 @@ fun PrayerScreen(
     val prayerLogs by db.prayerLogDao().getLogsForDate(todayStr).collectAsState(initial = emptyList())
 
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Today, 1 = Weekly, 2 = Monthly, 3 = Solstices
-    var playingAdhanPrayer by remember { mutableStateOf<PrayerName?>(null) }
 
     // Stop adhan if composable leaves composition
     DisposableEffect(Unit) {
@@ -181,11 +188,11 @@ fun PrayerScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("prayer_header_card"),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = CardExpressiveShape,
                     colors = CardDefaults.cardColors(
-                        containerColor = Color.Black.copy(alpha = 0.28f)
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)
                     ),
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -203,13 +210,13 @@ fun PrayerScreen(
                                 text = hijriDate.formattedEn,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = hijriDate.formattedAr,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFD4D4D8)
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
 
@@ -217,7 +224,7 @@ fun PrayerScreen(
                         Text(
                             text = "$gregorianDate • $currentZone",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.75f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -237,9 +244,9 @@ fun PrayerScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.Black.copy(alpha = 0.28f))
-                        .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
+                        .clip(PillShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), PillShape)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -316,7 +323,6 @@ fun PrayerScreen(
                     val isSunrise = prayer == PrayerName.SUNRISE
                     val log = prayerLogs.firstOrNull { it.prayerName == prayer.name }
                     val isPrayed = log?.status == "PRAYED"
-                    val isPlayingThis = playingAdhanPrayer == prayer && AdhanPlayer.isPlaying
 
                     PrayerCard(
                         prayer = prayer,
@@ -325,24 +331,6 @@ fun PrayerScreen(
                         isCurrent = isCurrent,
                         isSunrise = isSunrise,
                         isPrayed = isPrayed,
-                        isPlayingAdhan = isPlayingThis,
-                        onPlayAdhanToggle = {
-                            if (isPlayingThis) {
-                                AdhanPlayer.stop()
-                                playingAdhanPrayer = null
-                            } else {
-                                playingAdhanPrayer = prayer
-                                AdhanPlayer.playAdhan(
-                                    context = context,
-                                    toneName = "Makkah Adhan",
-                                    volume = 1.0f,
-                                    onCompletion = {
-                                        playingAdhanPrayer = null
-                                    }
-                                )
-                                Toast.makeText(context, "Playing Adhan preview for ${prayer.displayName}", Toast.LENGTH_SHORT).show()
-                            }
-                        },
                         onTogglePrayed = {
                             coroutineScope.launch {
                                 val newStatus = if (isPrayed) "MISSED" else "PRAYED"
@@ -414,9 +402,9 @@ fun PrayerTabPill(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(100.dp),
-        color = if (isSelected) Color.White else Color.Transparent,
-        contentColor = if (isSelected) Color.Black else Color.White.copy(alpha = 0.85f),
+        shape = PillShape,
+        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
     ) {
         Box(
@@ -425,7 +413,7 @@ fun PrayerTabPill(
         ) {
             Text(
                 text = title,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
             )
         }
@@ -446,9 +434,9 @@ fun DailyPrayerProgressCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.28f)),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(
             modifier = Modifier
@@ -463,27 +451,27 @@ fun DailyPrayerProgressCard(
                 Column {
                     Text(
                         text = "Daily Salah Tracking",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "$prayedCount of $totalPrayers obligatory prayers completed",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.75f)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
                 Surface(
-                    color = if (prayedCount == 5) Color.White else Color.Black.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(100.dp),
-                    border = if (prayedCount == 5) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                    color = if (prayedCount == 5) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    shape = PillShape,
+                    border = if (prayedCount == 5) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
                     Text(
                         text = if (prayedCount == 5) "Alhamdulillah • All 5" else "${(progress * 100).toInt()}%",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (prayedCount == 5) Color.Black else Color.White,
+                        color = if (prayedCount == 5) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -496,9 +484,9 @@ fun DailyPrayerProgressCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = Color.White,
-                trackColor = Color.White.copy(alpha = 0.18f)
+                    .clip(PillShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -518,26 +506,26 @@ fun DailyPrayerProgressCard(
                     val isPrayed = prayerLogs.any { it.prayerName == prayer.name && it.status == "PRAYED" }
                     Surface(
                         onClick = { onTogglePrayer(prayer) },
-                        shape = RoundedCornerShape(100.dp),
-                        color = if (isPrayed) Color.White else Color.Black.copy(alpha = 0.35f),
-                        border = if (isPrayed) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+                        shape = PillShape,
+                        color = if (isPrayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
+                        border = if (isPrayed) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = if (isPrayed) Icons.Default.Check else Icons.Outlined.Circle,
+                                imageVector = if (isPrayed) Icons.Rounded.CheckCircle else Icons.Outlined.Circle,
                                 contentDescription = null,
-                                tint = if (isPrayed) Color.Black else Color.White.copy(alpha = 0.45f),
-                                modifier = Modifier.size(12.dp)
+                                tint = if (isPrayed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = label,
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = if (isPrayed) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isPrayed) Color.Black else Color.White.copy(alpha = 0.85f)
+                                color = if (isPrayed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -559,40 +547,39 @@ fun PrayerCard(
     isCurrent: Boolean,
     isSunrise: Boolean,
     isPrayed: Boolean,
-    isPlayingAdhan: Boolean,
-    onPlayAdhanToggle: () -> Unit,
     onTogglePrayed: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
     val borderColor by animateColorAsState(
         targetValue = when {
-            isNext -> Color.White
-            isCurrent -> Color(0xFFD4D4D8)
-            else -> Color.White.copy(alpha = 0.16f)
+            isNext -> MaterialTheme.colorScheme.primary
+            isCurrent -> MaterialTheme.colorScheme.secondary
+            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
         },
         label = "card_border_color"
     )
 
     val containerColor = when {
-        isNext -> Color(0xFF27272A)
-        isCurrent -> Color(0xFF1E1E22)
-        isSunrise -> Color.Black.copy(alpha = 0.26f)
-        else -> Color.Black.copy(alpha = 0.32f)
+        isNext -> MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.95f)
+        isCurrent -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f)
+        isSunrise -> MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.85f)
+        else -> MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)
     }
 
     val prayerIcon: ImageVector = when (prayer) {
-        PrayerName.FAJR -> Icons.Default.WbTwilight
-        PrayerName.SUNRISE -> Icons.Default.WbSunny
-        PrayerName.DHUHR -> Icons.Default.WbSunny
-        PrayerName.ASR -> Icons.Default.WbSunny
-        PrayerName.MAGHRIB -> Icons.Default.WbTwilight
-        PrayerName.ISHA -> Icons.Default.NightsStay
+        PrayerName.FAJR -> Icons.Rounded.WbTwilight
+        PrayerName.SUNRISE -> Icons.Rounded.WbSunny
+        PrayerName.DHUHR -> Icons.Rounded.WbSunny
+        PrayerName.ASR -> Icons.Rounded.WbSunny
+        PrayerName.MAGHRIB -> Icons.Rounded.WbTwilight
+        PrayerName.ISHA -> Icons.Rounded.NightsStay
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("prayer_card_${prayer.name}"),
-        shape = RoundedCornerShape(22.dp),
+        shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(if (isNext || isCurrent) 2.dp else 1.dp, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isNext) 2.dp else 0.dp)
@@ -617,24 +604,24 @@ fun PrayerCard(
                             .testTag("log_prayer_${prayer.name}")
                     ) {
                         Icon(
-                            imageVector = if (isPrayed) Icons.Default.CheckCircle else Icons.Outlined.CheckCircle,
+                            imageVector = if (isPrayed) Icons.Rounded.CheckCircle else Icons.Outlined.CheckCircle,
                             contentDescription = if (isPrayed) "Prayed" else "Mark as prayed",
-                            tint = if (isPrayed) Color.White else Color.White.copy(alpha = 0.35f),
+                            tint = if (isPrayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                             modifier = Modifier.size(26.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(6.dp))
                 } else {
                     Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.15f),
+                        shape = PillShape,
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = prayerIcon,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -649,49 +636,49 @@ fun PrayerCard(
                             text = prayer.displayName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = if (isNext) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = if (isPrayed) Color.White.copy(alpha = 0.65f) else Color.White
+                            color = if (isPrayed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onSurface
                         )
 
                         if (isNext) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
-                                color = Color.White,
-                                shape = RoundedCornerShape(100.dp)
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = PillShape
                             ) {
                                 Text(
-                                    text = "NEXT",
-                                    color = Color.Black,
-                                    fontSize = 10.sp,
+                                    text = strings.nextBadge,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
                         } else if (isCurrent) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
-                                color = Color(0xFFE4E4E7),
-                                shape = RoundedCornerShape(100.dp)
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = PillShape
                             ) {
                                 Text(
-                                    text = "CURRENT",
-                                    color = Color.Black,
-                                    fontSize = 10.sp,
+                                    text = strings.currentBadge,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
                         } else if (isSunrise) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Surface(
-                                color = Color.White.copy(alpha = 0.20f),
-                                shape = RoundedCornerShape(100.dp)
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = PillShape
                             ) {
                                 Text(
-                                    text = "SHURUQ",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
+                                    text = strings.shuruqBadge,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
                         }
@@ -703,22 +690,20 @@ fun PrayerCard(
                         Text(
                             text = prayer.arabicName,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFFD4D4D8),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Medium
                         )
                         if (isSunrise) {
                             Text(
                                 text = " • Tahajjud concludes",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.70f),
-                                fontSize = 11.sp
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
                             )
                         } else if (isPrayed) {
                             Text(
                                 text = " • Completed",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.85f),
-                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -726,38 +711,13 @@ fun PrayerCard(
                 }
             }
 
-            // Right side: Audio Preview & Formatted Time
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
-            ) {
-                if (!isSunrise) {
-                    IconButton(
-                        onClick = onPlayAdhanToggle,
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isPlayingAdhan) Color.White else Color.White.copy(alpha = 0.15f)
-                            )
-                    ) {
-                        Icon(
-                            imageVector = if (isPlayingAdhan) Icons.Default.Stop else Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Preview Adhan",
-                            tint = if (isPlayingAdhan) Color.Black else Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                }
-
-                Text(
-                    text = timeFormatted,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isNext) Color.White else Color.White.copy(alpha = 0.95f)
-                )
-            }
+            // Right side: Formatted Time
+            Text(
+                text = timeFormatted,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -797,8 +757,8 @@ fun WeeklyScheduleCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -815,17 +775,17 @@ fun WeeklyScheduleCard(
                     )
                     Text(
                         text = "Precise astronomical calculations for the coming week",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = PillShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                     Text(
                         text = "7 Days",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -839,7 +799,7 @@ fun WeeklyScheduleCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(CardSubtleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     .padding(vertical = 8.dp, horizontal = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -859,7 +819,7 @@ fun WeeklyScheduleCard(
                 val rowContainer = if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent
 
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = CardSubtleShape,
                     color = rowContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -914,8 +874,8 @@ fun MonthlyCalendarCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -932,18 +892,18 @@ fun MonthlyCalendarCard(
                     )
                     Text(
                         text = monthName,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = PillShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                     Text(
                         text = "Full Month",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -957,7 +917,7 @@ fun MonthlyCalendarCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(CardSubtleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     .padding(vertical = 8.dp, horizontal = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -987,7 +947,7 @@ fun MonthlyCalendarCard(
                 val rowBackground = if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = CardSubtleShape,
                     color = rowBackground,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -1040,8 +1000,8 @@ fun YearAheadPreviewCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -1058,17 +1018,17 @@ fun YearAheadPreviewCard(
                     )
                     Text(
                         text = "Offline celestial Solstice & Equinox prayer timings",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = PillShape,
                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                 ) {
                     Text(
                         text = "4 Seasons",
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -1096,7 +1056,7 @@ fun YearAheadPreviewCard(
                 )
 
                 Card(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = CardSubtleShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth()
                 ) {

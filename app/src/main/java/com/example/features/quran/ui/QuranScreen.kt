@@ -30,34 +30,34 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.BookmarkBorder
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.FormatSize
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.ViewAgenda
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FormatSize
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +70,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.CardSubtleShape
+import com.example.ui.theme.PillShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -312,7 +315,15 @@ fun QuranScreen(
     if (showPageJumpDialog) {
         AlertDialog(
             onDismissRequest = { showPageJumpDialog = false },
-            title = { Text("Jump to Page (1 - 604)", fontWeight = FontWeight.Bold) },
+            shape = CardExpressiveShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            title = {
+                Text(
+                    text = "Jump to Page (1 - 604)",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = jumpPageInput,
@@ -320,7 +331,7 @@ fun QuranScreen(
                     label = { Text("Page Number") },
                     placeholder = { Text("1 to 604") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = CardSubtleShape,
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -335,13 +346,16 @@ fun QuranScreen(
                             Toast.makeText(context, "Enter a page between 1 and 604", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = PillShape
                 ) {
                     Text("Go to Page")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPageJumpDialog = false }) { Text("Cancel") }
+                TextButton(
+                    onClick = { showPageJumpDialog = false },
+                    shape = PillShape
+                ) { Text("Cancel") }
             }
         )
     }
@@ -366,6 +380,8 @@ fun QuranScreen(
         val surah = QuranRepository.getSurah(ayah.surahNumber)
         AlertDialog(
             onDismissRequest = { selectedTafsirAyah = null },
+            shape = CardExpressiveShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Column {
                     Text(
@@ -375,7 +391,7 @@ fun QuranScreen(
                     )
                     Text(
                         text = "Authentic Scholarly Exegesis",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -387,7 +403,7 @@ fun QuranScreen(
                 ) {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = CardSubtleShape,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -406,32 +422,32 @@ fun QuranScreen(
                         Text(
                             text = "Tafsir al-Muyassar (التفسير الميسر):",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = ayah.getTafsir("muyassar"),
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             lineHeight = 22.sp,
                             textAlign = TextAlign.Right,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                     Column {
                         Text(
                             text = "Ibn Kathir Reflection:",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = ayah.getTafsir("kathir"),
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             lineHeight = 20.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -441,7 +457,7 @@ fun QuranScreen(
             confirmButton = {
                 Button(
                     onClick = { selectedTafsirAyah = null },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = PillShape
                 ) {
                     Text("Close")
                 }
@@ -465,8 +481,8 @@ fun QuranMainHeader(
     bookmarkCount: Int
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 1.dp
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -490,7 +506,7 @@ fun QuranMainHeader(
                     )
                     Text(
                         text = "القرآن الكريم",
-                        fontSize = 14.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -501,10 +517,10 @@ fun QuranMainHeader(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
                     Icon(
-                        imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
+                        imageVector = if (isSearchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
                         contentDescription = "Search Quran",
                         tint = if (isSearchExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -521,21 +537,21 @@ fun QuranMainHeader(
                     value = searchQuery,
                     onValueChange = onSearchQueryChange,
                     placeholder = { Text("Search Surah, verse, English or Arabic...", fontSize = 13.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "Clear")
+                                Icon(Icons.Rounded.Clear, contentDescription = "Clear")
                             }
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(24.dp),
+                    shape = PillShape,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -551,8 +567,8 @@ fun QuranMainHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    .clip(PillShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -592,7 +608,7 @@ fun QuranTabPill(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
+        shape = PillShape,
         color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
         contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier
@@ -604,18 +620,18 @@ fun QuranTabPill(
         ) {
             Text(
                 text = title,
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
             )
             Spacer(modifier = Modifier.width(4.dp))
             Surface(
                 shape = CircleShape,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceVariant,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceContainerHighest,
                 contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
             ) {
                 Text(
                     text = subtitle,
-                    fontSize = 10.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 )
@@ -655,23 +671,23 @@ fun SurahListView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onContinueReading() },
-                shape = RoundedCornerShape(20.dp),
+                shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp),
+                        .padding(20.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.MenuBook,
+                                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.primary
@@ -679,7 +695,7 @@ fun SurahListView(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "CONTINUE READING",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 letterSpacing = 1.sp
@@ -694,7 +710,7 @@ fun SurahListView(
                         )
                         Text(
                             text = "${lastReadSurah.englishMeaning} • Page ${lastReadSurah.startPage}",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
@@ -702,21 +718,21 @@ fun SurahListView(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = lastReadSurah.nameArabic,
-                            fontSize = 24.sp,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = PillShape,
                             color = MaterialTheme.colorScheme.primary
                         ) {
                             Text(
                                 text = "Resume",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                             )
                         }
                     }
@@ -741,10 +757,12 @@ fun SurahListView(
                     FilterChip(
                         selected = isSelected,
                         onClick = { selectedFilter = label },
-                        label = { Text("$label ($count)", fontSize = 12.sp) },
+                        shape = PillShape,
+                        label = { Text("$label ($count)", style = MaterialTheme.typography.labelMedium) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -762,11 +780,11 @@ fun SurahListView(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(CardExpressiveShape)
                     .clickable { onSurahClick(surah) }
                     .testTag("surah_item_${surah.number}"),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = CardExpressiveShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
@@ -779,14 +797,14 @@ fun SurahListView(
                     // Islamic Number Badge
                     Surface(
                         modifier = Modifier.size(40.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                        shape = CardSubtleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Text(
                                 text = "${surah.number}",
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -798,27 +816,27 @@ fun SurahListView(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = surah.nameEnglish,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = surah.englishMeaning,
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = " • ",
-                                fontSize = 12.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outlineVariant
                             )
                             Text(
                                 text = "${surah.ayahCount} verses",
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -829,14 +847,14 @@ fun SurahListView(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = surah.nameArabic,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = "${surah.revelationType.label} • Juz ${surah.juzNumber}",
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -884,8 +902,8 @@ fun SurahReaderView(
     ) {
         // Minimalist, Peaceful Top Bar
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
@@ -900,24 +918,25 @@ fun SurahReaderView(
                         onClick = onBack,
                         modifier = Modifier.testTag("surah_reader_back_button")
                     ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back to Surahs")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to Surahs")
                     }
 
                     Box {
                         TextButton(
                             onClick = { showSurahDropdown = true },
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Column {
                                 Text(
                                     text = "${surah.number}. ${surah.nameEnglish} ▾",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
                                     text = "${surah.nameArabic} • ${surah.ayahCount} verses",
-                                    fontSize = 11.sp,
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -925,11 +944,12 @@ fun SurahReaderView(
 
                         DropdownMenu(
                             expanded = showSurahDropdown,
-                            onDismissRequest = { showSurahDropdown = false }
+                            onDismissRequest = { showSurahDropdown = false },
+                            shape = CardSubtleShape
                         ) {
                             QuranRepository.ALL_SURAHS.forEach { s ->
                                 DropdownMenuItem(
-                                    text = { Text("${s.number}. ${s.nameEnglish} (${s.nameArabic})") },
+                                    text = { Text("${s.number}. ${s.nameEnglish} (${s.nameArabic})", style = MaterialTheme.typography.bodyMedium) },
                                     onClick = {
                                         onSelectSurah(s)
                                         selectedAyahForInspector = null
@@ -951,7 +971,7 @@ fun SurahReaderView(
                         }
                     ) {
                         Icon(
-                            imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Default.ViewAgenda else Icons.Default.AutoStories,
+                            imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Rounded.ViewAgenda else Icons.Rounded.AutoStories,
                             contentDescription = "Switch View Mode",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -960,7 +980,7 @@ fun SurahReaderView(
                     // Reading Settings Modal Trigger
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            imageVector = Icons.Default.Tune,
+                            imageVector = Icons.Rounded.Tune,
                             contentDescription = "Reading Settings",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -981,8 +1001,8 @@ fun SurahReaderView(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    shape = CardExpressiveShape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 ) {
                     Column(
@@ -993,20 +1013,20 @@ fun SurahReaderView(
                     ) {
                         Text(
                             text = "سُورَةُ ${surah.nameArabic}",
-                            fontSize = 30.sp,
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Surah ${surah.nameEnglish} — ${surah.englishMeaning}",
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             text = "${surah.revelationType.label} • ${surah.ayahCount} Verses • Juz ${surah.juzNumber}",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
@@ -1033,8 +1053,8 @@ fun SurahReaderView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = CardExpressiveShape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -1051,23 +1071,24 @@ fun SurahReaderView(
                             ) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = PillShape
                                 ) {
                                     Text(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                                     )
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton(
                                         onClick = { onSelectTafsir(ayah) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp)
+                                        shape = PillShape,
+                                        contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
-                                        Text("Tafsir", fontSize = 12.sp)
+                                        Text("Tafsir", style = MaterialTheme.typography.labelMedium)
                                     }
 
                                     IconButton(
@@ -1075,7 +1096,7 @@ fun SurahReaderView(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            imageVector = if (isBookmarked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                             contentDescription = "Bookmark",
                                             tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1090,7 +1111,7 @@ fun SurahReaderView(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.ContentCopy,
+                                            imageVector = Icons.Rounded.ContentCopy,
                                             contentDescription = "Copy",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1109,7 +1130,7 @@ fun SurahReaderView(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Share,
+                                            imageVector = Icons.Rounded.Share,
                                             contentDescription = "Share",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1130,7 +1151,7 @@ fun SurahReaderView(
                             )
 
                             Spacer(modifier = Modifier.height(10.dp))
-                            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             Spacer(modifier = Modifier.height(10.dp))
 
                             // Translation
@@ -1180,10 +1201,13 @@ fun SurahReaderView(
                     ) {
                         Text(
                             text = "Full Translation",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
                         )
-                        TextButton(onClick = { showTranslationsInContinuous = !showTranslationsInContinuous }) {
+                        TextButton(
+                            onClick = { showTranslationsInContinuous = !showTranslationsInContinuous },
+                            shape = PillShape
+                        ) {
                             Text(if (showTranslationsInContinuous) "Hide All" else "Show All (${surah.ayahCount})")
                         }
                     }
@@ -1193,10 +1217,10 @@ fun SurahReaderView(
                     items(ayahs) { ayah ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            shape = CardSubtleShape,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1204,21 +1228,22 @@ fun SurahReaderView(
                                 ) {
                                     Text(
                                         text = "Verse ${ayah.ayahNumber}",
+                                        style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.primary
                                     )
                                     TextButton(
                                         onClick = { onSelectTafsir(ayah) },
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                        shape = PillShape,
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                                     ) {
-                                        Text("Tafsir", fontSize = 11.sp)
+                                        Text("Tafsir", style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = ayah.getTranslation(editionId),
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -1231,8 +1256,8 @@ fun SurahReaderView(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = CardExpressiveShape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                 ) {
                     Row(
@@ -1249,9 +1274,10 @@ fun SurahReaderView(
                                     selectedAyahForInspector = null
                                 }
                             },
-                            enabled = surah.number > 1
+                            enabled = surah.number > 1,
+                            shape = PillShape
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Previous Surah")
                         }
@@ -1263,11 +1289,12 @@ fun SurahReaderView(
                                     selectedAyahForInspector = null
                                 }
                             },
-                            enabled = surah.number < 114
+                            enabled = surah.number < 114,
+                            shape = PillShape
                         ) {
                             Text("Next Surah")
                             Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -1305,8 +1332,8 @@ fun MushafPageView(
     Column(modifier = Modifier.fillMaxSize()) {
         // Minimalist Page Header
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
@@ -1315,12 +1342,15 @@ fun MushafPageView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onJumpPageClick) {
+                TextButton(
+                    onClick = onJumpPageClick,
+                    shape = PillShape
+                ) {
                     Text(
                         text = "Page $pageNumber / 604 • Juz ${mushafPage.juzNumber} ▾",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp
+                        style = MaterialTheme.typography.titleMedium
                     )
                 }
 
@@ -1332,7 +1362,7 @@ fun MushafPageView(
                         }
                     ) {
                         Icon(
-                            imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Default.ViewAgenda else Icons.Default.AutoStories,
+                            imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Rounded.ViewAgenda else Icons.Rounded.AutoStories,
                             contentDescription = "Toggle Mode",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -1340,7 +1370,7 @@ fun MushafPageView(
 
                     IconButton(onClick = onOpenSettings) {
                         Icon(
-                            imageVector = Icons.Default.Tune,
+                            imageVector = Icons.Rounded.Tune,
                             contentDescription = "Settings",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1362,8 +1392,8 @@ fun MushafPageView(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        shape = CardExpressiveShape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         Column(
                             modifier = Modifier
@@ -1373,25 +1403,25 @@ fun MushafPageView(
                         ) {
                             Text(
                                 text = "سُورَةُ ${surah.nameArabic}",
-                                fontSize = 24.sp,
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
                                 text = "Surah ${surah.nameEnglish} • ${surah.englishMeaning}",
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             OutlinedButton(
                                 onClick = { onOpenFullSurah(surah) },
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                shape = PillShape,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                             ) {
-                                Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Read Whole Surah (${surah.ayahCount} verses)", fontSize = 11.sp)
+                                Text("Read Whole Surah (${surah.ayahCount} verses)", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -1407,8 +1437,8 @@ fun MushafPageView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = CardExpressiveShape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                     ) {
                         Column(
@@ -1423,23 +1453,24 @@ fun MushafPageView(
                             ) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(8.dp)
+                                    shape = PillShape
                                 ) {
                                     Text(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
                                     )
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton(
                                         onClick = { onSelectTafsir(ayah) },
-                                        contentPadding = PaddingValues(horizontal = 6.dp)
+                                        shape = PillShape,
+                                        contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
-                                        Text("Tafsir", fontSize = 12.sp)
+                                        Text("Tafsir", style = MaterialTheme.typography.labelMedium)
                                     }
 
                                     IconButton(
@@ -1447,7 +1478,7 @@ fun MushafPageView(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = if (isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            imageVector = if (isBookmarked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                             contentDescription = "Bookmark",
                                             tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1462,7 +1493,7 @@ fun MushafPageView(
                                         modifier = Modifier.size(32.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.ContentCopy,
+                                            imageVector = Icons.Rounded.ContentCopy,
                                             contentDescription = "Copy",
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -1482,7 +1513,7 @@ fun MushafPageView(
                             )
 
                             Spacer(modifier = Modifier.height(10.dp))
-                            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             Spacer(modifier = Modifier.height(10.dp))
 
                             Text(
@@ -1530,10 +1561,13 @@ fun MushafPageView(
                     ) {
                         Text(
                             text = "Page Translations",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
                         )
-                        TextButton(onClick = { showTranslationsInContinuous = !showTranslationsInContinuous }) {
+                        TextButton(
+                            onClick = { showTranslationsInContinuous = !showTranslationsInContinuous },
+                            shape = PillShape
+                        ) {
                             Text(if (showTranslationsInContinuous) "Hide" else "Show All")
                         }
                     }
@@ -1543,20 +1577,20 @@ fun MushafPageView(
                     items(mushafPage.ayahs) { ayah ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            shape = CardSubtleShape,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
+                            Column(modifier = Modifier.padding(14.dp)) {
                                 Text(
                                     text = "Verse ${ayah.ayahNumber}",
+                                    style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = ayah.getTranslation(editionId),
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -1568,8 +1602,8 @@ fun MushafPageView(
 
         // Clean Bottom Page Turner
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 0.dp
         ) {
             Row(
                 modifier = Modifier
@@ -1581,9 +1615,9 @@ fun MushafPageView(
                 OutlinedButton(
                     onClick = onPrevPage,
                     enabled = pageNumber > 1,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = PillShape
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Previous")
                 }
@@ -1591,18 +1625,18 @@ fun MushafPageView(
                 Text(
                     text = "Page $pageNumber",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
 
                 Button(
                     onClick = onNextPage,
                     enabled = pageNumber < 604,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = PillShape
                 ) {
                     Text("Next")
                     Spacer(modifier = Modifier.width(6.dp))
-                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -1632,8 +1666,8 @@ fun QuranSettingsBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.surface
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column(
             modifier = Modifier
@@ -1652,7 +1686,7 @@ fun QuranSettingsBottomSheet(
                     fontWeight = FontWeight.Bold
                 )
                 IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
+                    Icon(Icons.Rounded.Close, contentDescription = "Close")
                 }
             }
 
@@ -1661,7 +1695,7 @@ fun QuranSettingsBottomSheet(
                 Text(
                     text = "Layout Style",
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1681,13 +1715,13 @@ fun QuranSettingsBottomSheet(
                     Text(
                         text = "Arabic Font Size",
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "${arabicFontSize.toInt()} sp",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -1715,7 +1749,7 @@ fun QuranSettingsBottomSheet(
                 Text(
                     text = "Translation Edition",
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1728,10 +1762,12 @@ fun QuranSettingsBottomSheet(
                         FilterChip(
                             selected = isSelected,
                             onClick = { onSelectEdition(edition.id) },
-                            label = { Text("${edition.name} (${edition.language})", fontSize = 12.sp) },
+                            shape = PillShape,
+                            label = { Text("${edition.name} (${edition.language})", style = MaterialTheme.typography.labelMedium) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
                         )
                     }
@@ -1755,8 +1791,8 @@ fun QuranViewModeToggle(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = PillShape,
         modifier = modifier
             .fillMaxWidth()
             .testTag("quran_view_mode_toggle")
@@ -1770,11 +1806,11 @@ fun QuranViewModeToggle(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(PillShape)
                     .clickable { onModeChange(QuranReadingMode.CARDS) }
                     .testTag("toggle_cards_mode"),
                 color = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
+                shape = PillShape
             ) {
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
@@ -1782,7 +1818,7 @@ fun QuranViewModeToggle(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ViewAgenda,
+                        imageVector = Icons.Rounded.ViewAgenda,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1790,7 +1826,7 @@ fun QuranViewModeToggle(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Verse Cards",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (readingMode == QuranReadingMode.CARDS) FontWeight.Bold else FontWeight.Medium,
                         color = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1801,11 +1837,11 @@ fun QuranViewModeToggle(
             Surface(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(PillShape)
                     .clickable { onModeChange(QuranReadingMode.CONTINUOUS) }
                     .testTag("toggle_continuous_mode"),
                 color = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
+                shape = PillShape
             ) {
                 Row(
                     modifier = Modifier.padding(vertical = 8.dp, horizontal = 12.dp),
@@ -1813,7 +1849,7 @@ fun QuranViewModeToggle(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AutoStories,
+                        imageVector = Icons.Rounded.AutoStories,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1821,7 +1857,7 @@ fun QuranViewModeToggle(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Continuous Page",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (readingMode == QuranReadingMode.CONTINUOUS) FontWeight.Bold else FontWeight.Medium,
                         color = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1892,11 +1928,11 @@ fun ContinuousQuranTextCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), CardExpressiveShape)
             .testTag("continuous_text_surface"),
-        shape = RoundedCornerShape(20.dp),
+        shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -1958,13 +1994,13 @@ fun AyahInspectorCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+            .border(1.5.dp, MaterialTheme.colorScheme.primary, CardExpressiveShape)
             .testTag("ayah_inspector_card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1978,14 +2014,14 @@ fun AyahInspectorCard(
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = PillShape
                 ) {
                     Text(
                         text = "Surah ${surah.nameEnglish} • Verse ${ayah.ayahNumber}",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
 
@@ -1993,7 +2029,7 @@ fun AyahInspectorCard(
                     onClick = onDismiss,
                     modifier = Modifier.size(28.dp)
                 ) {
-                    Icon(Icons.Default.Clear, contentDescription = "Close Inspector")
+                    Icon(Icons.Rounded.Clear, contentDescription = "Close Inspector")
                 }
             }
 
@@ -2008,7 +2044,7 @@ fun AyahInspectorCard(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
@@ -2026,26 +2062,26 @@ fun AyahInspectorCard(
             ) {
                 Button(
                     onClick = onSelectTafsir,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Tafsir", fontSize = 12.sp)
+                    Text("Tafsir", style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
                     onClick = onToggleBookmark,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = PillShape,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Icon(
-                        imageVector = if (isBookmarked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        imageVector = if (isBookmarked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (isBookmarked) "Saved" else "Bookmark", fontSize = 12.sp)
+                    Text(if (isBookmarked) "Saved" else "Bookmark", style = MaterialTheme.typography.labelMedium)
                 }
 
                 IconButton(
@@ -2057,7 +2093,7 @@ fun AyahInspectorCard(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ContentCopy,
+                        imageVector = Icons.Rounded.ContentCopy,
                         contentDescription = "Copy",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2076,7 +2112,7 @@ fun AyahInspectorCard(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Share,
+                        imageVector = Icons.Rounded.Share,
                         contentDescription = "Share",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2095,12 +2131,12 @@ fun SearchResultsView(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 text = "${results.size} verses found for \"$query\"",
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(14.dp)
@@ -2109,7 +2145,11 @@ fun SearchResultsView(
 
         if (results.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No verses matched your search.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "No verses matched your search.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
@@ -2122,8 +2162,8 @@ fun SearchResultsView(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onSelectAyah(ayah) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = CardExpressiveShape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
@@ -2135,11 +2175,11 @@ fun SearchResultsView(
                                     text = "Surah ${QuranRepository.getSurah(ayah.surahNumber).nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})",
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp
+                                    style = MaterialTheme.typography.titleSmall
                                 )
                                 Text(
                                     text = "Page ${ayah.pageNumber}",
-                                    fontSize = 12.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -2153,7 +2193,7 @@ fun SearchResultsView(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = ayah.getTranslation(editionId),
-                                fontSize = 13.sp,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -2185,7 +2225,7 @@ fun BookmarksView(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.BookmarkBorder,
+                            imageVector = Icons.Rounded.BookmarkBorder,
                             contentDescription = null,
                             modifier = Modifier.size(36.dp),
                             tint = MaterialTheme.colorScheme.primary
@@ -2195,13 +2235,13 @@ fun BookmarksView(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "No saved verses yet",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Tap the heart icon while reading any Ayah to save your reflections and favorite verses here.",
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
@@ -2218,8 +2258,8 @@ fun BookmarksView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onGoToAyah(bm) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = CardExpressiveShape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -2230,6 +2270,7 @@ fun BookmarksView(
                         ) {
                             Text(
                                 text = "${bm.surahName} (${bm.surahNumber}:${bm.ayahNumber})",
+                                style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -2238,7 +2279,7 @@ fun BookmarksView(
                                 modifier = Modifier.size(28.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Clear,
+                                    Icons.Rounded.Clear,
                                     contentDescription = "Remove Bookmark",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2254,7 +2295,7 @@ fun BookmarksView(
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = bm.translationText,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
