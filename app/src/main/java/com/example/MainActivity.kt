@@ -1,6 +1,8 @@
 package com.example
 
+import android.content.Context
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -45,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -57,6 +60,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
+import com.example.features.location.DeviceLocationHelper
+import com.example.features.location.rememberLocationPermissionState
 import com.example.features.prayer.calculation.PrayerCalculationEngine
 import com.example.features.prayer.models.CalculationMethod
 import com.example.features.prayer.models.HighLatitudeRule
@@ -74,6 +79,8 @@ import com.example.localization.LocalAppLanguage
 import com.example.localization.LocalAppStrings
 import com.example.localization.LocalizationManager
 import com.example.ui.theme.MyApplicationTheme
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import kotlinx.coroutines.launch
 import java.util.Date
 
 enum class NourNavDestination(
@@ -106,9 +113,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun NourMainApp() {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val locationPermissionState = rememberLocationPermissionState()
+    val prefs = remember { context.getSharedPreferences("nour_app_prefs", Context.MODE_PRIVATE) }
 
     val savedLanguage = remember { LocalizationManager.getSavedLanguage(context) }
     var currentLanguage by remember { mutableStateOf(savedLanguage) }
@@ -125,6 +137,50 @@ fun NourMainApp() {
     var madhab by remember { mutableStateOf(Madhab.SHAFI_MALIKI_HANBALI) }
     var highLatRule by remember { mutableStateOf(HighLatitudeRule.ANGLE_BASED) }
     var adjustments by remember { mutableStateOf(PrayerAdjustments()) }
+
+    // Helper to refresh location via GPS
+    val refreshLocation: () -> Unit = {
+        coroutineScope.launch {
+            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            if (loc != null) {
+                val resolved = DeviceLocationHelper.resolveUserLocation(context, loc)
+                userLocation = resolved
+                Toast.makeText(context, "Location updated: ${resolved.cityName}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Unable to get GPS location. Please ensure location is enabled.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Only asking for location permission when launching the app for the first time
+    LaunchedEffect(Unit) {
+        val hasAskedFirstTime = prefs.getBoolean("has_asked_location_first_time", false)
+        if (!hasAskedFirstTime) {
+            prefs.edit().putBoolean("has_asked_location_first_time", true).apply()
+            if (!locationPermissionState.allPermissionsGranted) {
+                locationPermissionState.launchMultiplePermissionRequest()
+            }
+        }
+    }
+
+    // Automatically retrieve location when permission is granted and location is not yet auto-detected
+    LaunchedEffect(locationPermissionState.allPermissionsGranted) {
+        if (locationPermissionState.allPermissionsGranted && !userLocation.isAutoDetected) {
+            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            if (loc != null) {
+                val resolved = DeviceLocationHelper.resolveUserLocation(context, loc)
+                userLocation = resolved
+            }
+        }
+    }
+
+    val handleRequestLocationUpdate: () -> Unit = {
+        if (!locationPermissionState.allPermissionsGranted) {
+            locationPermissionState.launchMultiplePermissionRequest()
+        } else {
+            refreshLocation()
+        }
+    }
 
     // Schedule exact alarms for today's prayers on launch
     LaunchedEffect(userLocation, calculationMethod, madhab, adjustments) {
@@ -270,11 +326,16 @@ fun NourMainApp() {
                                         highLatRule = highLatRule,
                                         adjustments = adjustments,
                                         onOpenAdjustments = { currentDestination = NourNavDestination.SETTINGS },
-                                        onOpenSettings = { currentDestination = NourNavDestination.SETTINGS }
+                                        onOpenSettings = { currentDestination = NourNavDestination.SETTINGS },
+                                        onLocationUpdated = { userLocation = it },
+                                        onRequestLocationUpdate = handleRequestLocationUpdate
                                     )
                                 }
                                 NourNavDestination.QIBLA -> {
-                                    QiblaScreen(location = userLocation)
+                                    QiblaScreen(
+                                        location = userLocation,
+                                        onLocationUpdated = { userLocation = it }
+                                    )
                                 }
                                 NourNavDestination.QURAN -> {
                                     QuranScreen()

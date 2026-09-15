@@ -74,9 +74,14 @@ import com.example.features.qibla.QiblaSensorManager
 import kotlin.math.cos
 import kotlin.math.sin
 
+import com.example.features.location.LocationPermissionCard
+import androidx.compose.material.icons.filled.CompassCalibration
+import androidx.compose.material.icons.filled.ScreenRotation
+
 @Composable
 fun QiblaScreen(
     location: UserLocation,
+    onLocationUpdated: ((UserLocation) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -182,6 +187,99 @@ fun QiblaScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
+                }
+            }
+        }
+
+        // Location Permission & GPS acquisition card if location not yet auto-detected
+        if (!location.isAutoDetected && onLocationUpdated != null) {
+            LocationPermissionCard(
+                currentLocation = location,
+                onLocationDetected = onLocationUpdated
+            )
+        }
+
+        // Sensor Fusion & Magnetic Declination Status Chips
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = PillShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CompassCalibration,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (qiblaState.hasMagnetometer && qiblaState.hasAccelerometer)
+                            "Accel + Mag Fusion"
+                        else
+                            "Single Sensor",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = PillShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "True North: ${String.format(Locale.US, "%+.1f°", qiblaState.declination)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // Tilt Alert if phone is held at steep angle (>35°)
+        AnimatedVisibility(visible = !qiblaState.isDeviceFlat && !manualMode) {
+            Surface(
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f),
+                shape = CardExpressiveShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.4f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ScreenRotation,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Hold phone flat (parallel to the ground) for optimal accelerometer & magnetometer accuracy.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.example.features.qibla
 
 import android.content.Context
+import android.hardware.GeomagneticField
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -10,19 +11,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Calendar
 import java.util.Date
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 data class QiblaData(
-    val qiblaBearing: Float = 0f, // Direction of Kaaba relative to True North (0-360)
-    val distanceKm: Double = 0.0,
-    val deviceHeading: Float = 0f, // Device azimuth relative to True North (0-360)
-    val relativeAngle: Float = 0f, // Angle to rotate arrow towards Kaaba
+    val qiblaBearing: Float = 0f, // Great circle direction to Kaaba relative to True North (0-360°)
+    val distanceKm: Double = 0.0, // Distance to Kaaba in kilometers
+    val deviceHeading: Float = 0f, // Device azimuth relative to True North (0-360°)
+    val magneticHeading: Float = 0f, // Raw magnetic heading before declination
+    val declination: Float = 0f, // Magnetic declination at GPS coordinates
+    val relativeAngle: Float = 0f, // Angle to rotate compass needle towards Kaaba (0-360°)
     val accuracy: Int = SensorManager.SENSOR_STATUS_ACCURACY_HIGH,
     val isFacingQibla: Boolean = false, // Within +/- 3 degrees of Kaaba
+    val pitch: Float = 0f, // Phone pitch tilt in degrees
+    val roll: Float = 0f, // Phone roll tilt in degrees
+    val isDeviceFlat: Boolean = true, // Whether device is held sufficiently flat for optimal accuracy (< 35°)
     val sunAzimuth: Float = 0f, // Sun bearing for celestial cross-check
+    val hasAccelerometer: Boolean = true,
     val hasMagnetometer: Boolean = true
 )
 
@@ -32,6 +40,8 @@ object QiblaCalculator {
 
     /**
      * Calculates the great-circle forward azimuth bearing to the Kaaba from user coordinates.
+     * Formula:
+     * θ = atan2( sin(Δlong) * cos(lat2), cos(lat1) * sin(lat2) − sin(lat1) * cos(lat2) * cos(Δlong) )
      */
     fun calculateQiblaBearing(userLat: Double, userLng: Double): Float {
         val userLatRad = Math.toRadians(userLat)
@@ -47,10 +57,10 @@ object QiblaCalculator {
     }
 
     /**
-     * Calculates the great-circle distance to the Kaaba in kilometers.
+     * Calculates the great-circle distance to the Kaaba in kilometers using the Haversine formula.
      */
     fun calculateDistanceKm(userLat: Double, userLng: Double): Double {
-        val r = 6371.0 // Earth radius in km
+        val r = 6371.0 // Earth mean radius in km
         val dLat = Math.toRadians(KAABA_LAT - userLat)
         val dLng = Math.toRadians(KAABA_LNG - userLng)
         val a = sin(dLat / 2) * sin(dLat / 2) +
@@ -66,44 +76,73 @@ object QiblaCalculator {
     fun calculateSunAzimuth(userLat: Double, userLng: Double, date: Date = Date()): Float {
         val cal = Calendar.getInstance().apply { time = date }
         val hour = cal.get(Calendar.HOUR_OF_DAY) + (cal.get(Calendar.MINUTE) / 60.0)
-        // Approximate solar hour angle: 12 is solar south (in northern hemisphere)
         val solarHourAngle = (hour - 12.0) * 15.0
         val approxSunAzimuth = (180.0 + solarHourAngle + (39.8 - userLng) * 0.25).toFloat()
         return (approxSunAzimuth + 360f) % 360f
     }
 }
 
+/**
+ * Sensor Manager integrating the device Accelerometer and Magnetometer sensors.
+ * Calculates True-North Qibla direction based on the user's current GPS location,
+ * including low-pass smoothing and Geomagnetic Declination compensation.
+ */
 class QiblaSensorManager(private val context: Context) : SensorEventListener {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-    private val rotationVectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
     private val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val magnetometer = sensorManager?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    private val rotationVectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
-    private val _qiblaState = MutableStateFlow(QiblaData(hasMagnetometer = magnetometer != null || rotationVectorSensor != null))
+    private val _qiblaState = MutableStateFlow(
+        QiblaData(
+            hasAccelerometer = accelerometer != null,
+            hasMagnetometer = magnetometer != null || rotationVectorSensor != null
+        )
+    )
     val qiblaState: StateFlow<QiblaData> = _qiblaState.asStateFlow()
 
     private var userLat: Double = QiblaCalculator.KAABA_LAT
     private var userLng: Double = QiblaCalculator.KAABA_LNG
+    private var userAltitude: Double = 0.0
 
+    // Sensor Fusion Buffers
     private val rotationMatrix = FloatArray(9)
+    private val inclinationMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
+
+    // Accelerometer & Magnetometer reading buffers with low-pass filtering
     private val gravityValues = FloatArray(3)
     private val geoMagneticValues = FloatArray(3)
     private var hasGravity = false
     private var hasGeoMagnetic = false
 
-    fun setLocation(lat: Double, lng: Double) {
+    // Low-pass filter smoothing coefficient (alpha)
+    private val alpha = 0.20f
+
+    fun setLocation(lat: Double, lng: Double, altitude: Double = 0.0) {
         userLat = lat
         userLng = lng
-        updateCalculations(_qiblaState.value.deviceHeading, _qiblaState.value.accuracy)
+        userAltitude = altitude
+        updateCalculations(
+            deviceHeading = _qiblaState.value.deviceHeading,
+            rawMagneticHeading = _qiblaState.value.magneticHeading,
+            pitch = _qiblaState.value.pitch,
+            roll = _qiblaState.value.roll,
+            accuracy = _qiblaState.value.accuracy
+        )
     }
 
     fun startListening() {
-        if (rotationVectorSensor != null) {
+        // Explicitly register accelerometer and magnetometer for sensor fusion
+        accelerometer?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+        magnetometer?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+        // If neither is present, fallback to rotation vector if available
+        if (accelerometer == null && rotationVectorSensor != null) {
             sensorManager?.registerListener(this, rotationVectorSensor, SensorManager.SENSOR_DELAY_UI)
-        } else {
-            accelerometer?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
-            magnetometer?.let { sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         }
     }
 
@@ -112,34 +151,82 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        var azimuthDegrees = 0f
         var accuracy = event.accuracy
 
-        if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-            SensorManager.getOrientation(rotationMatrix, orientationAngles)
-            azimuthDegrees = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-        } else {
-            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                System.arraycopy(event.values, 0, gravityValues, 0, 3)
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                // Apply low-pass filter to smooth gravity vector
+                gravityValues[0] = gravityValues[0] + alpha * (event.values[0] - gravityValues[0])
+                gravityValues[1] = gravityValues[1] + alpha * (event.values[1] - gravityValues[1])
+                gravityValues[2] = gravityValues[2] + alpha * (event.values[2] - gravityValues[2])
                 hasGravity = true
-            } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-                System.arraycopy(event.values, 0, geoMagneticValues, 0, 3)
+            }
+            Sensor.TYPE_MAGNETIC_FIELD -> {
+                // Apply low-pass filter to smooth magnetic vector
+                geoMagneticValues[0] = geoMagneticValues[0] + alpha * (event.values[0] - geoMagneticValues[0])
+                geoMagneticValues[1] = geoMagneticValues[1] + alpha * (event.values[1] - geoMagneticValues[1])
+                geoMagneticValues[2] = geoMagneticValues[2] + alpha * (event.values[2] - geoMagneticValues[2])
                 hasGeoMagnetic = true
             }
-
-            if (hasGravity && hasGeoMagnetic) {
-                val success = SensorManager.getRotationMatrix(rotationMatrix, null, gravityValues, geoMagneticValues)
-                if (success) {
+            Sensor.TYPE_ROTATION_VECTOR -> {
+                if (!hasGravity || !hasGeoMagnetic) {
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
                     SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                    azimuthDegrees = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                    computeFromOrientation(orientationAngles, accuracy)
+                    return
                 }
             }
         }
 
-        // Normalize device heading to 0-360
-        val heading = (azimuthDegrees + 360f) % 360f
-        updateCalculations(heading, accuracy)
+        // When both Accelerometer & Magnetometer vectors are available, compute rotation matrix
+        if (hasGravity && hasGeoMagnetic) {
+            val success = SensorManager.getRotationMatrix(
+                rotationMatrix,
+                inclinationMatrix,
+                gravityValues,
+                geoMagneticValues
+            )
+
+            if (success) {
+                SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                computeFromOrientation(orientationAngles, accuracy)
+            }
+        }
+    }
+
+    private fun computeFromOrientation(angles: FloatArray, accuracy: Int) {
+        // angles[0]: azimuth (rotation around -z axis in radians)
+        // angles[1]: pitch (rotation around -x axis in radians)
+        // angles[2]: roll (rotation around y axis in radians)
+        val azimuthRad = angles[0]
+        val pitchDeg = Math.toDegrees(angles[1].toDouble()).toFloat()
+        val rollDeg = Math.toDegrees(angles[2].toDouble()).toFloat()
+
+        var azimuthDeg = Math.toDegrees(azimuthRad.toDouble()).toFloat()
+        azimuthDeg = (azimuthDeg + 360f) % 360f
+
+        // Calculate Geomagnetic Declination at the user's GPS coordinates to obtain True North
+        val declination = try {
+            val geoField = GeomagneticField(
+                userLat.toFloat(),
+                userLng.toFloat(),
+                userAltitude.toFloat(),
+                System.currentTimeMillis()
+            )
+            geoField.declination
+        } catch (_: Exception) {
+            0f
+        }
+
+        val trueNorthHeading = (azimuthDeg + declination + 360f) % 360f
+
+        updateCalculations(
+            deviceHeading = trueNorthHeading,
+            rawMagneticHeading = azimuthDeg,
+            pitch = pitchDeg,
+            roll = rollDeg,
+            accuracy = accuracy
+        )
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -147,24 +234,47 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
     }
 
     fun setManualHeading(heading: Float) {
-        updateCalculations(heading, SensorManager.SENSOR_STATUS_ACCURACY_HIGH)
+        updateCalculations(
+            deviceHeading = heading,
+            rawMagneticHeading = heading,
+            pitch = 0f,
+            roll = 0f,
+            accuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH
+        )
     }
 
-    private fun updateCalculations(deviceHeading: Float, accuracy: Int) {
+    private fun updateCalculations(
+        deviceHeading: Float,
+        rawMagneticHeading: Float,
+        pitch: Float,
+        roll: Float,
+        accuracy: Int
+    ) {
         val qiblaBearing = QiblaCalculator.calculateQiblaBearing(userLat, userLng)
         val distanceKm = QiblaCalculator.calculateDistanceKm(userLat, userLng)
         val relativeAngle = (qiblaBearing - deviceHeading + 360f) % 360f
         val isFacingQibla = relativeAngle in 357f..360f || relativeAngle in 0f..3f
         val sunAzimuth = QiblaCalculator.calculateSunAzimuth(userLat, userLng)
 
+        // Device is flat if pitch and roll tilt are within 35 degrees
+        val isDeviceFlat = abs(pitch) < 35f && abs(roll) < 35f
+
+        val declination = (deviceHeading - rawMagneticHeading + 540f) % 360f - 180f
+
         _qiblaState.value = QiblaData(
             qiblaBearing = qiblaBearing,
             distanceKm = distanceKm,
             deviceHeading = deviceHeading,
+            magneticHeading = rawMagneticHeading,
+            declination = declination,
             relativeAngle = relativeAngle,
             accuracy = accuracy,
             isFacingQibla = isFacingQibla,
+            pitch = pitch,
+            roll = roll,
+            isDeviceFlat = isDeviceFlat,
             sunAzimuth = sunAzimuth,
+            hasAccelerometer = accelerometer != null,
             hasMagnetometer = magnetometer != null || rotationVectorSensor != null
         )
     }

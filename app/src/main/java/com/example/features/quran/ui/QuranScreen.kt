@@ -27,6 +27,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -74,6 +79,7 @@ import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -250,6 +256,7 @@ fun QuranScreen(
                         // 604-Page Mushaf Viewer
                         MushafPageView(
                             pageNumber = currentPageNumber,
+                            onPageChanged = { currentPageNumber = it },
                             readingMode = readingMode,
                             onModeChange = { readingMode = it },
                             editionId = selectedEditionId,
@@ -1304,11 +1311,13 @@ fun SurahReaderView(
 }
 
 /**
- * Clean 604-Page Mushaf Viewer with uncluttered header and bottom page turner.
+ * 604-Page Quran Mushaf Viewer with memory-efficient HorizontalPager and LazyColumn modes.
+ * Only visible and adjacent pages are rendered and retained in memory.
  */
 @Composable
 fun MushafPageView(
     pageNumber: Int,
+    onPageChanged: (Int) -> Unit,
     readingMode: QuranReadingMode,
     onModeChange: (QuranReadingMode) -> Unit,
     editionId: String,
@@ -1323,14 +1332,48 @@ fun MushafPageView(
     onToggleBookmark: (Ayah) -> Unit,
     bookmarks: List<BookmarkEntity>
 ) {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    val mushafPage = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
-    var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
-    var showTranslationsInContinuous by remember { mutableStateOf(false) }
+    var isPagerMode by remember { mutableStateOf(true) }
+    val currentPageData = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
+
+    val pagerState = rememberPagerState(
+        initialPage = (pageNumber - 1).coerceIn(0, 603)
+    ) { 604 }
+
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (pageNumber - 1).coerceIn(0, 603)
+    )
+
+    LaunchedEffect(pageNumber) {
+        if (isPagerMode) {
+            if (pagerState.currentPage != pageNumber - 1) {
+                pagerState.scrollToPage(pageNumber - 1)
+            }
+        } else {
+            if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != pageNumber - 1) {
+                listState.scrollToItem(pageNumber - 1)
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (isPagerMode) {
+            val newPage = pagerState.currentPage + 1
+            if (newPage != pageNumber) {
+                onPageChanged(newPage)
+            }
+        }
+    }
+
+    LaunchedEffect(listState.firstVisibleItemIndex) {
+        if (!isPagerMode && listState.isScrollInProgress) {
+            val newPage = listState.firstVisibleItemIndex + 1
+            if (newPage != pageNumber) {
+                onPageChanged(newPage)
+            }
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Minimalist Page Header
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shadowElevation = 0.dp
@@ -1347,7 +1390,7 @@ fun MushafPageView(
                     shape = PillShape
                 ) {
                     Text(
-                        text = "Page $pageNumber / 604 • Juz ${mushafPage.juzNumber} ▾",
+                        text = "Page $pageNumber / 604 • Juz ${currentPageData.juzNumber} ▾",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.titleMedium
@@ -1355,6 +1398,14 @@ fun MushafPageView(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { isPagerMode = !isPagerMode }) {
+                        Icon(
+                            imageVector = if (isPagerMode) Icons.Rounded.SwapHoriz else Icons.Rounded.SwapVert,
+                            contentDescription = if (isPagerMode) "Switch to Vertical Scroll" else "Switch to Page Flip",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
                     IconButton(
                         onClick = {
                             val nextMode = if (readingMode == QuranReadingMode.CONTINUOUS) QuranReadingMode.CARDS else QuranReadingMode.CONTINUOUS
@@ -1379,14 +1430,138 @@ fun MushafPageView(
             }
         }
 
-        // Reader Content
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        if (isPagerMode) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag("mushaf_horizontal_pager"),
+                beyondViewportPageCount = 1,
+                key = { it }
+            ) { pageIdx ->
+                MushafSinglePageContent(
+                    pageNumber = pageIdx + 1,
+                    readingMode = readingMode,
+                    editionId = editionId,
+                    tafsirId = tafsirId,
+                    arabicFontSize = arabicFontSize,
+                    bookmarks = bookmarks,
+                    onOpenFullSurah = onOpenFullSurah,
+                    onSelectTafsir = onSelectTafsir,
+                    onToggleBookmark = onToggleBookmark
+                )
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag("mushaf_vertical_lazy_column"),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(604, key = { it }) { pageIdx ->
+                    MushafSinglePageContent(
+                        pageNumber = pageIdx + 1,
+                        readingMode = readingMode,
+                        editionId = editionId,
+                        tafsirId = tafsirId,
+                        arabicFontSize = arabicFontSize,
+                        bookmarks = bookmarks,
+                        onOpenFullSurah = onOpenFullSurah,
+                        onSelectTafsir = onSelectTafsir,
+                        onToggleBookmark = onToggleBookmark
+                    )
+                    if (pageIdx < 603) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shadowElevation = 0.dp
         ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onPrevPage,
+                        enabled = pageNumber > 1,
+                        shape = PillShape
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Previous")
+                    }
+
+                    Slider(
+                        value = pageNumber.toFloat(),
+                        onValueChange = { onPageChanged(it.toInt().coerceIn(1, 604)) },
+                        valueRange = 1f..604f,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 12.dp)
+                            .testTag("mushaf_page_slider")
+                    )
+
+                    Button(
+                        onClick = onNextPage,
+                        enabled = pageNumber < 604,
+                        shape = PillShape
+                    ) {
+                        Text("Next")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Renders a single page of the 604-page Quran Mushaf.
+ */
+@Composable
+fun MushafSinglePageContent(
+    pageNumber: Int,
+    readingMode: QuranReadingMode,
+    editionId: String,
+    tafsirId: String,
+    arabicFontSize: Float,
+    bookmarks: List<BookmarkEntity>,
+    onOpenFullSurah: (Surah) -> Unit,
+    onSelectTafsir: (Ayah) -> Unit,
+    onToggleBookmark: (Ayah) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val mushafPage = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
+    var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
+    var showTranslationsInContinuous by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .testTag("mushaf_single_page_$pageNumber"),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
             // Surah Header if beginning of a Surah on this page
             mushafPage.surahHeader?.let { surah ->
                 item {
@@ -1598,50 +1773,32 @@ fun MushafPageView(
                     }
                 }
             }
-        }
 
-        // Clean Bottom Page Turner
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onPrevPage,
-                    enabled = pageNumber > 1,
-                    shape = PillShape
+            // Authentic Mushaf Page Number Footer (inside LazyColumn)
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Previous")
-                }
-
-                Text(
-                    text = "Page $pageNumber",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Button(
-                    onClick = onNextPage,
-                    enabled = pageNumber < 604,
-                    shape = PillShape
-                ) {
-                    Text("Next")
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = PillShape,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    ) {
+                        Text(
+                            text = "— Page $pageNumber —",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
         }
     }
-}
 
 /**
  * Reading Settings Modal Bottom Sheet:

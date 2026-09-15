@@ -94,7 +94,6 @@ import com.example.features.prayer.models.PrayerAdjustments
 import com.example.features.prayer.models.PrayerName
 import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
-import com.example.features.widgets.CelestialPrayerHeroCard
 import com.example.features.widgets.ImmersiveSkyBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -113,6 +112,8 @@ fun PrayerScreen(
     adjustments: PrayerAdjustments,
     onOpenAdjustments: () -> Unit,
     onOpenSettings: () -> Unit,
+    onLocationUpdated: ((UserLocation) -> Unit)? = null,
+    onRequestLocationUpdate: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -128,6 +129,19 @@ fun PrayerScreen(
         }
     }
 
+    var selectedDayOffset by remember { mutableIntStateOf(0) }
+
+    val displayedDate = remember(currentTime, selectedDayOffset) {
+        if (selectedDayOffset == 0) {
+            currentTime
+        } else {
+            val cal = Calendar.getInstance()
+            cal.time = currentTime
+            cal.add(Calendar.DAY_OF_YEAR, selectedDayOffset)
+            cal.time
+        }
+    }
+
     val todayPrayerTimes = remember(currentTime, location, calculationMethod, madhab, highLatRule, adjustments) {
         PrayerCalculationEngine.calculate(
             date = currentTime,
@@ -139,13 +153,26 @@ fun PrayerScreen(
         )
     }
 
+    val displayedPrayerTimes = remember(displayedDate, location, calculationMethod, madhab, highLatRule, adjustments) {
+        if (selectedDayOffset == 0) {
+            todayPrayerTimes
+        } else {
+            PrayerCalculationEngine.calculate(
+                date = displayedDate,
+                location = location,
+                method = calculationMethod,
+                madhab = madhab,
+                highLatRule = highLatRule,
+                adjustments = adjustments
+            )
+        }
+    }
+
     val countdownState = todayPrayerTimes.getCountdownState(currentTime)
-    val hijriDate = remember(currentTime) { HijriDateHelper.fromGregorian(currentTime) }
+    val displayedHijriDate = remember(displayedDate) { HijriDateHelper.fromGregorian(displayedDate) }
 
-    val todayStr = remember(currentTime) { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(currentTime) }
-    val prayerLogs by db.prayerLogDao().getLogsForDate(todayStr).collectAsState(initial = emptyList())
-
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Today, 1 = Weekly, 2 = Monthly, 3 = Solstices
+    val displayedDateStr = remember(displayedDate) { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayedDate) }
+    val displayedPrayerLogs by db.prayerLogDao().getLogsForDate(displayedDateStr).collectAsState(initial = emptyList())
 
     // Stop adhan if composable leaves composition
     DisposableEffect(Unit) {
@@ -158,8 +185,10 @@ fun PrayerScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         // 1. Immersive Atmospheric Sky Background spanning the full screen
+        // Dynamic Sun & Moon cycle living directly in the background
         ImmersiveSkyBackground(
             prayerTimes = todayPrayerTimes,
+            location = location,
             now = currentTime,
             modifier = Modifier.fillMaxSize()
         )
@@ -170,366 +199,66 @@ fun PrayerScreen(
                 .fillMaxSize()
                 .testTag("prayer_screen_list"),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Simple 2-Line Upper Card: Hijri Date & Equivalent Gregorian Date + Current Zone
+            // Atmospheric Seamless Prayer Header (Merges Hijri & Gregorian Dates, Interactive Location, Next Prayer Countdown & Progress Bar directly onto the dynamic sky background without cards)
             item {
-                val gregorianDate = remember(currentTime) {
-                    SimpleDateFormat("EEEE, MMMM d, yyyy", Locale.getDefault()).format(currentTime)
-                }
-                val currentZone = remember(currentTime) {
-                    val tz = TimeZone.getDefault()
-                    val isDst = tz.inDaylightTime(currentTime)
-                    val shortCode = tz.getDisplayName(isDst, TimeZone.SHORT, Locale.getDefault())
-                    "${tz.id} ($shortCode)"
-                }
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("prayer_header_card"),
-                    shape = CardExpressiveShape,
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // Line 1: Hijri Date (English & Arabic)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = hijriDate.formattedEn,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = hijriDate.formattedAr,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        // Line 2: Gregorian Date equivalent + Current ZONE
-                        Text(
-                            text = "$gregorianDate • $currentZone",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // Unified Aesthetic Celestial Prayer Hero Card with Dynamic Arc & Segmented Countdown
-            item {
-                CelestialPrayerHeroCard(
-                    prayerTimes = todayPrayerTimes,
+                SeamlessPrayerHeader(
+                    hijriDate = displayedHijriDate,
+                    location = location,
                     countdownState = countdownState,
-                    now = currentTime
+                    todayPrayerTimes = todayPrayerTimes,
+                    now = displayedDate,
+                    onRequestLocationUpdate = onRequestLocationUpdate
                 )
             }
 
-            // Modern Segmented Pill Tabs (Today, 7-Day, Monthly, Solstices)
+            // Atmospheric Day Switcher placed directly over the prayers
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(PillShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f))
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), PillShape)
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    PrayerTabPill(
-                        title = "Today",
-                        isSelected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        modifier = Modifier.weight(1f)
-                    )
-                    PrayerTabPill(
-                        title = "7-Day",
-                        isSelected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        modifier = Modifier.weight(1f)
-                    )
-                    PrayerTabPill(
-                        title = "Monthly",
-                        isSelected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        modifier = Modifier.weight(1f)
-                    )
-                    PrayerTabPill(
-                        title = "Solstices",
-                        isSelected = selectedTab == 3,
-                        onClick = { selectedTab = 3 },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-        // Tab Content
-        when (selectedTab) {
-            0 -> {
-                // Today's View: Daily Prayer Tracking Progress Bar & Quick Log Capsules
-                val obligatoryPrayers = listOf(
-                    PrayerName.FAJR,
-                    PrayerName.DHUHR,
-                    PrayerName.ASR,
-                    PrayerName.MAGHRIB,
-                    PrayerName.ISHA
+                DaySwitcherBar(
+                    selectedDate = displayedDate,
+                    dayOffset = selectedDayOffset,
+                    onPreviousDay = { selectedDayOffset-- },
+                    onNextDay = { selectedDayOffset++ },
+                    onResetToToday = { selectedDayOffset = 0 }
                 )
-                val prayedCount = obligatoryPrayers.count { p ->
-                    prayerLogs.any { it.prayerName == p.name && it.status == "PRAYED" }
-                }
+            }
 
-                item {
-                    DailyPrayerProgressCard(
-                        prayedCount = prayedCount,
-                        totalPrayers = 5,
-                        prayerLogs = prayerLogs,
-                        onTogglePrayer = { prayer ->
-                            coroutineScope.launch {
-                                val currentLog = prayerLogs.firstOrNull { it.prayerName == prayer.name }
-                                val isPrayed = currentLog?.status == "PRAYED"
-                                val newStatus = if (isPrayed) "MISSED" else "PRAYED"
-                                db.prayerLogDao().insertOrUpdateLog(
-                                    PrayerLogEntity(
-                                        date = todayStr,
-                                        prayerName = prayer.name,
-                                        status = newStatus
-                                    )
+            // Today's / Selected Day's Individual Prayer Cards
+            items(PrayerName.values()) { prayer ->
+                val isToday = selectedDayOffset == 0
+                val isNext = isToday && countdownState.nextPrayer == prayer
+                val isCurrent = isToday && countdownState.currentPrayer == prayer
+                val isSunrise = prayer == PrayerName.SUNRISE
+                val log = displayedPrayerLogs.firstOrNull { it.prayerName == prayer.name }
+                val isPrayed = log?.status == "PRAYED"
+
+                PrayerCard(
+                    prayer = prayer,
+                    timeFormatted = displayedPrayerTimes.formattedTime(prayer),
+                    isNext = isNext,
+                    isCurrent = isCurrent,
+                    isSunrise = isSunrise,
+                    isPrayed = isPrayed,
+                    onTogglePrayed = {
+                        coroutineScope.launch {
+                            val newStatus = if (isPrayed) "MISSED" else "PRAYED"
+                            db.prayerLogDao().insertOrUpdateLog(
+                                PrayerLogEntity(
+                                    date = displayedDateStr,
+                                    prayerName = prayer.name,
+                                    status = newStatus
                                 )
-                                val msg = if (!isPrayed) "${prayer.displayName} marked as prayed" else "${prayer.displayName} unmarked"
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
-                }
-
-                // Today's Individual Prayer Cards
-                items(PrayerName.values()) { prayer ->
-                    val isNext = countdownState.nextPrayer == prayer
-                    val isCurrent = countdownState.currentPrayer == prayer
-                    val isSunrise = prayer == PrayerName.SUNRISE
-                    val log = prayerLogs.firstOrNull { it.prayerName == prayer.name }
-                    val isPrayed = log?.status == "PRAYED"
-
-                    PrayerCard(
-                        prayer = prayer,
-                        timeFormatted = todayPrayerTimes.formattedTime(prayer),
-                        isNext = isNext,
-                        isCurrent = isCurrent,
-                        isSunrise = isSunrise,
-                        isPrayed = isPrayed,
-                        onTogglePrayed = {
-                            coroutineScope.launch {
-                                val newStatus = if (isPrayed) "MISSED" else "PRAYED"
-                                db.prayerLogDao().insertOrUpdateLog(
-                                    PrayerLogEntity(
-                                        date = todayStr,
-                                        prayerName = prayer.name,
-                                        status = newStatus
-                                    )
-                                )
-                            }
-                        }
-                    )
-                }
-            }
-            1 -> {
-                // Weekly Schedule (7 Days)
-                item {
-                    WeeklyScheduleCard(
-                        location = location,
-                        method = calculationMethod,
-                        madhab = madhab,
-                        highLatRule = highLatRule,
-                        adjustments = adjustments,
-                        currentDate = currentTime
-                    )
-                }
-            }
-            2 -> {
-                // Monthly Calendar
-                item {
-                    MonthlyCalendarCard(
-                        location = location,
-                        method = calculationMethod,
-                        madhab = madhab,
-                        highLatRule = highLatRule,
-                        adjustments = adjustments,
-                        currentDate = currentTime
-                    )
-                }
-            }
-            3 -> {
-                // Astronomical Solstices & Equinoxes
-                item {
-                    YearAheadPreviewCard(
-                        location = location,
-                        method = calculationMethod,
-                        madhab = madhab,
-                        highLatRule = highLatRule,
-                        adjustments = adjustments
-                    )
-                }
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-}
-
-@Composable
-fun PrayerTabPill(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        shape = PillShape,
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-            )
-        }
-    }
-}
-
-/**
- * Daily Prayer tracker showing completed obligations with individual touch capsules.
- */
-@Composable
-fun DailyPrayerProgressCard(
-    prayedCount: Int,
-    totalPrayers: Int,
-    prayerLogs: List<PrayerLogEntity>,
-    onTogglePrayer: (PrayerName) -> Unit
-) {
-    val progress = (prayedCount.toFloat() / totalPrayers).coerceIn(0f, 1f)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Daily Salah Tracking",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "$prayedCount of $totalPrayers obligatory prayers completed",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Surface(
-                    color = if (prayedCount == 5) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = PillShape,
-                    border = if (prayedCount == 5) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                ) {
-                    Text(
-                        text = if (prayedCount == 5) "Alhamdulillah • All 5" else "${(progress * 100).toInt()}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (prayedCount == 5) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(PillShape),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 5 Interactive Quick-Toggle Capsules
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                listOf(
-                    PrayerName.FAJR to "Fajr",
-                    PrayerName.DHUHR to "Dhuhr",
-                    PrayerName.ASR to "Asr",
-                    PrayerName.MAGHRIB to "Maghrib",
-                    PrayerName.ISHA to "Isha"
-                ).forEach { (prayer, label) ->
-                    val isPrayed = prayerLogs.any { it.prayerName == prayer.name && it.status == "PRAYED" }
-                    Surface(
-                        onClick = { onTogglePrayer(prayer) },
-                        shape = PillShape,
-                        color = if (isPrayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f),
-                        border = if (isPrayed) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = if (isPrayed) Icons.Rounded.CheckCircle else Icons.Outlined.Circle,
-                                contentDescription = null,
-                                tint = if (isPrayed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isPrayed) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isPrayed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                            )
+                            val msg = if (!isPrayed) "${prayer.displayName} marked as prayed" else "${prayer.displayName} unmarked"
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         }
                     }
-                }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -722,400 +451,3 @@ fun PrayerCard(
     }
 }
 
-/**
- * Polished 7-Day Weekly Schedule Card with highlighted today row.
- */
-@Composable
-fun WeeklyScheduleCard(
-    location: UserLocation,
-    method: CalculationMethod,
-    madhab: Madhab,
-    highLatRule: HighLatitudeRule,
-    adjustments: PrayerAdjustments,
-    currentDate: Date
-) {
-    val todayCal = remember(currentDate) { Calendar.getInstance().apply { time = currentDate } }
-
-    val days = remember(location, method, madhab, highLatRule, adjustments, currentDate) {
-        val list = mutableListOf<PrayerTimes>()
-        val cal = Calendar.getInstance().apply { time = currentDate }
-        for (i in 0 until 7) {
-            list.add(
-                PrayerCalculationEngine.calculate(
-                    date = cal.time,
-                    location = location,
-                    method = method,
-                    madhab = madhab,
-                    highLatRule = highLatRule,
-                    adjustments = adjustments
-                )
-            )
-            cal.add(Calendar.DAY_OF_MONTH, 1)
-        }
-        list
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "7-Day Prayer Timetable",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Precise astronomical calculations for the coming week",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                ) {
-                    Text(
-                        text = "7 Days",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Column Headers
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(CardSubtleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .padding(vertical = 8.dp, horizontal = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "Date", fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.width(85.dp))
-                Text(text = "Fajr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Dhuhr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Asr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Maghrib", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Isha", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            days.forEachIndexed { idx, pt ->
-                val isToday = idx == 0
-                val rowContainer = if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent
-
-                Surface(
-                    shape = CardSubtleShape,
-                    color = rowContainer,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 9.dp, horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.width(85.dp)
-                        ) {
-                            Text(
-                                text = SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(pt.date),
-                                fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 12.sp,
-                                color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        Text(text = pt.formattedTime(PrayerName.FAJR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.DHUHR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.ASR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.MAGHRIB), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.ISHA), fontSize = 11.sp)
-                    }
-                }
-                if (idx < days.size - 1) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                }
-            }
-        }
-    }
-}
-
-/**
- * Polished Full-Month Calendar View.
- */
-@Composable
-fun MonthlyCalendarCard(
-    location: UserLocation,
-    method: CalculationMethod,
-    madhab: Madhab,
-    highLatRule: HighLatitudeRule,
-    adjustments: PrayerAdjustments,
-    currentDate: Date
-) {
-    val cal = remember(currentDate) { Calendar.getInstance().apply { time = currentDate } }
-    val monthName = remember(currentDate) { SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentDate) }
-    val currentDayOfMonth = remember(currentDate) { cal.get(Calendar.DAY_OF_MONTH) }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Monthly Schedule",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = monthName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Surface(
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                ) {
-                    Text(
-                        text = "Full Month",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Header labels
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(CardSubtleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .padding(vertical = 8.dp, horizontal = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "Day", fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.width(55.dp))
-                Text(text = "Fajr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Dhuhr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Asr", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Maghrib", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                Text(text = "Isha", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-            for (day in 1..daysInMonth) {
-                cal.set(Calendar.DAY_OF_MONTH, day)
-                val pt = PrayerCalculationEngine.calculate(
-                    date = cal.time,
-                    location = location,
-                    method = method,
-                    madhab = madhab,
-                    highLatRule = highLatRule,
-                    adjustments = adjustments
-                )
-                val isToday = day == currentDayOfMonth
-                val rowBackground = if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else Color.Transparent
-
-                Surface(
-                    shape = CardSubtleShape,
-                    color = rowBackground,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp, horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${day}${getDaySuffix(day)}",
-                            fontSize = 11.sp,
-                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.width(55.dp)
-                        )
-                        Text(text = pt.formattedTime(PrayerName.FAJR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.DHUHR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.ASR), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.MAGHRIB), fontSize = 11.sp)
-                        Text(text = pt.formattedTime(PrayerName.ISHA), fontSize = 11.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun getDaySuffix(day: Int): String {
-    if (day in 11..13) return "th"
-    return when (day % 10) {
-        1 -> "st"
-        2 -> "nd"
-        3 -> "rd"
-        else -> "th"
-    }
-}
-
-/**
- * Polished Astronomical Solstices & Equinoxes Preview.
- */
-@Composable
-fun YearAheadPreviewCard(
-    location: UserLocation,
-    method: CalculationMethod,
-    madhab: Madhab,
-    highLatRule: HighLatitudeRule,
-    adjustments: PrayerAdjustments
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Astronomical Solar Milestones",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Offline celestial Solstice & Equinox prayer timings",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                ) {
-                    Text(
-                        text = "4 Seasons",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            val milestones = listOf(
-                Triple("Vernal Equinox", "March 21 • Equal Day & Night", Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.MARCH); set(Calendar.DAY_OF_MONTH, 21) }),
-                Triple("Summer Solstice", "June 21 • Peak Solar Daylight", Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.JUNE); set(Calendar.DAY_OF_MONTH, 21) }),
-                Triple("Autumnal Equinox", "September 22 • Equal Day & Night", Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.SEPTEMBER); set(Calendar.DAY_OF_MONTH, 22) }),
-                Triple("Winter Solstice", "December 21 • Longest Night", Calendar.getInstance().apply { set(Calendar.MONTH, Calendar.DECEMBER); set(Calendar.DAY_OF_MONTH, 21) })
-            )
-
-            milestones.forEachIndexed { idx, (title, subtitle, cal) ->
-                val pt = PrayerCalculationEngine.calculate(
-                    date = cal.time,
-                    location = location,
-                    method = method,
-                    madhab = madhab,
-                    highLatRule = highLatRule,
-                    adjustments = adjustments
-                )
-
-                Card(
-                    shape = CardSubtleShape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = title,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = subtitle,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            PrayerTimeBadge("Fajr", pt.formattedTime(PrayerName.FAJR))
-                            PrayerTimeBadge("Sunrise", pt.formattedTime(PrayerName.SUNRISE))
-                            PrayerTimeBadge("Dhuhr", pt.formattedTime(PrayerName.DHUHR))
-                            PrayerTimeBadge("Asr", pt.formattedTime(PrayerName.ASR))
-                            PrayerTimeBadge("Maghrib", pt.formattedTime(PrayerName.MAGHRIB))
-                            PrayerTimeBadge("Isha", pt.formattedTime(PrayerName.ISHA))
-                        }
-                    }
-                }
-
-                if (idx < milestones.size - 1) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PrayerTimeBadge(label: String, time: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = time,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
