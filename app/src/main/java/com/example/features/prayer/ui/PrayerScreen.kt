@@ -190,6 +190,7 @@ fun PrayerScreen(
             prayerTimes = todayPrayerTimes,
             location = location,
             now = currentTime,
+            countdownState = countdownState,
             modifier = Modifier.fillMaxSize()
         )
 
