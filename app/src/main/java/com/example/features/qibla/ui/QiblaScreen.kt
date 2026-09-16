@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -64,7 +65,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,6 +119,7 @@ fun QiblaScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(scrollState)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -333,6 +338,8 @@ fun QiblaScreen(
             val hubColor = if (isFacingQibla) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             val hubTextColor = if (isFacingQibla) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
 
+            val textMeasurer = rememberTextMeasurer()
+
             // Rotating Compass Rose Canvas
             Canvas(
                 modifier = Modifier
@@ -349,76 +356,159 @@ fun QiblaScreen(
                     style = Stroke(width = 3.dp.toPx())
                 )
 
-                // Degree tick marks (every 10 degrees)
-                for (deg in 0 until 360 step 10) {
+                // Secondary inner guide track
+                drawCircle(
+                    color = dialBorderColor.copy(alpha = 0.35f),
+                    radius = radius - 22.dp.toPx(),
+                    style = Stroke(width = 1.dp.toPx())
+                )
+
+                // Degree tick marks (every 5 degrees for a precision instrument feel)
+                for (deg in 0 until 360 step 5) {
+                    val isCardinal = deg % 90 == 0
                     val isMajor = deg % 30 == 0
-                    val tickLen = if (isMajor) 18.dp.toPx() else 10.dp.toPx()
+                    val tickLen = when {
+                        isCardinal -> 16.dp.toPx()
+                        isMajor -> 12.dp.toPx()
+                        else -> 6.dp.toPx()
+                    }
                     val rad = Math.toRadians(deg.toDouble())
-                    val outerX = center.x + (radius - 8.dp.toPx()) * sin(rad).toFloat()
-                    val outerY = center.y - (radius - 8.dp.toPx()) * cos(rad).toFloat()
-                    val innerX = center.x + (radius - 8.dp.toPx() - tickLen) * sin(rad).toFloat()
-                    val innerY = center.y - (radius - 8.dp.toPx() - tickLen) * cos(rad).toFloat()
+                    val outerX = center.x + (radius - 5.dp.toPx()) * sin(rad).toFloat()
+                    val outerY = center.y - (radius - 5.dp.toPx()) * cos(rad).toFloat()
+                    val innerX = center.x + (radius - 5.dp.toPx() - tickLen) * sin(rad).toFloat()
+                    val innerY = center.y - (radius - 5.dp.toPx() - tickLen) * cos(rad).toFloat()
 
                     drawLine(
-                        color = if (deg == 0) northColor else tickColor,
+                        color = when {
+                            deg == 0 -> northColor
+                            isMajor -> tickColor
+                            else -> tickColor.copy(alpha = 0.5f)
+                        },
                         start = Offset(innerX, innerY),
                         end = Offset(outerX, outerY),
-                        strokeWidth = if (isMajor) 2.5.dp.toPx() else 1.dp.toPx()
+                        strokeWidth = if (isMajor) 2.dp.toPx() else 1.dp.toPx()
                     )
                 }
 
-                // True North Monochrome Arrow
+                // 4 Cardinal Direction Arrow Heads (N, S, E, W)
+                // North Arrow (Bold Primary)
                 val northPath = Path().apply {
-                    moveTo(center.x, center.y - radius + 30.dp.toPx())
-                    lineTo(center.x - 10.dp.toPx(), center.y - 40.dp.toPx())
-                    lineTo(center.x + 10.dp.toPx(), center.y - 40.dp.toPx())
+                    moveTo(center.x, center.y - radius + 24.dp.toPx())
+                    lineTo(center.x - 7.dp.toPx(), center.y - 48.dp.toPx())
+                    lineTo(center.x + 7.dp.toPx(), center.y - 48.dp.toPx())
                     close()
                 }
                 drawPath(path = northPath, color = northColor)
 
-                // South Subtle Arrow
+                // South Arrow (Muted Outline)
                 val southPath = Path().apply {
-                    moveTo(center.x, center.y + radius - 30.dp.toPx())
-                    lineTo(center.x - 8.dp.toPx(), center.y + 40.dp.toPx())
-                    lineTo(center.x + 8.dp.toPx(), center.y + 40.dp.toPx())
+                    moveTo(center.x, center.y + radius - 24.dp.toPx())
+                    lineTo(center.x - 6.dp.toPx(), center.y + 48.dp.toPx())
+                    lineTo(center.x + 6.dp.toPx(), center.y + 48.dp.toPx())
                     close()
                 }
                 drawPath(path = southPath, color = southColor)
 
-                // Kaaba Qibla Pointer Needle
-                val qiblaRad = Math.toRadians(qiblaState.qiblaBearing.toDouble())
-                val qiblaX = center.x + (radius - 45.dp.toPx()) * sin(qiblaRad).toFloat()
-                val qiblaY = center.y - (radius - 45.dp.toPx()) * cos(qiblaRad).toFloat()
+                // East Arrow (Subtle)
+                val eastPath = Path().apply {
+                    moveTo(center.x + radius - 24.dp.toPx(), center.y)
+                    lineTo(center.x + 48.dp.toPx(), center.y - 6.dp.toPx())
+                    lineTo(center.x + 48.dp.toPx(), center.y + 6.dp.toPx())
+                    close()
+                }
+                drawPath(path = eastPath, color = southColor.copy(alpha = 0.7f))
 
+                // West Arrow (Subtle)
+                val westPath = Path().apply {
+                    moveTo(center.x - radius + 24.dp.toPx(), center.y)
+                    lineTo(center.x - 48.dp.toPx(), center.y - 6.dp.toPx())
+                    lineTo(center.x - 48.dp.toPx(), center.y + 6.dp.toPx())
+                    close()
+                }
+                drawPath(path = westPath, color = southColor.copy(alpha = 0.7f))
+
+                // Draw N, S, E, W Typography on the dial ring
+                val cardinalLabels = listOf(
+                    Triple("N", 0.0, northColor),
+                    Triple("E", 90.0, southColor),
+                    Triple("S", 180.0, southColor),
+                    Triple("W", 270.0, southColor)
+                )
+                val labelDistance = radius - 34.dp.toPx()
+                cardinalLabels.forEach { (label, angleDeg, color) ->
+                    val rad = Math.toRadians(angleDeg)
+                    val textLayout = textMeasurer.measure(
+                        text = label,
+                        style = TextStyle(
+                            fontSize = if (label == "N") 14.sp else 12.sp,
+                            fontWeight = if (label == "N") FontWeight.ExtraBold else FontWeight.Bold,
+                            color = color
+                        )
+                    )
+                    val posX = center.x + labelDistance * sin(rad).toFloat() - (textLayout.size.width / 2f)
+                    val posY = center.y - labelDistance * cos(rad).toFloat() - (textLayout.size.height / 2f)
+                    drawText(textLayout, topLeft = Offset(posX, posY))
+                }
+
+                // Kaaba Qibla Pointer Needle from Center outward
+                val qiblaRad = Math.toRadians(qiblaState.qiblaBearing.toDouble())
+                val needleTipDistance = radius - 16.dp.toPx()
+                val qiblaX = center.x + needleTipDistance * sin(qiblaRad).toFloat()
+                val qiblaY = center.y - needleTipDistance * cos(qiblaRad).toFloat()
+
+                // Sleek pointer needle path
                 val needlePath = Path().apply {
                     moveTo(qiblaX, qiblaY)
-                    val baseLeftX = center.x + 14.dp.toPx() * sin(qiblaRad - Math.PI / 2).toFloat()
-                    val baseLeftY = center.y - 14.dp.toPx() * cos(qiblaRad - Math.PI / 2).toFloat()
-                    val baseRightX = center.x + 14.dp.toPx() * sin(qiblaRad + Math.PI / 2).toFloat()
-                    val baseRightY = center.y - 14.dp.toPx() * cos(qiblaRad + Math.PI / 2).toFloat()
+                    val baseLeftX = center.x + 12.dp.toPx() * sin(qiblaRad - Math.PI / 2).toFloat()
+                    val baseLeftY = center.y - 12.dp.toPx() * cos(qiblaRad - Math.PI / 2).toFloat()
+                    val baseRightX = center.x + 12.dp.toPx() * sin(qiblaRad + Math.PI / 2).toFloat()
+                    val baseRightY = center.y - 12.dp.toPx() * cos(qiblaRad + Math.PI / 2).toFloat()
                     lineTo(baseLeftX, baseLeftY)
                     lineTo(baseRightX, baseRightY)
                     close()
                 }
-                drawPath(needlePath, color = needleColor)
+                drawPath(needlePath, color = needleColor.copy(alpha = 0.85f))
 
-                // Kaaba marker icon at tip of needle
+                // Qibla / Kaaba Marker on the circle perimeter of the compass
+                val kaabaMarkerRad = qiblaRad
+                val kaabaMarkerDistance = radius - 2.dp.toPx()
+                val kaabaCircleX = center.x + kaabaMarkerDistance * sin(kaabaMarkerRad).toFloat()
+                val kaabaCircleY = center.y - kaabaMarkerDistance * cos(kaabaMarkerRad).toFloat()
+
+                // Golden beacon / aura on the circle ring
+                val goldGlowColor = Color(0xFFFFD54F)
+                val kaabaBlackColor = Color(0xFF1E1E1E)
+
                 drawCircle(
-                    color = pointerOuter,
-                    radius = 9.dp.toPx(),
-                    center = Offset(qiblaX, qiblaY)
+                    color = goldGlowColor.copy(alpha = 0.35f),
+                    radius = 18.dp.toPx(),
+                    center = Offset(kaabaCircleX, kaabaCircleY)
+                )
+                // Outer circle badge on perimeter
+                drawCircle(
+                    color = goldGlowColor,
+                    radius = 13.dp.toPx(),
+                    center = Offset(kaabaCircleX, kaabaCircleY)
                 )
                 drawCircle(
-                    color = pointerInner,
-                    radius = 4.dp.toPx(),
-                    center = Offset(qiblaX, qiblaY)
+                    color = kaabaBlackColor,
+                    radius = 11.dp.toPx(),
+                    center = Offset(kaabaCircleX, kaabaCircleY)
+                )
+
+                // Miniature Golden Kiswah band on the Kaaba circle icon
+                val cubeHalf = 5.dp.toPx()
+                drawRect(
+                    color = goldGlowColor,
+                    topLeft = Offset(kaabaCircleX - cubeHalf, kaabaCircleY - cubeHalf * 0.4f),
+                    size = androidx.compose.ui.geometry.Size(cubeHalf * 2, 2.dp.toPx())
                 )
 
                 // Sun bearing indicator for celestial cross-check
                 val sunRad = Math.toRadians(qiblaState.sunAzimuth.toDouble())
-                val sunX = center.x + (radius - 20.dp.toPx()) * sin(sunRad).toFloat()
-                val sunY = center.y - (radius - 20.dp.toPx()) * cos(sunRad).toFloat()
-                drawCircle(color = sunIndicatorColor, radius = 6.dp.toPx(), center = Offset(sunX, sunY))
+                val sunX = center.x + (radius - 22.dp.toPx()) * sin(sunRad).toFloat()
+                val sunY = center.y - (radius - 22.dp.toPx()) * cos(sunRad).toFloat()
+                drawCircle(color = sunIndicatorColor.copy(alpha = 0.8f), radius = 5.dp.toPx(), center = Offset(sunX, sunY))
             }
 
             // Central Kaaba Hub

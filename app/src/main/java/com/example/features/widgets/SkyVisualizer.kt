@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
@@ -617,51 +618,37 @@ fun ImmersiveSkyBackground(
             }
 
             // -------------------------------------------------------------
-            // 3. Celestial Body (Prominent Sun or Crescent Moon - Slightly Bigger)
+            // 3. Celestial Body (Google's Weather Simple Sun & Moon Icons)
             // -------------------------------------------------------------
             if (isDaytime) {
-                // SUN: Prominent, majestic geometric Sun
-                // A. Outermost radiant solar corona
-                val outerCoronaRadius = 90.dp.toPx() * coronaPulse
+                // GOOGLE WEATHER SIMPLE SUN ICON:
+                // Minimalist, iconic Google Weather Sunny design
+
+                // A. Ambient soft golden halo
+                val sunAuraRadius = 55.dp.toPx() * coronaPulse
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            atmosphericState.celestialGlowColor.copy(alpha = 0.55f * coronaPulse),
-                            atmosphericState.celestialGlowColor.copy(alpha = 0.20f),
+                            Color(0x4DFBBC04),
+                            Color(0x15FBBC04),
                             Color.Transparent
                         ),
                         center = celestialCenter,
-                        radius = outerCoronaRadius
+                        radius = sunAuraRadius
                     ),
-                    radius = outerCoronaRadius,
+                    radius = sunAuraRadius,
                     center = celestialCenter
                 )
 
-                // B. Mid luminous halo
-                val innerHaloRadius = 42.dp.toPx()
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.75f),
-                            atmosphericState.celestialGlowColor.copy(alpha = 0.35f),
-                            Color.Transparent
-                        ),
-                        center = celestialCenter,
-                        radius = innerHaloRadius
-                    ),
-                    radius = innerHaloRadius,
-                    center = celestialCenter
-                )
-
-                // C. 16 Classical radial rays with alternating lengths rotating slowly
-                val rayCount = 16
-                val innerRayRadius = 22.dp.toPx()
+                // B. 8 Clean, rounded pill rays (Google Weather iconic signature)
+                val rayCount = 8
+                val innerRayRadius = 23.dp.toPx()
+                val outerRayRadius = 31.dp.toPx()
+                val googleSunYellow = Color(0xFFFBBC04) // Google Sunny Yellow
 
                 for (i in 0 until rayCount) {
-                    val angleDeg = i * (360.0 / rayCount) + sunRayRotation
+                    val angleDeg = i * (360.0 / rayCount) + (sunRayRotation * 0.25f)
                     val angleRad = Math.toRadians(angleDeg)
-                    val isLongRay = i % 2 == 0
-                    val outerRayRadius = if (isLongRay) 38.dp.toPx() else 31.dp.toPx()
 
                     val rayStart = Offset(
                         celestialCenter.x + (innerRayRadius * cos(angleRad)).toFloat(),
@@ -672,120 +659,110 @@ fun ImmersiveSkyBackground(
                         celestialCenter.y + (outerRayRadius * sin(angleRad)).toFloat()
                     )
                     drawLine(
-                        color = atmosphericState.sunRayColor.copy(alpha = if (isLongRay) 0.88f else 0.70f),
+                        color = googleSunYellow,
                         start = rayStart,
                         end = rayEnd,
-                        strokeWidth = if (isLongRay) 1.6.dp.toPx() else 1.2.dp.toPx(),
+                        strokeWidth = 3.8.dp.toPx(),
                         cap = StrokeCap.Round
                     )
                 }
 
-                // D. Slightly bigger Sun Core (Radius 19dp, diameter 38dp)
-                val coreRadius = 19.dp.toPx()
+                // C. Central clean Sun disk (Google Weather solid warm yellow)
+                val coreRadius = 18.dp.toPx()
                 drawCircle(
-                    brush = Brush.radialGradient(
+                    brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFFFFFFFF),
-                            Color(0xFFFFFBEA),
-                            Color(0xFFFFE57F)
+                            Color(0xFFFFD54F),
+                            Color(0xFFFBBC04)
                         ),
-                        center = celestialCenter,
-                        radius = coreRadius
+                        startY = celestialCenter.y - coreRadius,
+                        endY = celestialCenter.y + coreRadius
                     ),
                     radius = coreRadius,
                     center = celestialCenter
-                )
-                // Crisp luminous boundary stroke
-                drawCircle(
-                    color = atmosphericState.sunRayColor.copy(alpha = 0.90f),
-                    radius = coreRadius,
-                    center = celestialCenter,
-                    style = Stroke(width = 1.25.dp.toPx())
                 )
             } else {
-                // CRESCENT MOON: Prominent, elegant Crescent Moon
-                // A. Expansive, soft lunar halo
-                val moonHaloRadius = 75.dp.toPx() * coronaPulse
+                // GOOGLE WEATHER SIMPLE MOON ICON:
+                // Minimalist, iconic Google Weather Clear Night Crescent & Sparkle Star
+
+                // A. Ambient soft lunar glow
+                val moonAuraRadius = 48.dp.toPx() * coronaPulse
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color(0x4080D8FF),
-                            Color(0x1880D8FF),
+                            Color(0x35FFE082),
+                            Color(0x10FFE082),
                             Color.Transparent
                         ),
                         center = celestialCenter,
-                        radius = moonHaloRadius
+                        radius = moonAuraRadius
                     ),
-                    radius = moonHaloRadius,
+                    radius = moonAuraRadius,
                     center = celestialCenter
                 )
 
-                // B. Inner moonlight bloom
-                val innerMoonHalo = 36.dp.toPx()
+
+
+                // B. Google Weather Clear Night companion sparkle star
+                val starCenterX = celestialCenter.x + 18.dp.toPx()
+                val starCenterY = celestialCenter.y - 12.dp.toPx()
+                val sparkleLen = 4.5.dp.toPx() * starTwinkle
+                // Vertical sparkle line
+                val moonColor = Color(0xFFFFE082) // Google Weather lunar amber-yellow
+                drawLine(
+                    color = moonColor.copy(alpha = 0.90f),
+                    start = Offset(starCenterX, starCenterY - sparkleLen),
+                    end = Offset(starCenterX, starCenterY + sparkleLen),
+                    strokeWidth = 1.8.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                // Horizontal sparkle line
+                drawLine(
+                    color = moonColor.copy(alpha = 0.90f),
+                    start = Offset(starCenterX - sparkleLen, starCenterY),
+                    end = Offset(starCenterX + sparkleLen, starCenterY),
+                    strokeWidth = 1.8.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                // Central star point
                 drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.45f),
-                            Color(0x2080D8FF),
-                            Color.Transparent
-                        ),
-                        center = celestialCenter,
-                        radius = innerMoonHalo
-                    ),
-                    radius = innerMoonHalo,
-                    center = celestialCenter
+                    color = Color.White.copy(alpha = 0.95f),
+                    radius = 1.2.dp.toPx(),
+                    center = Offset(starCenterX, starCenterY)
                 )
 
-                // C. Companion stars framing the Moon gracefully
-                val c1 = Offset(celestialCenter.x + 30.dp.toPx(), celestialCenter.y - 14.dp.toPx())
-                val c2 = Offset(celestialCenter.x - 24.dp.toPx(), celestialCenter.y + 18.dp.toPx())
-                val c3 = Offset(celestialCenter.x + 18.dp.toPx(), celestialCenter.y + 26.dp.toPx())
-
-                drawCircle(color = Color.White.copy(alpha = 0.90f * starTwinkle), radius = 1.6.dp.toPx(), center = c1)
-                drawCircle(color = Color.White.copy(alpha = 0.75f), radius = 1.2.dp.toPx(), center = c2)
-                drawCircle(color = Color.White.copy(alpha = 0.95f * (1.2f - starTwinkle).coerceIn(0.3f, 1f)), radius = 1.8.dp.toPx(), center = c3)
-
-                // D. Slightly bigger Crescent Moon (Radius 22dp, diameter 44dp)
-                val moonRadius = 22.dp.toPx()
-
-                // Subtle earthshine disk (unlit portion of the moon disk gives a realistic spherical feel)
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.08f),
-                    radius = moonRadius,
-                    center = celestialCenter
-                )
-
-                // Mathematically sculpted crescent vector path
-                val crescentPath = Path().apply {
-                    // Outer illuminated limb
-                    arcTo(
-                        rect = Rect(
+                // C. Iconic Google Weather Crescent Moon
+                val moonRadius = 20.dp.toPx()
+                val outerPath = Path().apply {
+                    addOval(
+                        Rect(
                             left = celestialCenter.x - moonRadius,
                             top = celestialCenter.y - moonRadius,
                             right = celestialCenter.x + moonRadius,
                             bottom = celestialCenter.y + moonRadius
-                        ),
-                        startAngleDegrees = -115f,
-                        sweepAngleDegrees = 230f,
-                        forceMoveTo = true
+                        )
                     )
-                    // Inner subtracting crescent curve
-                    val innerRadius = moonRadius * 0.88f
-                    val offsetInnerX = celestialCenter.x + moonRadius * 0.42f
-                    arcTo(
-                        rect = Rect(
-                            left = offsetInnerX - innerRadius,
-                            top = celestialCenter.y - innerRadius,
-                            right = offsetInnerX + innerRadius,
-                            bottom = celestialCenter.y + innerRadius
-                        ),
-                        startAngleDegrees = 115f,
-                        sweepAngleDegrees = -230f,
-                        forceMoveTo = false
-                    )
-                    close()
                 }
-                drawPath(path = crescentPath, color = Color(0xFFF3F7FA))
+                val innerRadius = 16.5.dp.toPx()
+                val innerOffsetX = celestialCenter.x + 7.5.dp.toPx()
+                val innerOffsetY = celestialCenter.y - 5.5.dp.toPx()
+                val innerPath = Path().apply {
+                    addOval(
+                        Rect(
+                            left = innerOffsetX - innerRadius,
+                            top = innerOffsetY - innerRadius,
+                            right = innerOffsetX + innerRadius,
+                            bottom = innerOffsetY + innerRadius
+                        )
+                    )
+                }
+
+                val crescentPath = Path.combine(
+                    operation = PathOperation.Difference,
+                    path1 = outerPath,
+                    path2 = innerPath
+                )
+                drawPath(path = crescentPath, color = moonColor)
             }
 
             // -------------------------------------------------------------
@@ -912,15 +889,15 @@ fun ImmersiveSkyBackground(
             // -------------------------------------------------------------
             // 6. Seamless Atmospheric Scrim
             // -------------------------------------------------------------
-            // Gently blends the lower canvas into the base atmospheric tone, ensuring clear foreground readability
-            val scrimStartY = horizonY + 12.dp.toPx()
+            // Gently blends the lower canvas into the base atmospheric tone, preserving sky radiance while ensuring clear foreground readability
+            val scrimStartY = horizonY + 8.dp.toPx()
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        atmosphericState.scrimColor.copy(alpha = 0.45f),
-                        atmosphericState.scrimColor.copy(alpha = 0.82f),
-                        atmosphericState.scrimColor.copy(alpha = 0.96f)
+                        atmosphericState.scrimColor.copy(alpha = 0.25f),
+                        atmosphericState.scrimColor.copy(alpha = 0.65f),
+                        atmosphericState.scrimColor.copy(alpha = 0.88f)
                     ),
                     startY = scrimStartY,
                     endY = h

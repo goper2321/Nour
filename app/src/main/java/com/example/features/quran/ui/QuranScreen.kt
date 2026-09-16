@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -164,6 +165,7 @@ fun QuranScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .background(MaterialTheme.colorScheme.background)
             .testTag("quran_screen")
     ) {
@@ -209,110 +211,119 @@ fun QuranScreen(
                 }
             )
         } else {
-            // Main Quran Browsing View (Spacious, Uncrowded, Serene)
-            QuranMainHeader(
-                isSearchExpanded = isSearchExpanded || searchQuery.isNotBlank(),
-                searchQuery = searchQuery,
-                onToggleSearch = {
-                    isSearchExpanded = !isSearchExpanded
-                    if (!isSearchExpanded) searchQuery = ""
-                },
-                onSearchQueryChange = { searchQuery = it },
-                selectedTab = selectedTab,
-                onSelectTab = { selectedTab = it },
-                bookmarkCount = bookmarks.size
-            )
-
-            // Content Area
-            if (searchQuery.isNotBlank()) {
-                val searchResults = remember(searchQuery) { QuranRepository.search(searchQuery) }
-                SearchResultsView(
-                    results = searchResults,
-                    query = searchQuery,
-                    editionId = selectedEditionId,
-                    onSelectAyah = { ayah ->
-                        selectedSurahForReading = QuranRepository.getSurah(ayah.surahNumber)
-                        lastReadSurahNumber = ayah.surahNumber
-                        searchQuery = ""
-                        isSearchExpanded = false
-                    }
+            // [(Surah) (Bookmark) (Search)] Top Filter Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Surah chip
+                FilterChip(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    shape = PillShape,
+                    label = { Text("Surah", style = MaterialTheme.typography.labelMedium) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        enabled = true,
+                        selected = selectedTab == 0
+                    )
                 )
-            } else {
-                when (selectedTab) {
-                    0 -> {
-                        // Surahs list with quick filter & last read banner
-                        SurahListView(
-                            lastReadSurah = QuranRepository.getSurah(lastReadSurahNumber),
-                            onContinueReading = {
-                                selectedSurahForReading = QuranRepository.getSurah(lastReadSurahNumber)
-                            },
-                            onSurahClick = { surah ->
-                                selectedSurahForReading = surah
-                                lastReadSurahNumber = surah.number
-                            }
+
+                // Bookmark chip
+                FilterChip(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    shape = PillShape,
+                    label = {
+                        Text(
+                            if (bookmarks.isNotEmpty()) "Bookmark (${bookmarks.size})" else "Bookmark",
+                            style = MaterialTheme.typography.labelMedium
                         )
-                    }
-                    1 -> {
-                        // 604-Page Mushaf Viewer
-                        MushafPageView(
-                            pageNumber = currentPageNumber,
-                            onPageChanged = { currentPageNumber = it },
-                            readingMode = readingMode,
-                            onModeChange = { readingMode = it },
-                            editionId = selectedEditionId,
-                            tafsirId = selectedTafsirId,
-                            arabicFontSize = arabicFontSize,
-                            onPrevPage = { if (currentPageNumber > 1) currentPageNumber-- },
-                            onNextPage = { if (currentPageNumber < 604) currentPageNumber++ },
-                            onJumpPageClick = {
-                                jumpPageInput = currentPageNumber.toString()
-                                showPageJumpDialog = true
-                            },
-                            onOpenSettings = { showReadingSettingsSheet = true },
-                            onSelectTafsir = { selectedTafsirAyah = it },
-                            onOpenFullSurah = { surah ->
-                                selectedSurahForReading = surah
-                                lastReadSurahNumber = surah.number
-                                selectedTab = 0
-                            },
-                            onToggleBookmark = { ayah ->
-                                coroutineScope.launch {
-                                    val surah = QuranRepository.getSurah(ayah.surahNumber)
-                                    val existing = db.bookmarkDao().getBookmark(ayah.surahNumber, ayah.ayahNumber)
-                                    if (existing != null) {
-                                        db.bookmarkDao().deleteBookmark(ayah.surahNumber, ayah.ayahNumber)
-                                        Toast.makeText(context, "Bookmark removed", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        db.bookmarkDao().insertBookmark(
-                                            BookmarkEntity(
-                                                surahNumber = ayah.surahNumber,
-                                                ayahNumber = ayah.ayahNumber,
-                                                surahName = surah.nameEnglish,
-                                                ayahText = ayah.arabicText,
-                                                translationText = ayah.getTranslation(selectedEditionId)
-                                            )
-                                        )
-                                        Toast.makeText(context, "Ayah bookmarked!", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-                            bookmarks = bookmarks
-                        )
-                    }
-                    2 -> {
-                        // Bookmarks View
-                        BookmarksView(
-                            bookmarks = bookmarks,
-                            onGoToAyah = { bm ->
-                                selectedSurahForReading = QuranRepository.getSurah(bm.surahNumber)
-                                lastReadSurahNumber = bm.surahNumber
-                                selectedTab = 0
-                            },
-                            onDeleteBookmark = { id ->
-                                coroutineScope.launch { db.bookmarkDao().deleteById(id) }
-                            }
-                        )
-                    }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        enabled = true,
+                        selected = selectedTab == 1
+                    )
+                )
+
+                // Search chip
+                FilterChip(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    shape = PillShape,
+                    label = { Text("Search", style = MaterialTheme.typography.labelMedium) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        enabled = true,
+                        selected = selectedTab == 2
+                    )
+                )
+            }
+
+            // Tab Content
+            when (selectedTab) {
+                0 -> {
+                    // Surahs list with "Continue Reading" card under [(Surah) (Bookmark) (Search)]
+                    SurahListView(
+                        lastReadSurah = QuranRepository.getSurah(lastReadSurahNumber),
+                        onContinueReading = {
+                            selectedSurahForReading = QuranRepository.getSurah(lastReadSurahNumber)
+                        },
+                        onSurahClick = { surah ->
+                            selectedSurahForReading = surah
+                            lastReadSurahNumber = surah.number
+                        }
+                    )
+                }
+                1 -> {
+                    // Bookmarks View
+                    BookmarksView(
+                        bookmarks = bookmarks,
+                        onGoToAyah = { bm ->
+                            selectedSurahForReading = QuranRepository.getSurah(bm.surahNumber)
+                            lastReadSurahNumber = bm.surahNumber
+                        },
+                        onDeleteBookmark = { id ->
+                            coroutineScope.launch { db.bookmarkDao().deleteById(id) }
+                        }
+                    )
+                }
+                2 -> {
+                    // Search View
+                    QuranSearchView(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { searchQuery = it },
+                        editionId = selectedEditionId,
+                        onSelectSurah = { surah ->
+                            selectedSurahForReading = surah
+                            lastReadSurahNumber = surah.number
+                        },
+                        onSelectAyah = { ayah ->
+                            selectedSurahForReading = QuranRepository.getSurah(ayah.surahNumber)
+                            lastReadSurahNumber = ayah.surahNumber
+                        }
+                    )
                 }
             }
         }
@@ -474,173 +485,95 @@ fun QuranScreen(
 }
 
 /**
- * Top App Header for Quran browsing with clean typography, expandable search,
- * and modern segmented capsule tabs.
+ * Continue Reading Card:
+ * Elegantly styled similar to the Surah card with matching geometry, typography, and badge.
  */
 @Composable
-fun QuranMainHeader(
-    isSearchExpanded: Boolean,
-    searchQuery: String,
-    onToggleSearch: () -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    selectedTab: Int,
-    onSelectTab: (Int) -> Unit,
-    bookmarkCount: Int
+fun ContinueReadingSurahCard(
+    lastReadSurah: Surah,
+    onContinueReading: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 0.dp
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CardExpressiveShape)
+            .clickable { onContinueReading() }
+            .testTag("continue_reading_card"),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Title & Search Icon Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Number / Icon Badge matching Surah card's 40dp badge
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CardSubtleShape,
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
-                Column {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Details Column
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Continue Reading",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "The Noble Qur'an",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "${lastReadSurah.number}. ${lastReadSurah.nameEnglish}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "القرآن الكريم",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
+                        text = " • ",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    Text(
+                        text = "Page ${lastReadSurah.startPage}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                IconButton(
-                    onClick = onToggleSearch,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                ) {
-                    Icon(
-                        imageVector = if (isSearchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
-                        contentDescription = "Search Quran",
-                        tint = if (isSearchExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
-            // Expandable Search Bar
-            AnimatedVisibility(
-                visible = isSearchExpanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    placeholder = { Text("Search Surah, verse, English or Arabic...", fontSize = 13.sp) },
-                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { onSearchQueryChange("") }) {
-                                Icon(Icons.Rounded.Clear, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = PillShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .testTag("quran_search_field")
-                )
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Modern Segmented Capsule Tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .clip(PillShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                QuranTabPill(
-                    title = "Surahs",
-                    subtitle = "114",
-                    isSelected = selectedTab == 0,
-                    onClick = { onSelectTab(0) },
-                    modifier = Modifier.weight(1f)
-                )
-                QuranTabPill(
-                    title = "Mushaf",
-                    subtitle = "604p",
-                    isSelected = selectedTab == 1,
-                    onClick = { onSelectTab(1) },
-                    modifier = Modifier.weight(1f)
-                )
-                QuranTabPill(
-                    title = "Saved",
-                    subtitle = "$bookmarkCount",
-                    isSelected = selectedTab == 2,
-                    onClick = { onSelectTab(2) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun QuranTabPill(
-    title: String,
-    subtitle: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        shape = PillShape,
-        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Surface(
-                shape = CircleShape,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.25f) else MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            ) {
+            // Arabic Name & Resume badge
+            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = subtitle,
+                    text = lastReadSurah.nameArabic,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Resume",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -648,8 +581,7 @@ fun QuranTabPill(
 }
 
 /**
- * Clean, breathable Surah List with spiritual Continue Reading hero card
- * and Revelation Type filter chips.
+ * Clean Surah List with Continue Reading card under [(Surah) (Bookmark) (Search)].
  */
 @Composable
 fun SurahListView(
@@ -657,133 +589,21 @@ fun SurahListView(
     onContinueReading: () -> Unit,
     onSurahClick: (Surah) -> Unit
 ) {
-    var selectedFilter by remember { mutableStateOf("All") } // "All", "Meccan", "Medinan"
-
-    val filteredSurahs = remember(selectedFilter) {
-        when (selectedFilter) {
-            "Meccan" -> QuranRepository.ALL_SURAHS.filter { it.revelationType == RevelationType.MECCAN }
-            "Medinan" -> QuranRepository.ALL_SURAHS.filter { it.revelationType == RevelationType.MEDINAN }
-            else -> QuranRepository.ALL_SURAHS
-        }
-    }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Last Read Spiritual Card (Inviting, Serene Hero Banner)
+        // "Continue Reading" card directly under the [(Surah) (Bookmark) (Search)] bar
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onContinueReading() },
-                shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "CONTINUE READING",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                letterSpacing = 1.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "${lastReadSurah.number}. ${lastReadSurah.nameEnglish}",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        Text(
-                            text = "${lastReadSurah.englishMeaning} • Page ${lastReadSurah.startPage}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = lastReadSurah.nameArabic,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Surface(
-                            shape = PillShape,
-                            color = MaterialTheme.colorScheme.primary
-                        ) {
-                            Text(
-                                text = "Resume",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            ContinueReadingSurahCard(
+                lastReadSurah = lastReadSurah,
+                onContinueReading = onContinueReading
+            )
         }
 
-        // Quick Filter Chips (Meccan / Medinan)
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(
-                    "All" to "114",
-                    "Meccan" to "86",
-                    "Medinan" to "28"
-                ).forEach { (label, count) ->
-                    val isSelected = selectedFilter == label
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { selectedFilter = label },
-                        shape = PillShape,
-                        label = { Text("$label ($count)", style = MaterialTheme.typography.labelMedium) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            selectedBorderColor = MaterialTheme.colorScheme.primary,
-                            enabled = true,
-                            selected = isSelected
-                        )
-                    )
-                }
-            }
-        }
-
-        // Surah Items (Generously Spaced & Uncluttered)
-        items(filteredSurahs) { surah ->
+        // Surah Items (114 Surahs)
+        items(QuranRepository.ALL_SURAHS) { surah ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -864,6 +684,294 @@ fun SurahListView(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dedicated Search View for the "Search" tab.
+ */
+@Composable
+fun QuranSearchView(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    editionId: String,
+    onSelectSurah: (Surah) -> Unit,
+    onSelectAyah: (Ayah) -> Unit
+) {
+    val matchingSurahs = remember(searchQuery) {
+        if (searchQuery.isBlank()) emptyList()
+        else QuranRepository.ALL_SURAHS.filter {
+            it.nameEnglish.contains(searchQuery, ignoreCase = true) ||
+            it.englishMeaning.contains(searchQuery, ignoreCase = true) ||
+            it.nameArabic.contains(searchQuery) ||
+            it.number.toString() == searchQuery.trim()
+        }
+    }
+
+    val matchingAyahs = remember(searchQuery) {
+        if (searchQuery.isBlank()) emptyList()
+        else QuranRepository.search(searchQuery)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .testTag("quran_search_field"),
+            placeholder = { Text("Search Surah name or verse...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotBlank()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Clear search"
+                        )
+                    }
+                }
+            },
+            shape = PillShape,
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+        )
+
+        if (searchQuery.isBlank()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Popular Surahs",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                }
+                val popularSurahs = listOf(1, 36, 18, 67, 55, 56).map { QuranRepository.getSurah(it) }
+                items(popularSurahs) { surah ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(CardExpressiveShape)
+                            .clickable { onSelectSurah(surah) },
+                        shape = CardExpressiveShape,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CardSubtleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "${surah.number}",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = surah.nameEnglish,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${surah.englishMeaning} • ${surah.ayahCount} verses",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                text = surah.nameArabic,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                if (matchingSurahs.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Surahs (${matchingSurahs.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                        )
+                    }
+                    items(matchingSurahs) { surah ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(CardExpressiveShape)
+                                .clickable { onSelectSurah(surah) },
+                            shape = CardExpressiveShape,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(40.dp),
+                                    shape = CardSubtleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "${surah.number}",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = surah.nameEnglish,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${surah.englishMeaning} • ${surah.ayahCount} verses",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = surah.nameArabic,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (matchingAyahs.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Verses (${matchingAyahs.size})",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
+                        )
+                    }
+                    items(matchingAyahs) { ayah ->
+                        val surah = QuranRepository.getSurah(ayah.surahNumber)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(CardExpressiveShape)
+                                .clickable { onSelectAyah(ayah) },
+                            shape = CardExpressiveShape,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Surah ${surah.nameEnglish} • Verse ${ayah.ayahNumber}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = surah.nameArabic,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "${ayah.arabicText} \u06DD${QuranRepository.toArabicDigits(ayah.ayahNumber)}",
+                                    fontSize = 18.sp,
+                                    textAlign = TextAlign.Right,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = ayah.getTranslation(editionId),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (matchingSurahs.isEmpty() && matchingAyahs.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No results found for \"$searchQuery\"",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
