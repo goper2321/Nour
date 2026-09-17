@@ -115,6 +115,7 @@ import com.example.features.quran.data.QuranRepository
 import com.example.features.quran.models.Ayah
 import com.example.features.quran.models.RevelationType
 import com.example.features.quran.models.Surah
+import com.example.localization.LocalAppStrings
 import kotlinx.coroutines.launch
 
 /**
@@ -133,6 +134,7 @@ fun QuranScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val coroutineScope = rememberCoroutineScope()
     val db = remember { NourDatabase.getInstance(context) }
 
@@ -194,7 +196,7 @@ fun QuranScreen(
                         val existing = db.bookmarkDao().getBookmark(ayah.surahNumber, ayah.ayahNumber)
                         if (existing != null) {
                             db.bookmarkDao().deleteBookmark(ayah.surahNumber, ayah.ayahNumber)
-                            Toast.makeText(context, "Bookmark removed", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, strings.bookmarkRemoved, Toast.LENGTH_SHORT).show()
                         } else {
                             db.bookmarkDao().insertBookmark(
                                 BookmarkEntity(
@@ -205,7 +207,7 @@ fun QuranScreen(
                                     translationText = ayah.getTranslation(selectedEditionId)
                                 )
                             )
-                            Toast.makeText(context, "Ayah bookmarked!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, strings.bookmarkAdded, Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -223,7 +225,7 @@ fun QuranScreen(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     shape = PillShape,
-                    label = { Text("Surah", style = MaterialTheme.typography.labelMedium) },
+                    label = { Text(strings.tabSurah, style = MaterialTheme.typography.labelMedium) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -244,7 +246,7 @@ fun QuranScreen(
                     shape = PillShape,
                     label = {
                         Text(
-                            if (bookmarks.isNotEmpty()) "Bookmark (${bookmarks.size})" else "Bookmark",
+                            if (bookmarks.isNotEmpty()) "${strings.tabBookmark} (${bookmarks.size})" else strings.tabBookmark,
                             style = MaterialTheme.typography.labelMedium
                         )
                     },
@@ -266,7 +268,7 @@ fun QuranScreen(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     shape = PillShape,
-                    label = { Text("Search", style = MaterialTheme.typography.labelMedium) },
+                    label = { Text(strings.tabSearch, style = MaterialTheme.typography.labelMedium) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -337,7 +339,7 @@ fun QuranScreen(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text(
-                    text = "Jump to Page (1 - 604)",
+                    text = strings.jumpToPage,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -346,7 +348,7 @@ fun QuranScreen(
                 OutlinedTextField(
                     value = jumpPageInput,
                     onValueChange = { jumpPageInput = it },
-                    label = { Text("Page Number") },
+                    label = { Text(strings.pageNumberPrompt) },
                     placeholder = { Text("1 to 604") },
                     singleLine = true,
                     shape = CardSubtleShape,
@@ -361,19 +363,19 @@ fun QuranScreen(
                             currentPageNumber = p
                             showPageJumpDialog = false
                         } else {
-                            Toast.makeText(context, "Enter a page between 1 and 604", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, strings.enterValidPage, Toast.LENGTH_SHORT).show()
                         }
                     },
                     shape = PillShape
                 ) {
-                    Text("Go to Page")
+                    Text(strings.goToPage)
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showPageJumpDialog = false },
                     shape = PillShape
-                ) { Text("Cancel") }
+                ) { Text(strings.cancel) }
             }
         )
     }
@@ -403,12 +405,12 @@ fun QuranScreen(
             title = {
                 Column {
                     Text(
-                        text = "Tafsir • ${surah.nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})",
+                        text = "${strings.tafsirTitle} • ${surah.nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "Authentic Scholarly Exegesis",
+                        text = strings.authenticExegesis,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -477,7 +479,7 @@ fun QuranScreen(
                     onClick = { selectedTafsirAyah = null },
                     shape = PillShape
                 ) {
-                    Text("Close")
+                    Text(strings.close)
                 }
             }
         )
@@ -494,6 +496,7 @@ fun ContinueReadingSurahCard(
     onContinueReading: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -532,7 +535,7 @@ fun ContinueReadingSurahCard(
             // Details Column
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Continue Reading",
+                    text = strings.continueReading,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -552,7 +555,7 @@ fun ContinueReadingSurahCard(
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                     Text(
-                        text = "Page ${lastReadSurah.startPage}",
+                        text = "${strings.pageLabel} ${lastReadSurah.startPage}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
@@ -570,7 +573,7 @@ fun ContinueReadingSurahCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Resume",
+                    text = strings.resumeReading,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -589,6 +592,7 @@ fun SurahListView(
     onContinueReading: () -> Unit,
     onSurahClick: (Surah) -> Unit
 ) {
+    val strings = LocalAppStrings.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
@@ -662,7 +666,7 @@ fun SurahListView(
                                 color = MaterialTheme.colorScheme.outlineVariant
                             )
                             Text(
-                                text = "${surah.ayahCount} verses",
+                                text = "${surah.ayahCount} ${strings.versesLabel}",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary
@@ -680,7 +684,7 @@ fun SurahListView(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${surah.revelationType.label} • Juz ${surah.juzNumber}",
+                            text = "${if (surah.revelationType == RevelationType.MECCAN) strings.revelationMeccan else strings.revelationMedinan} • ${strings.juzLabel} ${surah.juzNumber}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -702,6 +706,7 @@ fun QuranSearchView(
     onSelectSurah: (Surah) -> Unit,
     onSelectAyah: (Ayah) -> Unit
 ) {
+    val strings = LocalAppStrings.current
     val matchingSurahs = remember(searchQuery) {
         if (searchQuery.isBlank()) emptyList()
         else QuranRepository.ALL_SURAHS.filter {
@@ -729,7 +734,7 @@ fun QuranSearchView(
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
                 .testTag("quran_search_field"),
-            placeholder = { Text("Search Surah name or verse...") },
+            placeholder = { Text(strings.searchSurahHint) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Rounded.Search,
@@ -765,7 +770,7 @@ fun QuranSearchView(
             ) {
                 item {
                     Text(
-                        text = "Popular Surahs",
+                        text = strings.popularSurahs,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -813,7 +818,7 @@ fun QuranSearchView(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "${surah.englishMeaning} • ${surah.ayahCount} verses",
+                                    text = "${surah.englishMeaning} • ${surah.ayahCount} ${strings.versesLabel}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -837,7 +842,7 @@ fun QuranSearchView(
                 if (matchingSurahs.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Surahs (${matchingSurahs.size})",
+                            text = "${strings.surahsFound} (${matchingSurahs.size})",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -865,45 +870,45 @@ fun QuranSearchView(
                                     shape = CardSubtleShape,
                                     color = MaterialTheme.colorScheme.surfaceContainerHighest
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = "${surah.number}",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
+                                Box(contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = surah.nameEnglish,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        text = "${surah.number}",
+                                        style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${surah.englishMeaning} • ${surah.ayahCount} verses",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = surah.nameArabic,
-                                    style = MaterialTheme.typography.titleLarge,
+                                    text = surah.nameEnglish,
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${surah.englishMeaning} • ${surah.ayahCount} ${strings.versesLabel}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Text(
+                                text = surah.nameArabic,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
+            }
 
                 if (matchingAyahs.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Verses (${matchingAyahs.size})",
+                            text = "${strings.versesFound} (${matchingAyahs.size})",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
@@ -928,7 +933,7 @@ fun QuranSearchView(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Surah ${surah.nameEnglish} • Verse ${ayah.ayahNumber}",
+                                        text = "${strings.tabSurah} ${surah.nameEnglish} • ${ayah.ayahNumber}",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
@@ -967,7 +972,7 @@ fun QuranSearchView(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "No results found for \"$searchQuery\"",
+                                text = "${strings.noResultsFound} \"$searchQuery\"",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1003,6 +1008,7 @@ fun SurahReaderView(
     onToggleBookmark: (Ayah) -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val clipboardManager = LocalClipboardManager.current
     val ayahs = remember(surah.number) { QuranRepository.getAyahsForSurah(surah.number) }
 
@@ -1050,7 +1056,7 @@ fun SurahReaderView(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "${surah.nameArabic} • ${surah.ayahCount} verses",
+                                    text = "${surah.nameArabic} • ${surah.ayahCount} ${strings.versesLabel}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1134,13 +1140,13 @@ fun SurahReaderView(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Surah ${surah.nameEnglish} — ${surah.englishMeaning}",
+                            text = "${strings.tabSurah} ${surah.nameEnglish} — ${surah.englishMeaning}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${surah.revelationType.label} • ${surah.ayahCount} Verses • Juz ${surah.juzNumber}",
+                            text = "${if (surah.revelationType == RevelationType.MECCAN) strings.revelationMeccan else strings.revelationMedinan} • ${surah.ayahCount} ${strings.versesLabel} • ${strings.juzLabel} ${surah.juzNumber}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1203,7 +1209,7 @@ fun SurahReaderView(
                                         shape = PillShape,
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
-                                        Text("Tafsir", style = MaterialTheme.typography.labelMedium)
+                                        Text(strings.tafsirTitle, style = MaterialTheme.typography.labelMedium)
                                     }
 
                                     IconButton(
@@ -1221,7 +1227,7 @@ fun SurahReaderView(
                                         onClick = {
                                             val copyText = "${ayah.arabicText}\n\n\"${ayah.getTranslation(editionId)}\"\n[${surah.nameEnglish} ${ayah.surahNumber}:${ayah.ayahNumber}]"
                                             clipboardManager.setText(AnnotatedString(copyText))
-                                            Toast.makeText(context, "Verse copied", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, strings.verseCopied, Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {
@@ -1315,7 +1321,7 @@ fun SurahReaderView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Full Translation",
+                            text = strings.fullTranslation,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -1323,7 +1329,7 @@ fun SurahReaderView(
                             onClick = { showTranslationsInContinuous = !showTranslationsInContinuous },
                             shape = PillShape
                         ) {
-                            Text(if (showTranslationsInContinuous) "Hide All" else "Show All (${surah.ayahCount})")
+                            Text(if (showTranslationsInContinuous) strings.hideAllVerses else "${strings.showAllVerses} (${surah.ayahCount})")
                         }
                     }
                 }
@@ -1352,7 +1358,7 @@ fun SurahReaderView(
                                         shape = PillShape,
                                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
                                     ) {
-                                        Text("Tafsir", style = MaterialTheme.typography.labelSmall)
+                                        Text(strings.tafsirTitle, style = MaterialTheme.typography.labelSmall)
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -1394,7 +1400,7 @@ fun SurahReaderView(
                         ) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Previous Surah")
+                            Text(strings.previousSurah)
                         }
 
                         TextButton(
@@ -1407,7 +1413,7 @@ fun SurahReaderView(
                             enabled = surah.number < 114,
                             shape = PillShape
                         ) {
-                            Text("Next Surah")
+                            Text(strings.nextSurah)
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                         }
@@ -1440,6 +1446,7 @@ fun MushafPageView(
     onToggleBookmark: (Ayah) -> Unit,
     bookmarks: List<BookmarkEntity>
 ) {
+    val strings = LocalAppStrings.current
     var isPagerMode by remember { mutableStateOf(true) }
     val currentPageData = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
 
@@ -1498,7 +1505,7 @@ fun MushafPageView(
                     shape = PillShape
                 ) {
                     Text(
-                        text = "Page $pageNumber / 604 • Juz ${currentPageData.juzNumber} ▾",
+                        text = "${strings.pageLabel} $pageNumber / 604 • ${strings.juzLabel} ${currentPageData.juzNumber} ▾",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.titleMedium
@@ -1530,7 +1537,7 @@ fun MushafPageView(
                     IconButton(onClick = onOpenSettings) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,
-                            contentDescription = "Settings",
+                            contentDescription = strings.readingSettings,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -1613,7 +1620,7 @@ fun MushafPageView(
                     ) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Previous")
+                        Text(strings.previousPage)
                     }
 
                     Slider(
@@ -1631,7 +1638,7 @@ fun MushafPageView(
                         enabled = pageNumber < 604,
                         shape = PillShape
                     ) {
-                        Text("Next")
+                        Text(strings.nextPage)
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
@@ -1658,6 +1665,7 @@ fun MushafSinglePageContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val clipboardManager = LocalClipboardManager.current
     val mushafPage = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
     var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
@@ -1691,7 +1699,7 @@ fun MushafSinglePageContent(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Surah ${surah.nameEnglish} • ${surah.englishMeaning}",
+                                text = "${strings.tabSurah} ${surah.nameEnglish} • ${surah.englishMeaning}",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -1704,7 +1712,7 @@ fun MushafSinglePageContent(
                             ) {
                                 Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Read Whole Surah (${surah.ayahCount} verses)", style = MaterialTheme.typography.labelMedium)
+                                Text("${strings.readWholeSurah} (${surah.ayahCount} ${strings.versesLabel})", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -1753,7 +1761,7 @@ fun MushafSinglePageContent(
                                         shape = PillShape,
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
-                                        Text("Tafsir", style = MaterialTheme.typography.labelMedium)
+                                        Text(strings.tafsirTitle, style = MaterialTheme.typography.labelMedium)
                                     }
 
                                     IconButton(
@@ -1771,7 +1779,7 @@ fun MushafSinglePageContent(
                                         onClick = {
                                             val copyText = "${ayah.arabicText}\n\n\"${ayah.getTranslation(editionId)}\"\n[${ayah.surahNumber}:${ayah.ayahNumber}]"
                                             clipboardManager.setText(AnnotatedString(copyText))
-                                            Toast.makeText(context, "Verse copied", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, strings.verseCopied, Toast.LENGTH_SHORT).show()
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {
@@ -1843,7 +1851,7 @@ fun MushafSinglePageContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Page Translations",
+                            text = strings.fullTranslation,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -1851,7 +1859,7 @@ fun MushafSinglePageContent(
                             onClick = { showTranslationsInContinuous = !showTranslationsInContinuous },
                             shape = PillShape
                         ) {
-                            Text(if (showTranslationsInContinuous) "Hide" else "Show All")
+                            Text(if (showTranslationsInContinuous) strings.hideAllVerses else strings.showAllVerses)
                         }
                     }
                 }
@@ -1865,7 +1873,7 @@ fun MushafSinglePageContent(
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Text(
-                                    text = "Verse ${ayah.ayahNumber}",
+                                    text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
@@ -1896,7 +1904,7 @@ fun MushafSinglePageContent(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     ) {
                         Text(
-                            text = "— Page $pageNumber —",
+                            text = "— ${strings.pageLabel} $pageNumber —",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1926,6 +1934,7 @@ fun QuranSettingsBottomSheet(
     onSelectTafsir: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalAppStrings.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -1946,7 +1955,7 @@ fun QuranSettingsBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Reading Preferences",
+                    text = strings.readingSettings,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -1958,7 +1967,7 @@ fun QuranSettingsBottomSheet(
             // View Mode Segmented Switch
             Column {
                 Text(
-                    text = "Layout Style",
+                    text = strings.layoutStyle,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1978,7 +1987,7 @@ fun QuranSettingsBottomSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Arabic Font Size",
+                        text = strings.arabicFontSize,
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2012,7 +2021,7 @@ fun QuranSettingsBottomSheet(
             // Translation Edition Selector
             Column {
                 Text(
-                    text = "Translation Edition",
+                    text = strings.translationEdition,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2055,6 +2064,7 @@ fun QuranViewModeToggle(
     onModeChange: (QuranReadingMode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val strings = LocalAppStrings.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         shape = PillShape,
@@ -2090,7 +2100,7 @@ fun QuranViewModeToggle(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Verse Cards",
+                        text = strings.verseCards,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (readingMode == QuranReadingMode.CARDS) FontWeight.Bold else FontWeight.Medium,
                         color = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -2121,7 +2131,7 @@ fun QuranViewModeToggle(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Continuous Page",
+                        text = strings.continuousText,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (readingMode == QuranReadingMode.CONTINUOUS) FontWeight.Bold else FontWeight.Medium,
                         color = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -2253,6 +2263,7 @@ fun AyahInspectorCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val clipboardManager = LocalClipboardManager.current
     val surah = QuranRepository.getSurah(ayah.surahNumber)
 
@@ -2282,7 +2293,7 @@ fun AyahInspectorCard(
                     shape = PillShape
                 ) {
                     Text(
-                        text = "Surah ${surah.nameEnglish} • Verse ${ayah.ayahNumber}",
+                        text = "${strings.tabSurah} ${surah.nameEnglish} • ${ayah.ayahNumber}",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
@@ -2331,7 +2342,7 @@ fun AyahInspectorCard(
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Tafsir", style = MaterialTheme.typography.labelMedium)
+                    Text(strings.tafsirTitle, style = MaterialTheme.typography.labelMedium)
                 }
 
                 OutlinedButton(
@@ -2346,14 +2357,14 @@ fun AyahInspectorCard(
                         tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (isBookmarked) "Saved" else "Bookmark", style = MaterialTheme.typography.labelMedium)
+                    Text(if (isBookmarked) strings.tabBookmark else strings.tabBookmark, style = MaterialTheme.typography.labelMedium)
                 }
 
                 IconButton(
                     onClick = {
                         val copyText = "${ayah.arabicText}\n\n\"${ayah.getTranslation(editionId)}\"\n[${surah.nameEnglish} ${ayah.surahNumber}:${ayah.ayahNumber}]"
                         clipboardManager.setText(AnnotatedString(copyText))
-                        Toast.makeText(context, "Verse copied", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, strings.verseCopied, Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.size(36.dp)
                 ) {
@@ -2394,13 +2405,14 @@ fun SearchResultsView(
     editionId: String,
     onSelectAyah: (Ayah) -> Unit
 ) {
+    val strings = LocalAppStrings.current
     Column(modifier = Modifier.fillMaxSize()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "${results.size} verses found for \"$query\"",
+                text = "${results.size} ${strings.versesFound} \"$query\"",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary,
@@ -2411,7 +2423,7 @@ fun SearchResultsView(
         if (results.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No verses matched your search.",
+                    strings.noResultsFound,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -2437,13 +2449,13 @@ fun SearchResultsView(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "Surah ${QuranRepository.getSurah(ayah.surahNumber).nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})",
+                                    text = "${strings.tabSurah} ${QuranRepository.getSurah(ayah.surahNumber).nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})",
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
                                     style = MaterialTheme.typography.titleSmall
                                 )
                                 Text(
-                                    text = "Page ${ayah.pageNumber}",
+                                    text = "${strings.pageLabel} ${ayah.pageNumber}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2475,6 +2487,7 @@ fun BookmarksView(
     onGoToAyah: (BookmarkEntity) -> Unit,
     onDeleteBookmark: (Long) -> Unit
 ) {
+    val strings = LocalAppStrings.current
     if (bookmarks.isEmpty()) {
         Box(
             modifier = Modifier
@@ -2499,13 +2512,13 @@ fun BookmarksView(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "No saved verses yet",
+                    text = strings.noBookmarksTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Tap the heart icon while reading any Ayah to save your reflections and favorite verses here.",
+                    text = strings.noBookmarksDesc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

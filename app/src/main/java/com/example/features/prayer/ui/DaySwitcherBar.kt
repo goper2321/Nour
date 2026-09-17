@@ -33,6 +33,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.localization.LocalAppStrings
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -51,12 +52,13 @@ fun DaySwitcherBar(
     onResetToToday: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dayLabel = remember(selectedDate, dayOffset) {
+    val strings = LocalAppStrings.current
+    val dayLabel = remember(selectedDate, dayOffset, strings) {
         val shortSdf = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
         when (dayOffset) {
-            0 -> "Today • ${shortSdf.format(selectedDate)}"
-            1 -> "Tomorrow • ${shortSdf.format(selectedDate)}"
-            -1 -> "Yesterday • ${shortSdf.format(selectedDate)}"
+            0 -> "${strings.today} • ${shortSdf.format(selectedDate)}"
+            1 -> "${strings.tomorrow} • ${shortSdf.format(selectedDate)}"
+            -1 -> "${strings.yesterday} • ${shortSdf.format(selectedDate)}"
             else -> {
                 val fullSdf = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
                 fullSdf.format(selectedDate)
@@ -96,7 +98,7 @@ fun DaySwitcherBar(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Previous Day",
+                    contentDescription = strings.previousDay,
                     tint = Color.White.copy(alpha = 0.95f),
                     modifier = Modifier.size(20.dp)
                 )
@@ -134,7 +136,7 @@ fun DaySwitcherBar(
                         modifier = Modifier.testTag("day_switcher_today_btn")
                     ) {
                         Text(
-                            text = "Today",
+                            text = strings.today,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF212121),
@@ -153,7 +155,7 @@ fun DaySwitcherBar(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Next Day",
+                    contentDescription = strings.nextDay,
                     tint = Color.White.copy(alpha = 0.95f),
                     modifier = Modifier.size(20.dp)
                 )

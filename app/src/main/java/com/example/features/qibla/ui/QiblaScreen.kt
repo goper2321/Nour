@@ -35,6 +35,7 @@ import androidx.compose.foundation.BorderStroke
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
+import com.example.localization.LocalAppStrings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -89,6 +90,7 @@ fun QiblaScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val strings = LocalAppStrings.current
     val sensorManager = remember { QiblaSensorManager(context) }
 
     DisposableEffect(location) {
@@ -141,7 +143,7 @@ fun QiblaScreen(
             ) {
                 Column {
                     Text(
-                        text = "Qibla Direction",
+                        text = strings.qiblaTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -155,9 +157,9 @@ fun QiblaScreen(
                 // Sensor Accuracy Chip
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val (accuracyText, accuracyColor) = when (qiblaState.accuracy) {
-                        SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "Accurate" to MaterialTheme.colorScheme.primary
-                        SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium" to MaterialTheme.colorScheme.secondary
-                        else -> "Calibrate" to MaterialTheme.colorScheme.outline
+                        SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> strings.accuracyAccurate to MaterialTheme.colorScheme.primary
+                        SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> strings.accuracyMedium to MaterialTheme.colorScheme.secondary
+                        else -> strings.accuracyCalibrate to MaterialTheme.colorScheme.outline
                     }
 
                     Surface(
@@ -188,7 +190,7 @@ fun QiblaScreen(
                     IconButton(onClick = { showCalibrationDialog = true }) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
-                            contentDescription = "Calibration Guide",
+                            contentDescription = strings.calibrationGuide,
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -230,9 +232,9 @@ fun QiblaScreen(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (qiblaState.hasMagnetometer && qiblaState.hasAccelerometer)
-                            "Accel + Mag Fusion"
+                            strings.sensorFusionAccelMag
                         else
-                            "Single Sensor",
+                            strings.singleSensor,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -252,7 +254,7 @@ fun QiblaScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "True North: ${String.format(Locale.US, "%+.1f°", qiblaState.declination)}",
+                        text = "${strings.trueNorth}: ${String.format(Locale.US, "%+.1f°", qiblaState.declination)}",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -281,7 +283,7 @@ fun QiblaScreen(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Hold phone flat (parallel to the ground) for optimal accelerometer & magnetometer accuracy.",
+                        text = strings.tiltAlert,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
@@ -311,7 +313,7 @@ fun QiblaScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Allahu Akbar — You are facing the Holy Kaaba!",
+                        text = strings.allahuAkbarFacingKaaba,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleSmall
@@ -553,7 +555,7 @@ fun QiblaScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Qibla Bearing",
+                        text = strings.qiblaHeading,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -564,7 +566,7 @@ fun QiblaScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "From True North",
+                        text = strings.fromTrueNorth,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -579,7 +581,7 @@ fun QiblaScreen(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Distance to Kaaba",
+                        text = strings.distanceToKaaba,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -590,7 +592,7 @@ fun QiblaScreen(
                         color = MaterialTheme.colorScheme.secondary
                     )
                     Text(
-                        text = "Makkah Al-Mukarramah",
+                        text = strings.makkahAlMukarramah,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -623,14 +625,14 @@ fun QiblaScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "Sun-Based Celestial Cross-Check",
+                        text = strings.sunCelestialCheck,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Current Sun bearing is approx ${String.format(Locale.getDefault(), "%.0f°", qiblaState.sunAzimuth)}. Look at the Sun's physical position outside to confirm device compass orientation.",
+                        text = "${String.format(Locale.getDefault(), "%.0f°", qiblaState.sunAzimuth)}. ${strings.sunBearingDescription}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -653,12 +655,12 @@ fun QiblaScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Manual Bearing Fallback",
+                            text = strings.manualBearingFallback,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "For testing or sensors unavailable",
+                            text = strings.manualBearingSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -668,14 +670,14 @@ fun QiblaScreen(
                         shape = PillShape,
                         modifier = Modifier.testTag("toggle_manual_bearing")
                     ) {
-                        Text(if (manualMode) "Use Sensors" else "Manual Slider")
+                        Text(if (manualMode) strings.useSensors else strings.manualSlider)
                     }
                 }
 
                 if (manualMode) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(
-                        text = "Rotate phone orientation manually: ${manualHeading.toInt()}°",
+                        text = "${strings.rotatePhoneManual}: ${manualHeading.toInt()}°",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -700,7 +702,7 @@ fun QiblaScreen(
             shape = CardExpressiveShape,
             title = {
                 Text(
-                    text = "Sensor Calibration Guidance",
+                    text = strings.sensorCalibrationTitle,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -708,7 +710,7 @@ fun QiblaScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "To ensure high compass accuracy for the Qibla, your phone's magnetometer must be calibrated against magnetic interference:",
+                        text = strings.sensorCalibrationIntro,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Card(
@@ -717,21 +719,21 @@ fun QiblaScreen(
                     ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                text = "🔄 Figure-8 Motion:",
+                                text = "🔄 ${strings.figure8Title}:",
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Hold your phone flat and wave it gently in a continuous Figure-8 (infinity symbol ∞) motion in the air 3 to 5 times.",
+                                text = strings.figure8Description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
                     Text(
-                        text = "• Keep away from large metal objects, speakers, laptop magnets, or thick magnetic phone cases.\n• Keep the phone parallel to the ground while facing the Qibla.",
+                        text = strings.sensorInterferenceTip,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -742,7 +744,7 @@ fun QiblaScreen(
                     onClick = { showCalibrationDialog = false },
                     shape = PillShape
                 ) {
-                    Text("Got it")
+                    Text(strings.gotIt)
                 }
             }
         )

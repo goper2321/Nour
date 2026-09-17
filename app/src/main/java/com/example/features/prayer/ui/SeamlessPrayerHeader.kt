@@ -287,7 +287,7 @@ fun SeamlessPrayerHeader(
                     modifier = Modifier.testTag("countdown_timer_text")
                 )
                 Text(
-                    text = "remaining",
+                    text = strings.remaining,
                     style = TextStyle(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Normal,

@@ -53,6 +53,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.models.UserLocation
+import com.example.localization.LocalAppStrings
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.PillShape
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -174,6 +175,8 @@ fun LocationPermissionCard(
     val permissionState = rememberLocationPermissionState()
     var isDetecting by remember { mutableStateOf(false) }
 
+    val strings = LocalAppStrings.current
+
     fun detectGps() {
         if (!isDetecting) {
             isDetecting = true
@@ -250,9 +253,9 @@ fun LocationPermissionCard(
                     Column {
                         Text(
                             text = if (permissionState.allPermissionsGranted)
-                                "GPS Location Active"
+                                strings.gpsLocationActive
                             else
-                                "Location Permission Required",
+                                strings.locationPermissionRequired,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -260,7 +263,7 @@ fun LocationPermissionCard(
                             text = if (currentLocation.isAutoDetected)
                                 "${currentLocation.cityName} • ${String.format(Locale.US, "%.2f°, %.2f°", currentLocation.latitude, currentLocation.longitude)}"
                             else
-                                "Default location: ${currentLocation.cityName}",
+                                "${strings.defaultLocationPrefix} ${currentLocation.cityName}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -282,7 +285,7 @@ fun LocationPermissionCard(
                         } else {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh GPS",
+                                contentDescription = strings.refreshGps,
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -292,7 +295,7 @@ fun LocationPermissionCard(
 
             if (!permissionState.allPermissionsGranted) {
                 Text(
-                    text = "Nour computes astronomical prayer times (Fajr, Dhuhr, Asr, Maghrib, Isha) and precise Kaaba Qibla bearing directly on your device. Location is processed 100% offline with zero cloud tracking.",
+                    text = strings.locationRationale,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -312,7 +315,7 @@ fun LocationPermissionCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Grant Permission")
+                        Text(strings.grantPermission)
                     }
                 }
             }

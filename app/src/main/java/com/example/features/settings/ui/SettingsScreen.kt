@@ -216,7 +216,7 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Active Location",
+                                text = strings.activeLocation,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -236,7 +236,7 @@ fun SettingsScreen(
                             onClick = { showLocationDialog = true },
                             shape = PillShape
                         ) {
-                            Text("Change")
+                            Text(strings.changeLocation)
                         }
                     }
                 }
@@ -253,7 +253,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Calculation Authority / Method",
+                        text = strings.calculationAuthority,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -296,13 +296,17 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Madhab (Asr Shadow Calculation)",
+                        text = strings.madhabTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Madhab.values().forEach { m ->
+                        val localizedTitle = when (m) {
+                            Madhab.STANDARD -> strings.madhabStandard
+                            Madhab.HANAFI -> strings.madhabHanafi
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -310,7 +314,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = m.title, style = MaterialTheme.typography.bodyMedium)
+                            Text(text = localizedTitle, style = MaterialTheme.typography.bodyMedium)
                             Switch(
                                 checked = madhab == m,
                                 onCheckedChange = { if (it) onMadhabChange(m) }
@@ -331,11 +335,18 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "High Latitude Rule (Scandinavia & North)",
+                        text = strings.highLatTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+
+                    fun getLocalizedHighLat(rule: HighLatitudeRule): String = when (rule) {
+                        HighLatitudeRule.ANGLE_BASED -> strings.highLatAngleBased
+                        HighLatitudeRule.MIDDLE_OF_THE_NIGHT -> strings.highLatMiddleOfNight
+                        HighLatitudeRule.ONE_SEVENTH_OF_THE_NIGHT -> strings.highLatOneSeventh
+                        HighLatitudeRule.NONE -> strings.highLatNone
+                    }
 
                     var highLatMenuOpen by remember { mutableStateOf(false) }
                     OutlinedButton(
@@ -343,7 +354,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = CardSubtleShape
                     ) {
-                        Text(highLatRule.title)
+                        Text(getLocalizedHighLat(highLatRule))
                     }
 
                     DropdownMenu(
@@ -352,7 +363,7 @@ fun SettingsScreen(
                     ) {
                         HighLatitudeRule.values().forEach { rule ->
                             DropdownMenuItem(
-                                text = { Text(rule.title) },
+                                text = { Text(getLocalizedHighLat(rule)) },
                                 onClick = {
                                     onHighLatRuleChange(rule)
                                     highLatMenuOpen = false
@@ -380,12 +391,12 @@ fun SettingsScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Per-Prayer Minute Adjustments",
+                                text = strings.perPrayerAdjustments,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Fajr: ${adjustments.fajr}m, Dhuhr: ${adjustments.dhuhr}m, Asr: ${adjustments.asr}m, Maghrib: ${adjustments.maghrib}m, Isha: ${adjustments.isha}m",
+                                text = "${strings.fajr}: ${adjustments.fajr}m, ${strings.dhuhr}: ${adjustments.dhuhr}m, ${strings.asr}: ${adjustments.asr}m, ${strings.maghrib}: ${adjustments.maghrib}m, ${strings.isha}: ${adjustments.isha}m",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -394,7 +405,7 @@ fun SettingsScreen(
                             onClick = { showAdjustmentsDialog = true },
                             shape = PillShape
                         ) {
-                            Text("Tune")
+                            Text(strings.tuneButton)
                         }
                     }
                 }
@@ -416,7 +427,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Adhan Calls & Exact Alarms",
+                            text = strings.adhanTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -438,15 +449,21 @@ fun SettingsScreen(
                             },
                             shape = PillShape
                         ) {
-                            Text(if (isTestingAdhan) "Stop" else "Test Audio")
+                            Text(if (isTestingAdhan) strings.stopAudio else strings.testAudio)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val prayers = listOf("FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA")
-                    prayers.forEach { pName ->
-                        val setting = adhanSettingsList.firstOrNull { it.prayerName == pName }
+                    val prayers = listOf(
+                        "FAJR" to strings.fajr,
+                        "DHUHR" to strings.dhuhr,
+                        "ASR" to strings.asr,
+                        "MAGHRIB" to strings.maghrib,
+                        "ISHA" to strings.isha
+                    )
+                    prayers.forEach { (pKey, pLabel) ->
+                        val setting = adhanSettingsList.firstOrNull { it.prayerName == pKey }
                         val isEnabled = setting?.isAdhanEnabled ?: true
 
                         Row(
@@ -457,15 +474,15 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
-                                Text(text = pName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text(text = setting?.toneName ?: "Makkah Adhan", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(text = pLabel, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(text = setting?.toneName ?: strings.makkahAdhan, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
 
                             Switch(
                                 checked = isEnabled,
                                 onCheckedChange = { checked ->
                                     coroutineScope.launch {
-                                        val newSetting = (setting ?: AdhanSettingsEntity(pName)).copy(isAdhanEnabled = checked)
+                                        val newSetting = (setting ?: AdhanSettingsEntity(pKey)).copy(isAdhanEnabled = checked)
                                         db.adhanSettingsDao().saveSettings(newSetting)
                                     }
                                 }
@@ -490,7 +507,7 @@ fun SettingsScreen(
                         Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Nour Privacy Pledge",
+                            text = strings.privacyPledgeTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -498,7 +515,7 @@ fun SettingsScreen(
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "• 100% Offline-First Architecture\n• Zero Advertising, Zero Analytics, Zero Trackers\n• No User Accounts Required\n• Local Storage Only (SQLite / Room)\n• Open & Private Islamic Companion",
+                        text = "• ${strings.privacyPledgeBullet1}\n• ${strings.privacyPledgeBullet2}\n• ${strings.privacyPledgeBullet3}\n• ${strings.privacyPledgeBullet4}\n• ${strings.privacyPledgeBullet5}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         lineHeight = 18.sp
@@ -520,21 +537,21 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showAdjustmentsDialog = false },
             shape = CardExpressiveShape,
-            title = { Text("Tune Prayer Minutes (+/-)", style = MaterialTheme.typography.titleLarge) },
+            title = { Text(strings.tunePrayerMinutesTitle, style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Adjust minutes to match your local mosque timetable exactly:", style = MaterialTheme.typography.bodySmall)
+                    Text(strings.tunePrayerMinutesDesc, style = MaterialTheme.typography.bodySmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = fajrAdj, onValueChange = { fajrAdj = it }, label = { Text("Fajr") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
-                        OutlinedTextField(value = sunriseAdj, onValueChange = { sunriseAdj = it }, label = { Text("Sunrise") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = fajrAdj, onValueChange = { fajrAdj = it }, label = { Text(strings.fajr) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = sunriseAdj, onValueChange = { sunriseAdj = it }, label = { Text(strings.sunrise) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = dhuhrAdj, onValueChange = { dhuhrAdj = it }, label = { Text("Dhuhr") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
-                        OutlinedTextField(value = asrAdj, onValueChange = { asrAdj = it }, label = { Text("Asr") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = dhuhrAdj, onValueChange = { dhuhrAdj = it }, label = { Text(strings.dhuhr) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = asrAdj, onValueChange = { asrAdj = it }, label = { Text(strings.asr) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = maghribAdj, onValueChange = { maghribAdj = it }, label = { Text("Maghrib") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
-                        OutlinedTextField(value = ishaAdj, onValueChange = { ishaAdj = it }, label = { Text("Isha") }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = maghribAdj, onValueChange = { maghribAdj = it }, label = { Text(strings.maghrib) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
+                        OutlinedTextField(value = ishaAdj, onValueChange = { ishaAdj = it }, label = { Text(strings.isha) }, modifier = Modifier.weight(1f), singleLine = true, shape = CardSubtleShape)
                     }
                 }
             },
@@ -555,11 +572,11 @@ fun SettingsScreen(
                     },
                     shape = PillShape
                 ) {
-                    Text("Save")
+                    Text(strings.save)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAdjustmentsDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showAdjustmentsDialog = false }) { Text(strings.cancel) }
             }
         )
     }
@@ -586,7 +603,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showLocationDialog = false },
             shape = CardExpressiveShape,
-            title = { Text("Select City", style = MaterialTheme.typography.titleLarge) },
+            title = { Text(strings.selectCity, style = MaterialTheme.typography.titleLarge) },
             text = {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(predefinedLocations.size) { index ->
@@ -615,7 +632,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showLocationDialog = false }) { Text("Close") }
+                TextButton(onClick = { showLocationDialog = false }) { Text(strings.close) }
             }
         )
     }

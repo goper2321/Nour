@@ -171,6 +171,7 @@ fun PrayerScreen(
 
     val countdownState = todayPrayerTimes.getCountdownState(currentTime)
     val displayedHijriDate = remember(displayedDate) { HijriDateHelper.fromGregorian(displayedDate) }
+    val strings = LocalAppStrings.current
 
     val displayedDateStr = remember(displayedDate) { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayedDate) }
     val displayedPrayerLogs by db.prayerLogDao().getLogsForDate(displayedDateStr).collectAsState(initial = emptyList())
@@ -235,6 +236,14 @@ fun PrayerScreen(
                 val isSunrise = prayer == PrayerName.SUNRISE
                 val log = displayedPrayerLogs.firstOrNull { it.prayerName == prayer.name }
                 val isPrayed = log?.status == "PRAYED"
+                val prayerLocalizedName = when (prayer) {
+                    PrayerName.FAJR -> strings.fajr
+                    PrayerName.SUNRISE -> strings.sunrise
+                    PrayerName.DHUHR -> strings.dhuhr
+                    PrayerName.ASR -> strings.asr
+                    PrayerName.MAGHRIB -> strings.maghrib
+                    PrayerName.ISHA -> strings.isha
+                }
 
                 PrayerCard(
                     prayer = prayer,
@@ -253,7 +262,7 @@ fun PrayerScreen(
                                     status = newStatus
                                 )
                             )
-                            val msg = if (!isPrayed) "${prayer.displayName} marked as prayed" else "${prayer.displayName} unmarked"
+                            val msg = if (!isPrayed) "$prayerLocalizedName ${strings.markedAsPrayed}" else "$prayerLocalizedName ${strings.unmarkedPrayer}"
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         }
                     }
@@ -362,10 +371,19 @@ fun PrayerCard(
                 }
 
                 // Prayer Title & Badges
+                val prayerLocalizedName = when (prayer) {
+                    PrayerName.FAJR -> strings.fajr
+                    PrayerName.SUNRISE -> strings.sunrise
+                    PrayerName.DHUHR -> strings.dhuhr
+                    PrayerName.ASR -> strings.asr
+                    PrayerName.MAGHRIB -> strings.maghrib
+                    PrayerName.ISHA -> strings.isha
+                }
+
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = prayer.displayName,
+                            text = prayerLocalizedName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = if (isNext) FontWeight.ExtraBold else FontWeight.Bold,
                             color = if (isPrayed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onSurface
@@ -427,13 +445,13 @@ fun PrayerCard(
                         )
                         if (isSunrise) {
                             Text(
-                                text = " • Tahajjud concludes",
+                                text = " • ${strings.tahajjudConcludes}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f)
                             )
                         } else if (isPrayed) {
                             Text(
-                                text = " • Completed",
+                                text = " • ${strings.completedBadge}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
