@@ -263,6 +263,7 @@ fun NourMainApp(
         )
 
         PrayerNotificationScheduler.scheduleDay(context, todayTimes)
+        PrayerNotificationScheduler.scheduleOfflineRollingWindow(context)
     }
 
     CompositionLocalProvider(

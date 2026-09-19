@@ -1,5 +1,6 @@
 package com.example.features.prayer.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,7 +87,7 @@ fun DaySwitcherBar(
         color = if (hazeOn) Color.Transparent
         else if (surfaceMode == SurfaceStyle.OPAQUE) MaterialTheme.colorScheme.surfaceContainer
         else MaterialTheme.colorScheme.surfaceContainer.copy(alpha = NourAlpha.FrostedFill),
-        border = null) {
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
         Row(Modifier.fillMaxWidth().padding(NourSpace.xs), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPreviousDay,
                 modifier = Modifier.size(NourSize.touchTarget).testTag("day_switcher_prev")) {

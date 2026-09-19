@@ -1,7 +1,16 @@
 package com.example.features.prayer.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -105,7 +114,7 @@ fun SeamlessPrayerHeader(
                 else if (surfaceMode == SurfaceStyle.OPAQUE) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.primaryContainer.copy(alpha = NourAlpha.GlassTint),
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
-            border = null,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
             modifier = Modifier.fillMaxWidth().then(
                 if (hazeOn) Modifier
                     .clip(com.example.ui.theme.CardExpressiveShape)
@@ -160,19 +169,36 @@ fun SeamlessPrayerHeader(
             Text(formatNumerals(todayPrayerTimes.formattedTime(countdownState.nextPrayer, use24Hour)),
                 style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, softWrap = false)
-            Text(formatNumerals(countdownState.formattedRemaining),
-                style = MaterialTheme.typography.displaySmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontFeatureSettings = "tnum"
-                ),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = NourAlpha.Dimmed),
-                maxLines = 1, softWrap = false,
-                modifier = Modifier.testTag("countdown_timer_text"))
+            AnimatedContent(
+                targetState = countdownState.formattedRemaining,
+                transitionSpec = {
+                    (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioLowBouncy)) { it / 3 } +
+                        fadeIn(animationSpec = tween(120)))
+                        .togetherWith(
+                            slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium)) { -it / 3 } +
+                                fadeOut(animationSpec = tween(120))
+                        )
+                },
+                label = "countdown_animated_digits"
+            ) { remaining ->
+                Text(
+                    text = formatNumerals(remaining),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontFeatureSettings = "tnum",
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.testTag("countdown_timer_text")
+                )
+            }
             LinearProgressIndicator(
                 progress = { dayProgress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(4.dp)
+                    .clip(PillShape)
                     .testTag("countdown_progress_bar"),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)

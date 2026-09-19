@@ -156,4 +156,67 @@ class ExampleRobolectricTest {
             assertTrue("Next badge should not be empty for ${lang.name}", strings.nextBadge.isNotBlank())
         }
     }
+
+    @Test
+    fun `notification channels are initialized with high importance`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.initChannels(context)
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channel = notificationManager.getNotificationChannel(com.example.features.adhan.scheduler.PrayerNotificationScheduler.CHANNEL_PRAYER_ID)
+        assertNotNull(channel)
+        assertEquals(android.app.NotificationManager.IMPORTANCE_HIGH, channel.importance)
+        assertTrue(channel.shouldVibrate())
+    }
+
+    @Test
+    fun `alarm scheduler schedules exact alarm in AlarmManager`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val futureTime = System.currentTimeMillis() + 3600_000L
+
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.scheduleExactAlarm(
+            context = context,
+            prayerName = PrayerName.MAGHRIB,
+            triggerAtMillis = futureTime,
+            isPreReminder = false,
+            dayOffset = 0
+        )
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val shadowAlarmManager = org.robolectric.Shadows.shadowOf(alarmManager)
+        val scheduledAlarm = shadowAlarmManager.nextScheduledAlarm
+        assertNotNull(scheduledAlarm)
+        assertEquals(futureTime, scheduledAlarm!!.triggerAtTime)
+    }
+
+    @Test
+    fun `prayer notification builder creates valid rich notification with actions`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.initChannels(context)
+
+        val notification = com.example.features.adhan.scheduler.PrayerNotificationScheduler.buildPrayerNotification(
+            context = context,
+            prayerName = PrayerName.FAJR,
+            isPreReminder = false,
+            preMinutes = 15,
+            isPlayingAdhan = true
+        )
+
+        assertNotNull(notification)
+        assertNotNull(notification.actions)
+        // Verify at least Mark as Prayed, Snooze, and Stop Adhan actions are present
+        assertTrue(notification.actions.size >= 3)
+    }
+
+    @Test
+    fun `offline rolling window scheduler populates alarms for upcoming prayers`() = kotlinx.coroutines.runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.scheduleOfflineRollingWindow(context, daysAhead = 2)
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val shadowAlarmManager = org.robolectric.Shadows.shadowOf(alarmManager)
+        val scheduledAlarms = shadowAlarmManager.scheduledAlarms
+        assertNotNull(scheduledAlarms)
+        assertTrue("Expected offline prayer alarms to be scheduled", scheduledAlarms.isNotEmpty())
+    }
 }
