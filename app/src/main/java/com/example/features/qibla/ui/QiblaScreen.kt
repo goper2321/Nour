@@ -513,10 +513,13 @@ fun QiblaScreen(
             verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
         ) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("qibla_metrics_card"),
             shape = CardExpressiveShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
             Row(
                 modifier = Modifier
@@ -594,7 +597,8 @@ fun QiblaScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
         ) {
             Row(
                 modifier = Modifier

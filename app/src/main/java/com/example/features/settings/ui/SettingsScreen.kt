@@ -173,7 +173,8 @@ private fun SeedColorCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(modifier = Modifier.padding(NourSpace.lg)) {
             Text(
@@ -411,8 +412,11 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
-            Card(shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+            Card(
+                shape = CardExpressiveShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            ) {
                 Column(Modifier.padding(NourSpace.lg)) {
                     Text(strings.themeTitle, style = MaterialTheme.typography.titleMedium)
                     listOf("system" to strings.themeSystem, "light" to strings.themeLight, "dark" to strings.themeDark).forEach { (value, label) ->
@@ -474,8 +478,8 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_language_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -549,8 +553,8 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_numerals_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -604,8 +608,8 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_timeformat_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -660,8 +664,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -707,8 +711,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -750,8 +754,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -788,8 +792,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -832,8 +836,8 @@ fun SettingsScreen(
                 onClick = { showAdjustmentsDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Row(
                     modifier = Modifier
@@ -883,8 +887,8 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                border = null
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -1167,7 +1171,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                border = null
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

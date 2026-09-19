@@ -1,5 +1,6 @@
 package com.example.features.quran.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +42,8 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
     }
     val arabicUi = LocalAppLanguage.current == AppLanguage.ARABIC
     Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = ListRowShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
         Row(Modifier.padding(horizontal = NourSpace.md, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NourSpace.md)) {

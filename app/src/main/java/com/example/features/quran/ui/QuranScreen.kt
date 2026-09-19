@@ -110,6 +110,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
+import com.example.features.prayer.calculation.PrayerCalculationEngine
+import com.example.features.prayer.models.UserLocation
+import com.example.features.widgets.ImmersiveSkyBackground
+import androidx.compose.ui.res.painterResource
+import java.util.Date
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -265,6 +270,12 @@ private fun GlassPillTab(
                     selected -> solidFill.copy(alpha = NourAlpha.SelectedTint)
                     else -> solidFill.copy(alpha = NourAlpha.FrostedFill)
                 },
+                shape = PillShape
+            )
+            .border(
+                width = if (selected) 1.5.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                 shape = PillShape
             )
             .selectable(selected = selected, onClick = onClick, role = Role.Tab)
@@ -986,17 +997,43 @@ fun SurahReaderView(
     var showSurahDropdown by remember { mutableStateOf(false) }
     var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
     var showTranslationsInContinuous by remember { mutableStateOf(false) }
+    var showAtmosphericRain by remember { mutableStateOf(false) }
 
-    Column(
+    val prefs = remember { NourPreferences(context) }
+    val userLocation = remember { prefs.savedLocation ?: UserLocation() }
+    val todayPrayerTimes = remember(userLocation) {
+        PrayerCalculationEngine.calculate(
+            date = Date(),
+            location = userLocation,
+            method = prefs.calculationMethod,
+            madhab = prefs.madhab,
+            highLatRule = prefs.highLatRule,
+            adjustments = prefs.adjustments
+        )
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .testTag("surah_reader_view")
     ) {
-        // Minimalist, Peaceful Top Bar
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 0.dp
+        // Real-time astronomical sky background with Google Weather-style SVG illustrations
+        ImmersiveSkyBackground(
+            prayerTimes = todayPrayerTimes,
+            location = userLocation,
+            isReadingMode = true,
+            showPrecipitation = showAtmosphericRain,
+            modifier = Modifier.matchParentSize()
+        )
+
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
+            // Minimalist, Peaceful Top Bar
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                shadowElevation = 0.dp
+            ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1053,8 +1090,20 @@ fun SurahReaderView(
                     }
                 }
 
-                // Quick Action Icons (View Mode Switcher + Reading Settings)
+                // Quick Action Icons (Weather Ambiance + View Mode Switcher + Reading Settings)
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Atmospheric Weather Ambiance Toggle (Clouds, Rain, Sun & Moon)
+                    IconButton(
+                        onClick = { showAtmosphericRain = !showAtmosphericRain },
+                        modifier = Modifier.testTag("sky_weather_toggle_button")
+                    ) {
+                        Icon(
+                            painter = painterResource(com.example.R.drawable.ic_weather_rain),
+                            contentDescription = "Atmospheric Rain & Details",
+                            tint = if (showAtmosphericRain) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     // Quick Flow vs Cards Switcher
                     IconButton(
                         onClick = {
@@ -1095,7 +1144,7 @@ fun SurahReaderView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = CardExpressiveShape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)),
                     border = null
                 ) {
                     Column(
@@ -1149,7 +1198,7 @@ fun SurahReaderView(
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.88f)),
                         border = null,
                         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
                     ) {
@@ -1396,6 +1445,7 @@ fun SurahReaderView(
             }
         }
     }
+}
 }
 
 /**
@@ -2187,7 +2237,7 @@ fun ContinuousQuranTextCard(
             .testTag("continuous_text_surface"),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.88f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
     ) {

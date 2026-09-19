@@ -8,6 +8,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -35,18 +38,34 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".features.adhan.scheduler.PrayerAlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
         <receiver
             android:name=".features.adhan.scheduler.PrayerAlarmReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.aistudio.nour.ACTION_PRAYER_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
             </intent-filter>
         </receiver>
 
         <receiver
             android:name=".features.adhan.scheduler.PrayerActionReceiver"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.aistudio.nour.ACTION_MARK_PRAYED" />
+                <action android:name="com.aistudio.nour.ACTION_SNOOZE" />
+                <action android:name="com.aistudio.nour.ACTION_DISMISS" />
+                <action android:name="com.aistudio.nour.ACTION_STOP_ADHAN" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
