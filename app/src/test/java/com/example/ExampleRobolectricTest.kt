@@ -92,7 +92,7 @@ class ExampleRobolectricTest {
     fun `quran repository returns ayahs for whole surah reading and supports arabic digits`() {
         val ikhlasAyahs = QuranRepository.getAyahsForSurah(112)
         assertEquals(4, ikhlasAyahs.size)
-        assertEquals("قُلْ هُوَ اللَّهُ أَحَدٌ", ikhlasAyahs[0].arabicText)
+        assertEquals("بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ قُلْ هُوَ ٱللَّهُ أَحَدٌ", ikhlasAyahs[0].arabicText)
 
         val kawtharAyahs = QuranRepository.getAyahsForSurah(108)
         assertEquals(3, kawtharAyahs.size)
