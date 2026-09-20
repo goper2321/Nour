@@ -1,6 +1,10 @@
 package com.example
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.core.tween
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
@@ -186,6 +190,7 @@ fun NourMainApp(
     LaunchedEffect(use24Hour) { prefs.time24h = use24Hour }
     var surfaceStyle by remember { mutableStateOf(prefs.surfaceStyle) }
     LaunchedEffect(surfaceStyle) { prefs.surfaceStyle = surfaceStyle }
+    var alarmsEnabled by remember { mutableStateOf(prefs.alarmsEnabled) }
 
     var currentDestination by remember { mutableStateOf(NourNavDestination.SALAH) }
     var setupDone by remember {
@@ -251,8 +256,11 @@ fun NourMainApp(
     var adhanScheduleTick by remember { mutableStateOf(0) }
 
 
-    // Schedule Adhan alerts + pre-Adhan reminders for today's prayers
-    LaunchedEffect(userLocation, calculationMethod, madhab, highLatRule, adjustments, adhanScheduleTick) {
+    // Schedule Adhan alerts + pre-Adhan reminders for today's prayers.
+    // Skipped entirely while the master prayer-alarms switch is off.
+    LaunchedEffect(userLocation, calculationMethod, madhab, highLatRule, adjustments, adhanScheduleTick, alarmsEnabled) {
+        prefs.alarmsEnabled = alarmsEnabled
+        if (!alarmsEnabled) return@LaunchedEffect
         val todayTimes = PrayerCalculationEngine.calculate(
             date = Date(),
             location = userLocation,
@@ -283,6 +291,17 @@ fun NourMainApp(
                 },
                 userLocation = userLocation,
                 onLocationChange = { userLocation = it },
+                alarmsEnabled = alarmsEnabled,
+                onAlarmsEnabledChange = { enabled ->
+                    alarmsEnabled = enabled
+                    if (enabled) {
+                        adhanScheduleTick++
+                    } else {
+                        coroutineScope.launch {
+                            PrayerNotificationScheduler.cancelAllAlarms(context)
+                        }
+                    }
+                },
                 onSetupComplete = {
                     prefs.setupCompleted = true
                     context.getSharedPreferences("nour_app_prefs", Context.MODE_PRIVATE)
@@ -457,7 +476,30 @@ fun NourMainApp(
                                         onSurfaceStyleChange = { surfaceStyle = it },
                                         seedColorArgb = seedColorArgb,
                                         onSeedChange = onSeedChange,
-                                        onAdhanSettingsChanged = { adhanScheduleTick++ }
+                                        onAdhanSettingsChanged = { adhanScheduleTick++ },
+                                        alarmsEnabled = alarmsEnabled,
+                                        onAlarmsEnabledChange = { enabled ->
+                                            alarmsEnabled = enabled
+                                            if (enabled) {
+                                                adhanScheduleTick++
+                                            } else {
+                                                coroutineScope.launch {
+                                                    PrayerNotificationScheduler.cancelAllAlarms(context)
+                                                }
+                                            }
+                                        },
+                                        onOpenExactAlarmSettings = {
+                                            if (Build.VERSION.SDK_INT >= 31) {
+                                                try {
+                                                    context.startActivity(
+                                                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                                            data = Uri.parse("package:${context.packageName}")
+                                                        }
+                                                    )
+                                                } catch (_: Exception) {
+                                                }
+                                            }
+                                        }
                                     )
                                 }
                             }

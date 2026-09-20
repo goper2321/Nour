@@ -34,18 +34,19 @@ class NourPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_TIME_24H, value).apply()
 
     var blurEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLUR_ENABLED, true)
+        get() = prefs.getBoolean(KEY_BLUR_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_BLUR_ENABLED, value).apply()
 
     var surfaceStyle: com.example.ui.theme.SurfaceStyle
         get() = prefs.getString(KEY_SURFACE_STYLE, null)?.let {
             com.example.ui.theme.SurfaceStyle.fromCode(it)
-        } ?: if (prefs.getBoolean(KEY_BLUR_ENABLED, true)) {
-            com.example.ui.theme.SurfaceStyle.BLUR
-        } else {
-            com.example.ui.theme.SurfaceStyle.TRANSLUCENT
-        }
+        } ?: com.example.ui.theme.SurfaceStyle.OPAQUE
         set(value) = prefs.edit().putString(KEY_SURFACE_STYLE, value.code).apply()
+
+    /** Master switch for prayer alarms. Off = cancel all scheduled alarms and schedule nothing new. */
+    var alarmsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ALARMS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_ALARMS_ENABLED, value).apply()
 
     var setupCompleted: Boolean
         get() = prefs.getBoolean(KEY_SETUP_COMPLETED, false)
@@ -159,6 +160,7 @@ class NourPreferences(context: Context) {
         const val KEY_TIME_24H = "time_use_24h"
         const val KEY_BLUR_ENABLED = "glass_blur_enabled"
         const val KEY_SURFACE_STYLE = "surface_style"
+        const val KEY_ALARMS_ENABLED = "prayer_alarms_enabled"
         const val KEY_SETUP_COMPLETED = "setup_completed"
         const val KEY_SEED_COLOR = "theme_seed_color"
         const val KEY_LOCATION_AUTO = "location_is_auto_detected"

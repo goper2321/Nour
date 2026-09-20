@@ -66,6 +66,6 @@ enum class SurfaceStyle(val code: String) {
 
     companion object {
         fun fromCode(code: String?): SurfaceStyle =
-            entries.firstOrNull { it.code == code } ?: BLUR
+            entries.firstOrNull { it.code == code } ?: OPAQUE
     }
 }

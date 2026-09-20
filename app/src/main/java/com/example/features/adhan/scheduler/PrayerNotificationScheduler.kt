@@ -175,6 +175,29 @@ object PrayerNotificationScheduler {
     }
 
     /**
+     * Cancels every scheduled prayer alarm and pre-reminder (all prayers,
+     * rolling window days 0..7, plus snooze alarms). Used by the master
+     * prayer-alarms switch so the user can fully silence the app.
+     */
+    fun cancelAllAlarms(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        PrayerName.values().forEach { prayer ->
+            cancelPrayerAlarms(context, prayer)
+            val intent = Intent(context, PrayerAlarmReceiver::class.java).apply {
+                action = ACTION_PRAYER_ALARM
+            }
+            val snoozeIntent = PendingIntent.getBroadcast(
+                context,
+                2000 + prayer.ordinal,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(snoozeIntent)
+            snoozeIntent.cancel()
+        }
+    }
+
+    /**
      * Schedules a single day's Adhan alerts and pre-Adhan reminders for every prayer,
      * honoring each prayer's saved database preferences.
      */
@@ -183,6 +206,7 @@ object PrayerNotificationScheduler {
         times: com.example.features.prayer.models.PrayerTimes,
         dayOffset: Int = 0
     ) {
+        if (!NourPreferences(context).alarmsEnabled) return
         val db = NourDatabase.getInstance(context)
         val now = System.currentTimeMillis()
         PrayerName.values().filter { it != PrayerName.SUNRISE }.forEach { p ->
@@ -217,6 +241,7 @@ object PrayerNotificationScheduler {
      */
     suspend fun scheduleOfflineRollingWindow(context: Context, daysAhead: Int = 7) {
         val prefs = NourPreferences(context)
+        if (!prefs.alarmsEnabled) return
         val location = prefs.savedLocation
             ?: UserLocation(21.4225, 39.8262, "Makkah", "Saudi Arabia", 3.0)
         val method = prefs.calculationMethod

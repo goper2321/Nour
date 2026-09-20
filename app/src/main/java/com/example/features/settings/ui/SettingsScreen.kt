@@ -1,5 +1,9 @@
 package com.example.features.settings.ui
 
+import android.app.AlarmManager
+import android.content.Context
+import android.os.Build
+import androidx.compose.material.icons.rounded.Alarm
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
@@ -87,6 +91,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -366,11 +371,14 @@ fun SettingsScreen(
     onAdjustmentsChange: (PrayerAdjustments) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit = {},
     onAdhanSettingsChanged: () -> Unit = {},
+    alarmsEnabled: Boolean = true,
+    onAlarmsEnabledChange: (Boolean) -> Unit = {},
+    onOpenExactAlarmSettings: () -> Unit = {},
     useEasternNumerals: Boolean = false,
     onNumeralsChange: (Boolean) -> Unit = {},
     use24Hour: Boolean = false,
     onTimeFormatChange: (Boolean) -> Unit = {},
-    surfaceStyle: com.example.ui.theme.SurfaceStyle = com.example.ui.theme.SurfaceStyle.BLUR,
+    surfaceStyle: com.example.ui.theme.SurfaceStyle = com.example.ui.theme.SurfaceStyle.OPAQUE,
     onSurfaceStyleChange: (com.example.ui.theme.SurfaceStyle) -> Unit = {},
     seedColorArgb: Int? = null,
     onSeedChange: (Int?) -> Unit = {},
@@ -928,6 +936,90 @@ fun SettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    // Master prayer-alarms switch: off cancels every scheduled
+                    // alarm and stops all future scheduling (see NourPreferences).
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = strings.alarmsMasterTitle,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = strings.alarmsMasterDesc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                            checked = alarmsEnabled,
+                            onCheckedChange = onAlarmsEnabledChange,
+                            modifier = Modifier.testTag("alarms_master_switch")
+                        )
+                    }
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline),
+                        modifier = Modifier.padding(vertical = NourSpace.sm)
+                    )
+
+                    // System "Alarms & reminders" permission row (Android 12+).
+                    // The switch mirrors the OS grant and opens system settings.
+                    if (Build.VERSION.SDK_INT >= 31) {
+                        val alarmManager = remember {
+                            context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                        }
+                        var exactTick by remember { mutableIntStateOf(0) }
+                        val canExact = remember(exactTick, alarmsEnabled) {
+                            alarmManager?.canScheduleExactAlarms() ?: false
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Alarm,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = strings.alarmsSystemSettings,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 2,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                            Switch(
+                                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                                checked = canExact && alarmsEnabled,
+                                onCheckedChange = {
+                                    exactTick++
+                                    onOpenExactAlarmSettings()
+                                },
+                                enabled = alarmsEnabled,
+                                modifier = Modifier.testTag("exact_alarm_system_switch")
+                            )
+                        }
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline),
+                            modifier = Modifier.padding(vertical = NourSpace.sm)
+                        )
+                    }
 
                     // Global Adhan voice (applies to all prayers) + volume + credit
                     var voiceMenuOpen by remember { mutableStateOf(false) }

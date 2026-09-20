@@ -129,6 +129,8 @@ fun SetupWizard(
     userLocation: UserLocation,
     onLocationChange: (UserLocation) -> Unit,
     onSetupComplete: () -> Unit,
+    alarmsEnabled: Boolean = true,
+    onAlarmsEnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -303,8 +305,18 @@ fun SetupWizard(
                             else notifPermission.launchPermissionRequest()
                         },
                         exactRowVisible = Build.VERSION.SDK_INT >= 31,
-                        exactGranted = canExact,
-                        onExactToggle = { openExactAlarmSettings() }
+                        // The switch is a real toggle now: OFF disables all
+                        // prayer alarms via the master preference (which also
+                        // cancels everything already scheduled).
+                        exactGranted = alarmsEnabled && canExact,
+                        onExactToggle = {
+                            if (alarmsEnabled && canExact) {
+                                onAlarmsEnabledChange(false)
+                            } else {
+                                onAlarmsEnabledChange(true)
+                                openExactAlarmSettings()
+                            }
+                        }
                     )
                 }
             }
