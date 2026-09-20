@@ -33,16 +33,6 @@ class NourPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_TIME_24H, true)
         set(value) = prefs.edit().putBoolean(KEY_TIME_24H, value).apply()
 
-    var blurEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BLUR_ENABLED, false)
-        set(value) = prefs.edit().putBoolean(KEY_BLUR_ENABLED, value).apply()
-
-    var surfaceStyle: com.example.ui.theme.SurfaceStyle
-        get() = prefs.getString(KEY_SURFACE_STYLE, null)?.let {
-            com.example.ui.theme.SurfaceStyle.fromCode(it)
-        } ?: com.example.ui.theme.SurfaceStyle.OPAQUE
-        set(value) = prefs.edit().putString(KEY_SURFACE_STYLE, value.code).apply()
-
     /** Master switch for prayer alarms. Off = cancel all scheduled alarms and schedule nothing new. */
     var alarmsEnabled: Boolean
         get() = prefs.getBoolean(KEY_ALARMS_ENABLED, true)
@@ -158,8 +148,6 @@ class NourPreferences(context: Context) {
     private companion object {
         const val KEY_NUMERAL_EASTERN = "numeral_use_eastern"
         const val KEY_TIME_24H = "time_use_24h"
-        const val KEY_BLUR_ENABLED = "glass_blur_enabled"
-        const val KEY_SURFACE_STYLE = "surface_style"
         const val KEY_ALARMS_ENABLED = "prayer_alarms_enabled"
         const val KEY_SETUP_COMPLETED = "setup_completed"
         const val KEY_SEED_COLOR = "theme_seed_color"

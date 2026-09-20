@@ -43,29 +43,6 @@ object NourMotion {
  * MaterialTheme.colorScheme.primary — never a hardcoded color.
  */
 object NourAlpha {
-    const val GlassTint = 0.10f
     const val BadgeTint = 0.15f
-    const val ChipTint = 0.30f
-    const val SelectedTint = 0.35f
     const val Hairline = 0.35f
-    const val Dimmed = 0.40f
-    const val Scrim = 0.55f
-    const val FrostedFill = 0.62f
-}
-
-/**
- * Surface treatment for glass-capable cards. Opaque is fully solid,
- * Translucent is frosted, Blur adds a real backdrop blur on top of the
- * translucent treatment. All tints derive from the theme accent, so every
- * mode follows the selected seed color automatically.
- */
-enum class SurfaceStyle(val code: String) {
-    OPAQUE("opaque"),
-    TRANSLUCENT("translucent"),
-    BLUR("blur");
-
-    companion object {
-        fun fromCode(code: String?): SurfaceStyle =
-            entries.firstOrNull { it.code == code } ?: OPAQUE
-    }
 }

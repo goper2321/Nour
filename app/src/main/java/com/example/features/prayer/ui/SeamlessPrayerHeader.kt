@@ -53,26 +53,18 @@ import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
 import com.example.features.widgets.ImmersiveSkyBackground
 import com.example.localization.LocalAppStrings
-import com.example.localization.LocalSurfaceStyle
-import com.example.ui.theme.SurfaceStyle
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
-import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.PillShape
 import java.util.Date
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeamlessPrayerHeader(
-    hazeState: HazeState? = null,
     location: UserLocation,
     countdownState: CountdownState,
     todayPrayerTimes: PrayerTimes,

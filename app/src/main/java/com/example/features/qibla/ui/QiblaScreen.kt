@@ -47,9 +47,6 @@ import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.foundation.BorderStroke
 import com.example.ui.theme.CardExpressiveShape
-import com.example.ui.components.StatusBlurStrip
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.HazeState
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
 import androidx.compose.material3.AlertDialog
@@ -141,7 +138,6 @@ fun QiblaScreen(
 
     val scrollState = rememberScrollState()
 
-    val stripHaze = remember { HazeState() }
     Box(
         modifier = modifier.fillMaxSize()
     ) {
@@ -150,7 +146,6 @@ fun QiblaScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .verticalScroll(scrollState)
-            .hazeSource(state = stripHaze)
             .padding(NourSpace.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
@@ -693,10 +688,6 @@ fun QiblaScreen(
             }
         }
     }
-        StatusBlurStrip(
-            hazeState = stripHaze,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 
     // Figure-8 Motion Calibration Guidance Dialog

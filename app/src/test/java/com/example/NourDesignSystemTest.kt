@@ -17,7 +17,6 @@ import com.example.features.prayer.ui.PrayerCard
 import com.example.features.prayer.ui.SeamlessPrayerHeader
 import com.example.features.settings.NourPreferences
 import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.theme.SurfaceStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -33,11 +32,10 @@ class NourDesignSystemTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun defaultPreferencesHave24hAndTimeOpaque() {
+    fun defaultPreferencesUse24HourFormat() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = NourPreferences(context)
         assertTrue("Expected 24-hour format to be default true", prefs.time24h)
-        assertEquals("Expected OPAQUE surface style to be default", SurfaceStyle.OPAQUE, prefs.surfaceStyle)
     }
 
     @Test

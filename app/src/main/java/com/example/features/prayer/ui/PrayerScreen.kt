@@ -5,7 +5,6 @@ import androidx.compose.runtime.setValue
 
 import android.widget.Toast
 import com.example.ui.theme.NourSpace
-import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.components.NourBadge
 import androidx.compose.material3.IconToggleButton
@@ -13,14 +12,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import com.example.ui.components.NourContentFrame
-import com.example.ui.components.StatusBlurStrip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -47,15 +44,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.example.localization.LocalAppStrings
-import com.example.localization.LocalSurfaceStyle
-import com.example.ui.theme.SurfaceStyle
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,7 +57,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -168,8 +157,6 @@ fun PrayerScreen(
         }
     }
 
-    val hazeState = remember { HazeState() }
-
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -190,7 +177,6 @@ fun PrayerScreen(
             // Dates, location, and the live next-prayer summary.
             item {
                 SeamlessPrayerHeader(
-                    hazeState = hazeState,
                     location = location,
                     countdownState = countdownState,
                     todayPrayerTimes = todayPrayerTimes,
@@ -202,7 +188,6 @@ fun PrayerScreen(
             // Daily navigation remains separate from the live countdown.
             item {
                 DaySwitcherBar(
-                    hazeState = hazeState,
                     selectedDate = displayedDate,
                     dayOffset = selectedDayOffset,
                     onPreviousDay = { selectedDayOffset-- },
@@ -221,7 +206,6 @@ fun PrayerScreen(
                 val isPrayed = log?.status == "PRAYED"
 
                 PrayerCard(
-                    hazeState = hazeState,
                     prayer = prayer,
                     timeFormatted = displayedPrayerTimes.formattedTime(prayer, use24Hour),
                     isNext = isNext,
@@ -257,17 +241,12 @@ fun PrayerScreen(
             }
         }
         }
-        StatusBlurStrip(
-            hazeState = hazeState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PrayerCard(
-    hazeState: HazeState? = null,
     prayer: PrayerName,
     timeFormatted: String,
     isNext: Boolean,
@@ -292,24 +271,8 @@ fun PrayerCard(
         isNext -> 1
         else -> 2
     }
-    // Glass over the immersive sky: real 16dp backdrop blur + 10% tint when
-    // enabled, frosted 62% fill otherwise. Shared sky HazeState from PrayerScreen.
-    val surfaceMode = LocalSurfaceStyle.current
-    val hazeOn = surfaceMode == SurfaceStyle.BLUR && hazeState != null
     val solidContainer =
         if (isNext) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-    val glassStyle = HazeStyle(
-        backgroundColor = androidx.compose.ui.graphics.Color.Transparent,
-        tint = HazeTint(solidContainer.copy(alpha = NourAlpha.GlassTint)),
-        blurRadius = 16.dp,
-        noiseFactor = 0f
-    )
-    val container by animateColorAsState(
-        if (hazeOn) androidx.compose.ui.graphics.Color.Transparent
-        else if (surfaceMode == SurfaceStyle.OPAQUE) solidContainer
-        else solidContainer.copy(alpha = NourAlpha.FrostedFill),
-        label = "prayer_container"
-    )
     val titleColor = when (rowState) {
         1 -> MaterialTheme.colorScheme.onPrimaryContainer
         2 -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -317,15 +280,9 @@ fun PrayerCard(
     }
     Card(
         modifier = Modifier.fillMaxWidth()
-            .testTag("prayer_card_${prayer.name}")
-            .then(
-                if (hazeOn) Modifier
-                    .clip(com.example.ui.theme.ListRowShape)
-                    .hazeEffect(state = hazeState!!, style = glassStyle)
-                else Modifier
-            ),
+            .testTag("prayer_card_${prayer.name}"),
         shape = com.example.ui.theme.ListRowShape,
-        colors = CardDefaults.cardColors(containerColor = container,
+        colors = CardDefaults.cardColors(containerColor = solidContainer,
             contentColor = if (isNext) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
         border = when {
             isNext -> BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary)

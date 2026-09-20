@@ -94,8 +94,6 @@ import com.example.localization.LocalAppLanguage
 import com.example.localization.LocalAppStrings
 import com.example.localization.LocalUseEasternNumerals
 import com.example.localization.LocalUse24HourFormat
-import com.example.localization.LocalSurfaceStyle
-import com.example.ui.theme.SurfaceStyle
 import com.example.localization.LocalizationManager
 import com.example.ui.theme.MyApplicationTheme
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -188,8 +186,6 @@ fun NourMainApp(
     LaunchedEffect(useEasternNumerals) { prefs.numeralEastern = useEasternNumerals }
     var use24Hour by remember { mutableStateOf(prefs.time24h) }
     LaunchedEffect(use24Hour) { prefs.time24h = use24Hour }
-    var surfaceStyle by remember { mutableStateOf(prefs.surfaceStyle) }
-    LaunchedEffect(surfaceStyle) { prefs.surfaceStyle = surfaceStyle }
     var alarmsEnabled by remember { mutableStateOf(prefs.alarmsEnabled) }
 
     var currentDestination by remember { mutableStateOf(NourNavDestination.SALAH) }
@@ -279,8 +275,7 @@ fun NourMainApp(
         LocalAppLanguage provides currentLanguage,
         LocalAppStrings provides strings,
         LocalUseEasternNumerals provides useEasternNumerals,
-        LocalUse24HourFormat provides use24Hour,
-        LocalSurfaceStyle provides surfaceStyle
+        LocalUse24HourFormat provides use24Hour
     ) {
         if (!setupDone) {
             SetupWizard(
@@ -480,8 +475,6 @@ fun NourMainApp(
                                         onNumeralsChange = { useEasternNumerals = it },
                                         use24Hour = use24Hour,
                                         onTimeFormatChange = { use24Hour = it },
-                                        surfaceStyle = surfaceStyle,
-                                        onSurfaceStyleChange = { surfaceStyle = it },
                                         seedColorArgb = seedColorArgb,
                                         onSeedChange = onSeedChange,
                                         onReopenSetup = { setupDone = false },

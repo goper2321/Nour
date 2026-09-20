@@ -80,9 +80,3 @@ val LocalAppStrings = compositionLocalOf { AppStrings.forLanguage(AppLanguage.EN
 
 /** true = 24-hour clock (17:30), false = 12-hour clock (5:30 PM). */
 val LocalUse24HourFormat = compositionLocalOf { true }
-
-/** Glass blur over scenic backgrounds (no-op where the backdrop is solid). */
-val LocalBlurEnabled = compositionLocalOf { false }
-
-/** Surface treatment for glass-capable cards; tints always derive from the theme accent. */
-val LocalSurfaceStyle = compositionLocalOf { com.example.ui.theme.SurfaceStyle.OPAQUE }

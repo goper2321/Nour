@@ -123,9 +123,6 @@ import com.example.localization.AppLanguage
 import com.example.localization.LocalAppLanguage
 import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
-import com.example.ui.components.StatusBlurStrip
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.HazeState
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -379,8 +376,6 @@ fun SettingsScreen(
     onNumeralsChange: (Boolean) -> Unit = {},
     use24Hour: Boolean = true,
     onTimeFormatChange: (Boolean) -> Unit = {},
-    surfaceStyle: com.example.ui.theme.SurfaceStyle = com.example.ui.theme.SurfaceStyle.OPAQUE,
-    onSurfaceStyleChange: (com.example.ui.theme.SurfaceStyle) -> Unit = {},
     seedColorArgb: Int? = null,
     onSeedChange: (Int?) -> Unit = {},
     onReopenSetup: () -> Unit = {},
@@ -404,7 +399,6 @@ fun SettingsScreen(
     var showLocationDialog by remember { mutableStateOf(false) }
     var isTestingAdhan by remember { mutableStateOf(false) }
 
-    val stripHaze = remember { HazeState() }
     Box(
         modifier = modifier.fillMaxSize()
     ) {
@@ -412,7 +406,6 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .hazeSource(state = stripHaze)
             .testTag("settings_screen_list"),
         contentPadding = PaddingValues(NourSpace.lg),
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
@@ -448,28 +441,6 @@ fun SettingsScreen(
                             enabled = android.os.Build.VERSION.SDK_INT >= 31)
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
-                    Text(
-                        text = strings.surfacesTitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(NourSpace.sm))
-                    listOf(
-                        com.example.ui.theme.SurfaceStyle.OPAQUE to strings.surfaceOpaque,
-                        com.example.ui.theme.SurfaceStyle.TRANSLUCENT to strings.surfaceTransparent,
-                        com.example.ui.theme.SurfaceStyle.BLUR to strings.surfaceBlur
-                    ).forEach { (mode, label) ->
-                        Row(Modifier.fillMaxWidth().selectable(selected = surfaceStyle == mode,
-                            role = Role.RadioButton, onClick = { onSurfaceStyleChange(mode) })
-                            .padding(vertical = NourSpace.xs)
-                            .testTag("surface_option_${mode.code}"),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant), selected = surfaceStyle == mode, onClick = null)
-                            Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                        }
-                    }
                 }
             }
         }
@@ -1351,10 +1322,6 @@ fun SettingsScreen(
             }
         }
     }
-        StatusBlurStrip(
-            hazeState = stripHaze,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 
     // Per-Prayer Minute Tuning Dialog

@@ -3,12 +3,10 @@
 package com.example.features.quran.ui
 
 import com.example.ui.theme.NourSpace
-import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.SheetExpressiveShape
 import com.example.ui.components.NourEmptyState
-import com.example.ui.components.StatusBlurStrip
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
@@ -26,8 +24,6 @@ import androidx.compose.ui.semantics.customActions
 import com.example.localization.AppLanguage
 import com.example.localization.LocalAppLanguage
 import com.example.localization.LocalAppStrings
-import com.example.localization.LocalSurfaceStyle
-import com.example.ui.theme.SurfaceStyle
 import com.example.localization.LocalUseEasternNumerals
 import com.example.localization.Numerals
 import com.example.localization.formatNumerals
@@ -156,11 +152,6 @@ import com.example.features.settings.NourPreferences
 import com.example.features.quran.models.Ayah
 import com.example.features.quran.models.RevelationType
 import com.example.features.quran.models.Surah
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.launch
 
 /**
@@ -178,16 +169,14 @@ private val PillsBarHeight = 48.dp
 
 /**
  * Floating tab pills shared by the library lists. Rendered in sticky headers
- * (in-flow layout makes overlap structurally impossible) as frosted glass;
- * the blurred status strip above provides the live glass-blur.
+ * (in-flow layout makes overlap structurally impossible) with solid fills.
  */
 @Composable
 private fun GlassPillsRow(
     selectedTab: Int,
     bookmarkCount: Int,
     onTabSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    hazeState: HazeState? = null
+    modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
     Column(
@@ -205,68 +194,42 @@ private fun GlassPillsRow(
                 selected = selectedTab == 0,
                 onClick = { onTabSelect(0) },
                 label = strings.tabSurah,
-                modifier = Modifier.weight(1f),
-                hazeState = hazeState
+                modifier = Modifier.weight(1f)
             )
             GlassPillTab(
                 selected = selectedTab == 1,
                 onClick = { onTabSelect(1) },
                 label = if (bookmarkCount > 0) formatNumerals("${strings.tabBookmark} ($bookmarkCount)")
                 else strings.tabBookmark,
-                modifier = Modifier.weight(1f),
-                hazeState = hazeState
+                modifier = Modifier.weight(1f)
             )
             GlassPillTab(
                 selected = selectedTab == 2,
                 onClick = { onTabSelect(2) },
                 label = strings.tabSearch,
-                modifier = Modifier.weight(1f),
-                hazeState = hazeState
+                modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
 /**
- * One frosted pill. In Blur mode the pill gets a real 16dp backdrop blur via
- * Haze (transparent container + effect layer, exactly like the prayer cards);
- * otherwise it uses the solid/frosted fills. Selection shows via tint.
+ * One tab pill. Selection shows via an accent container fill and border.
  */
 @Composable
 private fun GlassPillTab(
     selected: Boolean,
     onClick: () -> Unit,
     label: String,
-    modifier: Modifier = Modifier,
-    hazeState: HazeState? = null
+    modifier: Modifier = Modifier
 ) {
-    val surfaceMode = LocalSurfaceStyle.current
-    val hazeOn = surfaceMode == SurfaceStyle.BLUR && hazeState != null
     val solidFill =
         if (selected) MaterialTheme.colorScheme.primaryContainer
         else MaterialTheme.colorScheme.surfaceContainerLow
-    val glassStyle = HazeStyle(
-        backgroundColor = Color.Transparent,
-        tint = HazeTint(solidFill.copy(alpha = NourAlpha.GlassTint)),
-        blurRadius = 16.dp,
-        noiseFactor = 0f
-    )
     Box(
         modifier = modifier
             .clip(PillShape)
-            .then(
-                if (hazeOn) Modifier.hazeEffect(state = hazeState!!, style = glassStyle)
-                else Modifier
-            )
-            .background(
-                when {
-                    hazeOn -> Color.Transparent
-                    surfaceMode == SurfaceStyle.OPAQUE -> solidFill
-                    selected -> solidFill.copy(alpha = NourAlpha.SelectedTint)
-                    else -> solidFill.copy(alpha = NourAlpha.FrostedFill)
-                },
-                shape = PillShape
-            )
+            .background(solidFill, shape = PillShape)
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
@@ -347,9 +310,8 @@ fun QuranScreen(
         }
     }
 
-    val hazeState = remember { HazeState() }
     // No topbar: library content runs edge-to-edge beneath the status bar,
-    // with the pills floating as glass over the scrolling content.
+    // with the pills floating over the scrolling content.
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -411,7 +373,6 @@ fun QuranScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource(state = hazeState)
             ) {
             // Tab Content
             when (selectedTab) {
@@ -464,14 +425,9 @@ fun QuranScreen(
                 selectedTab = selectedTab,
                 bookmarkCount = bookmarks.size,
                 onTabSelect = { selectedTab = it },
-                modifier = Modifier.align(Alignment.TopCenter),
-                hazeState = hazeState
+                modifier = Modifier.align(Alignment.TopCenter)
             )
         }
-        StatusBlurStrip(
-            hazeState = hazeState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
     }
 
     // Direct Page Jump Dialog
