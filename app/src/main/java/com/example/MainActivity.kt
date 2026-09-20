@@ -302,6 +302,14 @@ fun NourMainApp(
                         }
                     }
                 },
+                calculationMethod = calculationMethod,
+                onCalculationMethodChange = { calculationMethod = it },
+                madhab = madhab,
+                onMadhabChange = { madhab = it },
+                useEasternNumerals = useEasternNumerals,
+                onEasternNumeralsChange = { useEasternNumerals = it },
+                use24Hour = use24Hour,
+                on24HourChange = { use24Hour = it },
                 onSetupComplete = {
                     prefs.setupCompleted = true
                     context.getSharedPreferences("nour_app_prefs", Context.MODE_PRIVATE)
@@ -476,6 +484,7 @@ fun NourMainApp(
                                         onSurfaceStyleChange = { surfaceStyle = it },
                                         seedColorArgb = seedColorArgb,
                                         onSeedChange = onSeedChange,
+                                        onReopenSetup = { setupDone = false },
                                         onAdhanSettingsChanged = { adhanScheduleTick++ },
                                         alarmsEnabled = alarmsEnabled,
                                         onAlarmsEnabledChange = { enabled ->

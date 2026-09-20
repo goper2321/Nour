@@ -58,6 +58,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -376,12 +377,13 @@ fun SettingsScreen(
     onOpenExactAlarmSettings: () -> Unit = {},
     useEasternNumerals: Boolean = false,
     onNumeralsChange: (Boolean) -> Unit = {},
-    use24Hour: Boolean = false,
+    use24Hour: Boolean = true,
     onTimeFormatChange: (Boolean) -> Unit = {},
     surfaceStyle: com.example.ui.theme.SurfaceStyle = com.example.ui.theme.SurfaceStyle.OPAQUE,
     onSurfaceStyleChange: (com.example.ui.theme.SurfaceStyle) -> Unit = {},
     seedColorArgb: Int? = null,
     onSeedChange: (Int?) -> Unit = {},
+    onReopenSetup: () -> Unit = {},
     modifier: Modifier = Modifier,
     themeMode: String = "system",
     dynamicColors: Boolean = false,
@@ -1282,6 +1284,68 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         lineHeight = 18.sp
+                    )
+                }
+            }
+        }
+
+        // First-Time Setup Wizard Re-run Card
+        item {
+            Card(
+                onClick = onReopenSetup,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_rerun_setup_card"),
+                shape = CardExpressiveShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(NourSpace.lg),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(NourSpace.md)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Explore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = strings.setupRerunWizard,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = strings.setupRerunWizardDesc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }

@@ -30,7 +30,7 @@ class NourPreferences(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_NUMERAL_EASTERN, value).apply()
 
     var time24h: Boolean
-        get() = prefs.getBoolean(KEY_TIME_24H, false)
+        get() = prefs.getBoolean(KEY_TIME_24H, true)
         set(value) = prefs.edit().putBoolean(KEY_TIME_24H, value).apply()
 
     var blurEnabled: Boolean

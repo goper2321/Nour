@@ -81,7 +81,6 @@ import com.example.features.prayer.models.Madhab
 import com.example.features.prayer.models.PrayerAdjustments
 import com.example.features.prayer.models.PrayerName
 import com.example.features.prayer.models.UserLocation
-import com.example.features.widgets.ImmersiveSkyBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -171,15 +170,13 @@ fun PrayerScreen(
 
     val hazeState = remember { HazeState() }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize().testTag("prayer_sky_page")) {
-        ImmersiveSkyBackground(
-            prayerTimes = todayPrayerTimes, location = location,
-            now = currentTime, countdownState = countdownState,
-            modifier = Modifier.matchParentSize()
-                .hazeSource(state = hazeState)
-                .testTag("prayer_sky_background")
-        )
-        val skyReveal = NourSpace.xl
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+            .testTag("prayer_sky_page")
+    ) {
+        val skyReveal = NourSpace.md
         NourContentFrame {
         LazyColumn(
             modifier = Modifier

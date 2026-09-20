@@ -52,10 +52,12 @@ class QuranCorpusTest {
 
     @Test
     fun noFabricatedTranslationOrTafsirIsPresent() {
-        // The corpus carries Arabic text only; translations/tafsir must stay empty
+        // Translations carry only the authentic bundled English edition; tafsir must stay empty
         // until a source with verifiable provenance is bundled.
         QuranCorpus.ayahs.forEach { ayah ->
-            assertTrue(ayah.translations.isEmpty())
+            ayah.translations.keys.forEach { key ->
+                assertEquals(QuranCorpus.ENGLISH_EDITION_ID, key)
+            }
             assertTrue(ayah.tafsirEntries.isEmpty())
         }
     }
