@@ -9,6 +9,10 @@ import org.w3c.dom.Element
 internal object QuranCorpus {
     const val TEXT_HASH = "6933e133dd56db778c801bf738848454e43648105a151e8d84d86a7cae39ec5f"
     const val METADATA_HASH = "8867c1d88191472adec9db694b3cd9f135b1a2ef580574d32cf888dcb22c5c7a"
+    const val EN_SAHIH_HASH = "f090ed258e647a393ddaa0b48f1e81ab7a5ccd5ad7d72d0da498e151bc0dbc18"
+
+    /** Edition id used for the bundled Saheeh International English translation. */
+    const val ENGLISH_EDITION_ID = "sahih_en"
 
     private fun resource(name: String, hash: String): ByteArray {
         val bytes = requireNotNull(javaClass.getResourceAsStream("/quran/$name")) {
@@ -43,7 +47,22 @@ internal object QuranCorpus {
     fun quarterFor(surah: Int, ayah: Int): Int =
         quarters.last { it.reference <= reference(surah, ayah) }.index
 
+    private val englishByRef: Map<Int, String> by lazy {
+        val text = resource("en_sahihintl.txt", EN_SAHIH_HASH).toString(Charsets.UTF_8)
+        val map = HashMap<Int, String>(7000)
+        text.lineSequence().forEach { line ->
+            if (line.isBlank()) return@forEach
+            val fields = line.split('|', limit = 3)
+            require(fields.size == 3 && fields[2].isNotBlank()) { "Bad translation line: $line" }
+            map[reference(fields[0].toInt(), fields[1].toInt())] = fields[2]
+        }
+        require(map.size == 6236) { "Expected 6236 translated verses, got ${map.size}" }
+        map
+    }
+
     val ayahs: List<Ayah> by lazy {
+        // Force translation load first so a corrupt translation fails fast with a clear error.
+        val translations = englishByRef
         val text = resource("uthmani.txt", TEXT_HASH).toString(Charsets.UTF_8).removePrefix("﻿")
         val verses = text.lineSequence().filter { it.firstOrNull()?.isDigit() == true }.map { line ->
             val fields = line.split('|', limit = 3)
@@ -52,7 +71,8 @@ internal object QuranCorpus {
             val ayah = fields[1].toInt()
             val ref = reference(surah, ayah)
             Ayah(surah, ayah, fields[2], pages.last { it.reference <= ref }.index,
-                juzs.last { it.reference <= ref }.index)
+                juzs.last { it.reference <= ref }.index,
+                translations = translations[ref]?.let { mapOf(ENGLISH_EDITION_ID to it) } ?: emptyMap())
         }.toList()
         require(verses.size == 6236)
         val suras = metadata.getElementsByTagName("sura")

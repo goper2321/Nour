@@ -97,7 +97,7 @@ import com.example.features.location.HOLY_CITIES
 import com.example.features.location.WORLD_LOCATIONS
 import com.example.features.location.WorldLocation
 import com.example.features.location.rememberLocationPermissionState
-import com.example.features.prayer.audio.AdhanAudioPlayer
+import com.example.features.adhan.player.AdhanPlayer
 import com.example.features.prayer.models.UserLocation
 import com.example.localization.AppLanguage
 import com.example.localization.LocalAppStrings
@@ -1119,10 +1119,10 @@ private fun SetupAlertsStep(
                 Button(
                     onClick = {
                         if (isPlayingAudio) {
-                            AdhanAudioPlayer.stop()
+                            AdhanPlayer.stop()
                             isPlayingAudio = false
                         } else {
-                            AdhanAudioPlayer.play(context, "makkah")
+                            AdhanPlayer.playAdhan(context, "makkah")
                             isPlayingAudio = true
                         }
                     },

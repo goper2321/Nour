@@ -13,8 +13,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -439,6 +443,20 @@ fun ImmersiveSkyBackground(
     // Restrained, subtle ambient animations
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
 
+    // Smooth monotonic clock (60fps) for cloud drift & bob. The wall-clock
+    // `now` only ticks once per second, which made clouds visibly step.
+    // The wall base is captured once so the sky layout is preserved.
+    var smoothSeconds by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val startNanos = withFrameNanos { it }
+        while (true) {
+            withFrameNanos { frameNanos ->
+                smoothSeconds = (frameNanos - startNanos) / 1_000_000_000f
+            }
+        }
+    }
+    val wallBaseSeconds = remember { nowMillis / 1000.0 }
+
     // Star twinkle oscillation
     val starTwinkle by infiniteTransition.animateFloat(
         initialValue = 0.35f,
@@ -533,7 +551,8 @@ fun ImmersiveSkyBackground(
             val w = size.width
             val h = size.height
             val celestialCenter = Offset(celestialX, celestialY)
-            val timeSeconds = nowMillis / 1000.0
+            // Smooth cloud time: wall base (layout-preserving) + 60fps frame clock.
+            val timeSeconds = wallBaseSeconds + smoothSeconds.toDouble()
             val cloudLuminosity = atmosphericState.skyLuminosity
             val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
             val isDarkNight = cloudLuminosity < 0.25f

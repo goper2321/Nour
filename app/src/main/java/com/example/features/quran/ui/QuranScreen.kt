@@ -110,11 +110,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
-import com.example.features.prayer.calculation.PrayerCalculationEngine
-import com.example.features.prayer.models.UserLocation
-import com.example.features.widgets.ImmersiveSkyBackground
-import androidx.compose.ui.res.painterResource
-import java.util.Date
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -997,35 +992,12 @@ fun SurahReaderView(
     var showSurahDropdown by remember { mutableStateOf(false) }
     var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
     var showTranslationsInContinuous by remember { mutableStateOf(false) }
-    var showAtmosphericRain by remember { mutableStateOf(false) }
-
-    val prefs = remember { NourPreferences(context) }
-    val userLocation = remember { prefs.savedLocation ?: UserLocation() }
-    val todayPrayerTimes = remember(userLocation) {
-        PrayerCalculationEngine.calculate(
-            date = Date(),
-            location = userLocation,
-            method = prefs.calculationMethod,
-            madhab = prefs.madhab,
-            highLatRule = prefs.highLatRule,
-            adjustments = prefs.adjustments
-        )
-    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .testTag("surah_reader_view")
     ) {
-        // Real-time astronomical sky background with Google Weather-style SVG illustrations
-        ImmersiveSkyBackground(
-            prayerTimes = todayPrayerTimes,
-            location = userLocation,
-            isReadingMode = true,
-            showPrecipitation = showAtmosphericRain,
-            modifier = Modifier.matchParentSize()
-        )
-
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -1090,20 +1062,8 @@ fun SurahReaderView(
                     }
                 }
 
-                // Quick Action Icons (Weather Ambiance + View Mode Switcher + Reading Settings)
+                // Quick Action Icons (View Mode Switcher + Reading Settings)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Atmospheric Weather Ambiance Toggle (Clouds, Rain, Sun & Moon)
-                    IconButton(
-                        onClick = { showAtmosphericRain = !showAtmosphericRain },
-                        modifier = Modifier.testTag("sky_weather_toggle_button")
-                    ) {
-                        Icon(
-                            painter = painterResource(com.example.R.drawable.ic_weather_rain),
-                            contentDescription = "Atmospheric Rain & Details",
-                            tint = if (showAtmosphericRain) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
                     // Quick Flow vs Cards Switcher
                     IconButton(
                         onClick = {

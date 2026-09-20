@@ -100,7 +100,7 @@ fun DaySwitcherBar(
                 Text(
                     formatNumerals(
                         if (isArabicUi) hijri.formattedAr
-                        else "${hijri.formattedEn} • ${hijri.formattedAr}"
+                        else hijri.formattedEn
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

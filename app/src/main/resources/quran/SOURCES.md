@@ -18,9 +18,13 @@
   Attribution). Supplied unchanged and credited here with the source link above.
 
 ## Translations and tafsir
-No translation or tafsir text is bundled. The repository's previous generic filler
-prose was removed; translations and tafsir remain unavailable in this build until a
-source with verifiable provenance and redistribution permission is added.
+- File: `en_sahihintl.txt` — Saheeh International English translation (6236 verses,
+  `surah|ayah|text` per line), copied verbatim from the Salah project's bundled copy
+  of the text extracted from the Tanzil translation page https://tanzil.net/trans/en.sahih
+- SHA-256: `f090ed258e647a393ddaa0b48f1e81ab7a5ccd5ad7d72d0da498e151bc0dbc18`
+- Saheeh International (Jeddah, Saudi Arabia). Translation by three American women
+  converts; published by Dar Abul-Qasim. Displayed in-app with the credit line
+  "English — Saheeh International". No tafsir text is bundled yet.
 
 ## Integrity
 `QuranCorpus` verifies each file's SHA-256 at load and asserts 114 suras, 6,236
