@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -74,6 +75,7 @@ fun SeamlessPrayerHeader(
 ) {
     val strings = LocalAppStrings.current
     val use24Hour = LocalUse24HourFormat.current
+    val isDarkTheme = isSystemInDarkTheme()
 
     fun prayerLabel(prayer: PrayerName) = when (prayer) {
         PrayerName.FAJR -> strings.fajr
@@ -126,16 +128,21 @@ fun SeamlessPrayerHeader(
             )
 
             // 2. High-legibility atmospheric scrim overlay for daylight, twilight, and night contrast
+            // In light theme the surface color is near-white, so the overlay is kept almost
+            // transparent to let the sky show; dark theme needs a stronger scrim for readability.
+            val scrimAlphas = if (isDarkTheme) {
+                listOf(0.14f, 0.26f, 0.54f)
+            } else {
+                listOf(0.04f, 0.10f, 0.28f)
+            }
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.30f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.50f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.78f)
-                            )
+                            colors = scrimAlphas.map { alpha ->
+                                MaterialTheme.colorScheme.surface.copy(alpha = alpha)
+                            }
                         )
                     )
             )
