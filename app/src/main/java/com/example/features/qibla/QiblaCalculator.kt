@@ -94,6 +94,10 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
     private val magnetometer = sensorManager?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
     private val rotationVectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
+    // The gyro-fused rotation vector (accelerometer + gyroscope + magnetometer) is the most
+    // accurate heading source on modern devices, so it is preferred whenever it is available.
+    private val useRotationVector = rotationVectorSensor != null
+
     private val _qiblaState = MutableStateFlow(
         QiblaData(
             hasAccelerometer = accelerometer != null,
@@ -119,12 +123,20 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
     private var magneticAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE
 
     // Low-pass filter smoothing coefficient (alpha)
-    private val alpha = 0.20f
+    private val alpha = 0.25f
+
+    // Magnetic declination is fixed per location; it is recomputed only on location changes
+    private var cachedDeclination: Float = 0f
+
+    // Adaptive, wrap-safe heading smoothing state
+    private var smoothedHeading: Float = Float.NaN
 
     fun setLocation(lat: Double, lng: Double, altitude: Double = 0.0) {
         userLat = lat
         userLng = lng
         userAltitude = altitude
+        cachedDeclination = computeDeclination()
+        smoothedHeading = Float.NaN
         updateCalculations(
             deviceHeading = _qiblaState.value.deviceHeading,
             rawMagneticHeading = _qiblaState.value.magneticHeading,
@@ -134,20 +146,36 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
         )
     }
 
+    private fun computeDeclination(): Float = try {
+        GeomagneticField(
+            userLat.toFloat(),
+            userLng.toFloat(),
+            userAltitude.toFloat(),
+            System.currentTimeMillis()
+        ).declination
+    } catch (_: Exception) {
+        0f
+    }
+
     fun startListening() {
         hasGravity = false
         hasGeoMagnetic = false
         magneticAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE
+        smoothedHeading = Float.NaN
         _qiblaState.value = _qiblaState.value.copy(hasHeading = false, accuracy = magneticAccuracy)
-        // A rotation vector can supply heading when either raw sensor is missing.
+        if (useRotationVector) {
+            // High sample rate (20 ms) for a smooth, gyro-stabilized rotation vector.
+            rotationVectorSensor?.let {
+                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            }
+            return
+        }
+        // Fallback path for devices without a gyroscope: fuse raw accel + magnetometer vectors.
         accelerometer?.let {
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
         }
         magnetometer?.let {
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        if ((accelerometer == null || magnetometer == null) && rotationVectorSensor != null) {
-            sensorManager?.registerListener(this, rotationVectorSensor, SensorManager.SENSOR_DELAY_UI)
         }
     }
 
@@ -156,10 +184,16 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        var accuracy = event.accuracy
-
         when (event.sensor.type) {
+            Sensor.TYPE_ROTATION_VECTOR -> {
+                if (useRotationVector) {
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                    SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                    computeFromOrientation(orientationAngles, event.accuracy)
+                }
+            }
             Sensor.TYPE_ACCELEROMETER -> {
+                if (useRotationVector) return
                 // Apply low-pass filter to smooth gravity vector
                 gravityValues[0] = gravityValues[0] + alpha * (event.values[0] - gravityValues[0])
                 gravityValues[1] = gravityValues[1] + alpha * (event.values[1] - gravityValues[1])
@@ -167,6 +201,7 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
                 hasGravity = true
             }
             Sensor.TYPE_MAGNETIC_FIELD -> {
+                if (useRotationVector) return
                 magneticAccuracy = event.accuracy
                 // Apply low-pass filter to smooth magnetic vector
                 geoMagneticValues[0] = geoMagneticValues[0] + alpha * (event.values[0] - geoMagneticValues[0])
@@ -174,18 +209,10 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
                 geoMagneticValues[2] = geoMagneticValues[2] + alpha * (event.values[2] - geoMagneticValues[2])
                 hasGeoMagnetic = true
             }
-            Sensor.TYPE_ROTATION_VECTOR -> {
-                if (!hasGravity || !hasGeoMagnetic) {
-                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                    computeFromOrientation(orientationAngles, accuracy)
-                    return
-                }
-            }
         }
 
-        // When both Accelerometer & Magnetometer vectors are available, compute rotation matrix
-        if (hasGravity && hasGeoMagnetic) {
+        // Fallback fusion when both Accelerometer & Magnetometer vectors are available
+        if (!useRotationVector && hasGravity && hasGeoMagnetic) {
             val success = SensorManager.getRotationMatrix(
                 rotationMatrix,
                 inclinationMatrix,
@@ -211,30 +238,34 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
         var azimuthDeg = Math.toDegrees(azimuthRad.toDouble()).toFloat()
         azimuthDeg = (azimuthDeg + 360f) % 360f
 
-        // Calculate Geomagnetic Declination at the user's GPS coordinates to obtain True North
-        val declination = try {
-            val geoField = GeomagneticField(
-                userLat.toFloat(),
-                userLng.toFloat(),
-                userAltitude.toFloat(),
-                System.currentTimeMillis()
-            )
-            geoField.declination
-        } catch (_: Exception) {
-            0f
-        }
-
-        val trueNorthHeading = (azimuthDeg + declination + 360f) % 360f
+        val smoothedAzimuth = smoothHeading(azimuthDeg)
+        val trueNorthHeading = (smoothedAzimuth + cachedDeclination + 360f) % 360f
         if (!trueNorthHeading.isFinite() || !pitchDeg.isFinite() || !rollDeg.isFinite()) return
         _qiblaState.value = _qiblaState.value.copy(hasHeading = true)
 
         updateCalculations(
             deviceHeading = trueNorthHeading,
-            rawMagneticHeading = azimuthDeg,
+            rawMagneticHeading = smoothedAzimuth,
             pitch = pitchDeg,
             roll = rollDeg,
             accuracy = accuracy
         )
+    }
+
+    /**
+     * Adaptive, wrap-safe low-pass on the magnetic azimuth. Small sample-to-sample jitter is
+     * heavily averaged for a stable needle, while genuine rotations are tracked with a weight
+     * that grows with the angular change so the compass stays responsive.
+     */
+    private fun smoothHeading(rawAzimuthDeg: Float): Float {
+        if (smoothedHeading.isNaN()) {
+            smoothedHeading = rawAzimuthDeg
+            return smoothedHeading
+        }
+        val delta = (rawAzimuthDeg - smoothedHeading + 540f) % 360f - 180f
+        val weight = (abs(delta) / 25f).coerceIn(0.15f, 0.9f)
+        smoothedHeading = (smoothedHeading + delta * weight + 360f) % 360f
+        return smoothedHeading
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
