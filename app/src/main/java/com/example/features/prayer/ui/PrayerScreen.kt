@@ -287,7 +287,7 @@ fun PrayerCard(
         border = when {
             isNext -> BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary)
             isCurrent -> BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary)
-            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         }
     ) {
         Row(Modifier.fillMaxWidth().padding(NourSpace.lg), verticalAlignment = Alignment.CenterVertically,

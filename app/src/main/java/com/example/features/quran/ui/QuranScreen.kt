@@ -828,7 +828,7 @@ fun QuranSearchView(
                                 .clickable { onSelectAyah(ayah) },
                             shape = CardExpressiveShape,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                            border = null
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
                         ) {
                             Column(modifier = Modifier.padding(NourSpace.lg)) {
                                 Row(
@@ -1060,8 +1060,8 @@ fun SurahReaderView(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = CardExpressiveShape,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f)),
-                    border = null
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -1114,8 +1114,8 @@ fun SurahReaderView(
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.88f)),
-                        border = null,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
                         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
                     ) {
                         Column(
@@ -2153,7 +2153,7 @@ fun ContinuousQuranTextCard(
             .testTag("continuous_text_surface"),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.88f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
     ) {

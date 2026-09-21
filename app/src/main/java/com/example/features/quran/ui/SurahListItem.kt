@@ -43,7 +43,7 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
     val arabicUi = LocalAppLanguage.current == AppLanguage.ARABIC
     Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = ListRowShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))) {
         Row(Modifier.padding(horizontal = NourSpace.md, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NourSpace.md)) {

@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
@@ -54,7 +56,7 @@ fun NourPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
         modifier = modifier.fillMaxWidth(),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = null,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
     ) {
         Column(Modifier.padding(NourSpace.lg), verticalArrangement = Arrangement.spacedBy(NourSpace.md), content = content)

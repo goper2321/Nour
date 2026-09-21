@@ -112,7 +112,7 @@ fun SeamlessPrayerHeader(
                 .clip(CardExpressiveShape)
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .border(
-                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
                     shape = CardExpressiveShape
                 )
         ) {
@@ -128,12 +128,12 @@ fun SeamlessPrayerHeader(
             )
 
             // 2. High-legibility atmospheric scrim overlay for daylight, twilight, and night contrast
-            // In light theme the surface color is near-white, so the overlay is kept almost
-            // transparent to let the sky show; dark theme needs a stronger scrim for readability.
+            // Starts transparent at the top so the sun/moon/stars remain fully vivid,
+            // then deepens gently toward the bottom to ensure crisp text separation.
             val scrimAlphas = if (isDarkTheme) {
-                listOf(0.14f, 0.26f, 0.54f)
+                listOf(0.04f, 0.18f, 0.45f)
             } else {
-                listOf(0.04f, 0.10f, 0.28f)
+                listOf(0.0f, 0.12f, 0.34f)
             }
             Box(
                 modifier = Modifier

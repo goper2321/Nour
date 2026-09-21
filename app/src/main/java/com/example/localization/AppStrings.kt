@@ -237,6 +237,8 @@ class AppStrings {
     // Adhan voices + reminders
     var adhanVoiceTitle: String = "Adhan voice"
     var adhanVolumeTitle: String = "Volume"
+    var prayerNotificationsSubtitle: String = "Enable or disable notifications and Adhan alarms for each prayer time"
+    var notificationsEnabledLabel: String = "Notification & Adhan alert"
     var preReminderTitle: String = "Early reminder"
     var minutesShort: String = "min"
     var adhanToneMakkah: String = "Makkah Adhan"
@@ -610,6 +612,8 @@ private val ArabicStrings = AppStrings().apply {
 
     adhanVoiceTitle = "صوت الأذان"
     adhanVolumeTitle = "مستوى الصوت"
+    prayerNotificationsSubtitle = "تفعيل أو تعطيل التنبيهات والأذان لكل صلاة على حدة"
+    notificationsEnabledLabel = "تنبيه الصلاة والأذان"
     preReminderTitle = "تذكير مبكر"
     minutesShort = "دقيقة"
     adhanToneMakkah = "أذان مكة"

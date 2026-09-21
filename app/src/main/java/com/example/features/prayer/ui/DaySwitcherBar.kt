@@ -61,7 +61,7 @@ fun DaySwitcherBar(
             .testTag("day_switcher_bar"),
         shape = CardSubtleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))) {
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))) {
         Row(Modifier.fillMaxWidth().padding(NourSpace.xs), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPreviousDay,
                 modifier = Modifier.size(NourSize.touchTarget).testTag("day_switcher_prev")) {

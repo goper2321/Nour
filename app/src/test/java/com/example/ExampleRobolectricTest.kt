@@ -219,4 +219,37 @@ class ExampleRobolectricTest {
         assertNotNull(scheduledAlarms)
         assertTrue("Expected offline prayer alarms to be scheduled", scheduledAlarms.isNotEmpty())
     }
+
+    @Test
+    fun `disabling prayer notification cancels specific prayer alarms from AlarmManager`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val futureTime = System.currentTimeMillis() + 3600_000L
+
+        // Schedule an alarm for Fajr
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.scheduleExactAlarm(
+            context = context,
+            prayerName = PrayerName.FAJR,
+            triggerAtMillis = futureTime,
+            isPreReminder = false,
+            dayOffset = 0
+        )
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+        val shadowAlarmManager = org.robolectric.Shadows.shadowOf(alarmManager)
+        assertNotNull(shadowAlarmManager.nextScheduledAlarm)
+
+        // Cancel alarms for Fajr (as performed when user toggles off the prayer notification)
+        com.example.features.adhan.scheduler.PrayerNotificationScheduler.cancelPrayerAlarms(
+            context = context,
+            prayerName = PrayerName.FAJR
+        )
+
+        // Verify alarm is cancelled
+        val remainingAlarms = shadowAlarmManager.scheduledAlarms.filter {
+            it.operation != null
+        }
+        assertTrue("Alarm for Fajr should be cancelled", remainingAlarms.none {
+            it.triggerAtTime == futureTime
+        })
+    }
 }

@@ -1079,6 +1079,13 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = strings.prayerNotificationsSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
                     val prayers = listOf("FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA")
@@ -1109,15 +1116,22 @@ fun SettingsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = prayerTitle,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Switch(colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = prayerTitle,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = strings.notificationsEnabledLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
                                     checked = isEnabled,
                                     onCheckedChange = { checked ->
                                         coroutineScope.launch {
@@ -1128,7 +1142,8 @@ fun SettingsScreen(
                                             }
                                             onAdhanSettingsChanged()
                                         }
-                                    }
+                                    },
+                                    modifier = Modifier.testTag("prayer_notification_switch_${pName.lowercase()}")
                                 )
                             }
                             OutlinedButton(

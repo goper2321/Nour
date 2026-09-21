@@ -169,7 +169,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = null
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
             Row(
                 modifier = Modifier
@@ -514,7 +514,7 @@ fun QiblaScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
             Row(
                 modifier = Modifier
@@ -593,7 +593,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
             Row(
                 modifier = Modifier
@@ -639,7 +639,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = null
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
         ) {
             Column(modifier = Modifier.padding(NourSpace.lg)) {
                 Row(

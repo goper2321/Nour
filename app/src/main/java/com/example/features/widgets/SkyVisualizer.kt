@@ -443,18 +443,17 @@ fun ImmersiveSkyBackground(
     // Restrained, subtle ambient animations
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
 
-    // Smooth monotonic clock (60fps) for cloud drift & bob. The wall-clock
-    // `now` only ticks once per second, which made clouds visibly step.
-    // The wall base is captured once so the sky layout is preserved.
-    var smoothSeconds by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val startNanos = withFrameNanos { it }
-        while (true) {
-            withFrameNanos { frameNanos ->
-                smoothSeconds = (frameNanos - startNanos) / 1_000_000_000f
-            }
-        }
-    }
+    // Smooth monotonic clock for cloud drift & bob via standard Compose transition.
+    // Avoids continuous withFrameNanos while-loop recompositions.
+    val smoothSeconds by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 600f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "smooth_cloud_seconds"
+    )
     val wallBaseSeconds = remember { nowMillis / 1000.0 }
 
     // Star twinkle oscillation
