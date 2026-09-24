@@ -417,6 +417,7 @@ fun ImmersiveSkyBackground(
     isReadingMode: Boolean = false,
     showPrecipitation: Boolean = false,
     precipitationIntensity: Float = 0f,
+    showSurfaceScrim: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -831,28 +832,27 @@ fun ImmersiveSkyBackground(
                 )
             )
 
-            // -------------------------------------------------------------
-            // 8. Seamless Atmospheric Scrim
-            // -------------------------------------------------------------
-            val scrimStartY = if (isReadingMode) 0f else skyBand * 0.65f
-            val alpha1 = if (isReadingMode) 0.35f else 0.18f
-            val alpha2 = if (isReadingMode) 0.60f else 0.40f
-            val alpha3 = if (isReadingMode) 0.84f else 0.72f
+            if (showSurfaceScrim) {
+                val scrimStartY = if (isReadingMode) 0f else skyBand * 0.65f
+                val alpha1 = if (isReadingMode) 0.35f else 0.18f
+                val alpha2 = if (isReadingMode) 0.60f else 0.40f
+                val alpha3 = if (isReadingMode) 0.84f else 0.72f
 
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        if (isReadingMode) surfaceColor.copy(alpha = 0.10f) else Color.Transparent,
-                        surfaceColor.copy(alpha = alpha1),
-                        surfaceColor.copy(alpha = alpha2),
-                        surfaceColor.copy(alpha = alpha3)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            if (isReadingMode) surfaceColor.copy(alpha = 0.10f) else Color.Transparent,
+                            surfaceColor.copy(alpha = alpha1),
+                            surfaceColor.copy(alpha = alpha2),
+                            surfaceColor.copy(alpha = alpha3)
+                        ),
+                        startY = scrimStartY,
+                        endY = h
                     ),
-                    startY = scrimStartY,
-                    endY = h
-                ),
-                topLeft = Offset(0f, scrimStartY),
-                size = Size(w, h - scrimStartY)
-            )
+                    topLeft = Offset(0f, scrimStartY),
+                    size = Size(w, h - scrimStartY)
+                )
+            }
         }
     }
 }
