@@ -161,6 +161,8 @@ fun QiblaScreen(
                 else -> strings.qiblaEstimated
             },
             style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth().testTag("qibla_mode_status")
         )
 
@@ -169,7 +171,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Row(
                 modifier = Modifier
@@ -203,22 +205,22 @@ fun QiblaScreen(
                         else -> strings.accuracyCalibrate to MaterialTheme.colorScheme.onSurfaceVariant
                     }
 
-                    Surface(
-                        color = accuracyColor.copy(alpha = NourAlpha.BadgeTint),
-                        shape = PillShape,
-                        border = null,
-                        modifier = Modifier.testTag("qibla_accuracy_indicator")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(accuracyColor, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+            Surface(
+                color = accuracyColor.copy(alpha = NourAlpha.BadgeTint),
+                shape = PillShape,
+                border = null,
+                modifier = Modifier.testTag("qibla_accuracy_indicator")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(NourSpace.sm / 2)
+                            .background(accuracyColor, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = accuracyText,
                                 style = MaterialTheme.typography.labelSmall,
@@ -258,7 +260,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.sm),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -266,9 +268,9 @@ fun QiblaScreen(
                     imageVector = Icons.Default.CompassCalibration,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(NourSize.smallIcon)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(NourSpace.xs))
                 Text(
                     text = formatNumerals(
                         (if (qiblaState.hasMagnetometer && qiblaState.hasAccelerometer)
@@ -302,9 +304,9 @@ fun QiblaScreen(
                         imageVector = Icons.Default.ScreenRotation,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(NourSize.icon)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(NourSpace.md))
                     Text(
                         text = strings.tiltMessage,
                         style = MaterialTheme.typography.bodySmall,
@@ -319,7 +321,7 @@ fun QiblaScreen(
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 shape = CardExpressiveShape,
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                border = BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("facing_qibla_badge")
@@ -334,7 +336,7 @@ fun QiblaScreen(
                         contentDescription = strings.facingQibla,
                         tint = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(NourSpace.sm))
                     Text(
                         text = strings.estimatedAlignment,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -514,16 +516,20 @@ fun QiblaScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(NourSpace.xl),
-                horizontalArrangement = Arrangement.SpaceAround,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
+                ) {
                     Text(
                         text = strings.qiblaHeading.uppercase(),
                         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
@@ -553,12 +559,16 @@ fun QiblaScreen(
 
                 Box(
                     modifier = Modifier
-                        .height(48.dp)
-                        .width(1.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
+                        .height(56.dp)
+                        .width(NourSize.border)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                 )
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
+                ) {
                     Text(
                         text = strings.distanceToKaaba.uppercase(),
                         style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
@@ -593,7 +603,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Row(
                 modifier = Modifier
@@ -606,7 +616,7 @@ fun QiblaScreen(
                     shape = PillShape,
                     modifier = Modifier.size(44.dp)
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                         Icon(
                         imageVector = Icons.Rounded.WbSunny,
                         contentDescription = null,
@@ -615,7 +625,7 @@ fun QiblaScreen(
                     )
                     }
                 }
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(NourSpace.md))
                 Column {
                     Text(
                         text = strings.sunPosition,
@@ -623,7 +633,7 @@ fun QiblaScreen(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.xs))
                     Text(
                         text = formatNumerals(String.format(strings.sunBearingDescPattern, String.format(Locale.getDefault(), "%.0f°", qiblaState.sunAzimuth))),
                         style = MaterialTheme.typography.bodySmall,
@@ -639,7 +649,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Column(modifier = Modifier.padding(NourSpace.lg)) {
                 Row(
@@ -670,7 +680,7 @@ fun QiblaScreen(
                 }
 
                 if (manualMode) {
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.md))
                     Text(
                         text = formatNumerals("${strings.referenceHeadingPrefix}: ${manualHeading.toInt()}°"),
                         style = MaterialTheme.typography.bodyMedium,

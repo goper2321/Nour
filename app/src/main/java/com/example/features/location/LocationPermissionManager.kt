@@ -109,14 +109,18 @@ object DeviceLocationHelper {
             val cts = CancellationTokenSource()
 
             var fetchedLoc: Location? = null
-            val task = fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-            val completed = com.google.android.gms.tasks.Tasks.await(task)
-            if (completed != null) {
-                fetchedLoc = completed
-            } else {
-                // Fallback to last known location
-                val lastTask = fusedClient.lastLocation
-                fetchedLoc = com.google.android.gms.tasks.Tasks.await(lastTask)
+            try {
+                val task = fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                val completed = com.google.android.gms.tasks.Tasks.await(task, 12, java.util.concurrent.TimeUnit.SECONDS)
+                if (completed != null) {
+                    fetchedLoc = completed
+                } else {
+                    // Fallback to last known location
+                    val lastTask = fusedClient.lastLocation
+                    fetchedLoc = com.google.android.gms.tasks.Tasks.await(lastTask, 5, java.util.concurrent.TimeUnit.SECONDS)
+                }
+            } catch (_: Exception) {
+                // GMS unavailable, timed out, or last-known failed — try platform LocationManager.
             }
 
             if (fetchedLoc != null) return@withContext fetchedLoc
@@ -128,7 +132,7 @@ object DeviceLocationHelper {
             val passiveLoc = locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
 
             gpsLoc ?: netLoc ?: passiveLoc
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

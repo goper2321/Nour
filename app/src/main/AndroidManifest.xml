@@ -44,7 +44,7 @@
 
         <receiver
             android:name=".features.adhan.scheduler.PrayerAlarmReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.aistudio.nour.ACTION_PRAYER_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

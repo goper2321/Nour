@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.PillShape
@@ -50,13 +51,25 @@ fun NourScreenHeading(title: String, subtitle: String? = null, modifier: Modifie
     }
 }
 
+/** Consistent group label above settings/section card clusters. Exposed as a heading for TalkBack. */
+@Composable
+fun NourSectionHeader(title: String, modifier: Modifier = Modifier) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.semantics { heading() }
+    )
+}
+
 @Composable
 fun NourPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
     ) {
         Column(Modifier.padding(NourSpace.lg), verticalArrangement = Arrangement.spacedBy(NourSpace.md), content = content)
@@ -72,7 +85,7 @@ fun NourBadge(text: String, emphasized: Boolean = false, modifier: Modifier = Mo
         contentColor = if (emphasized) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
     ) {
         Text(text, style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.xs))
+            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 5.dp))
     }
 }
 

@@ -29,8 +29,10 @@ import com.example.features.prayer.calculation.HijriDateHelper
 import com.example.localization.formatNumerals
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.CardSubtleShape
+import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
+import androidx.compose.foundation.layout.PaddingValues
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -61,8 +63,8 @@ fun DaySwitcherBar(
             .testTag("day_switcher_bar"),
         shape = CardSubtleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))) {
-        Row(Modifier.fillMaxWidth().padding(NourSpace.xs), verticalAlignment = Alignment.CenterVertically) {
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))) {
+        Row(Modifier.fillMaxWidth().padding(NourSpace.sm), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onPreviousDay,
                 modifier = Modifier.size(NourSize.touchTarget).testTag("day_switcher_prev")) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, strings.previousBtn)
@@ -82,10 +84,14 @@ fun DaySwitcherBar(
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
-                if (dayOffset != 0) {
-                    TextButton(onClick = onResetToToday, modifier = Modifier.testTag("day_switcher_today_btn")) {
-                        Text(strings.dayToday)
-                    }
+                // Always reserved so the bar height never jumps when offset changes.
+                TextButton(
+                    onClick = onResetToToday,
+                    enabled = dayOffset != 0,
+                    modifier = Modifier.testTag("day_switcher_today_btn"),
+                    contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = NourSpace.xs)
+                ) {
+                    Text(strings.dayToday, style = MaterialTheme.typography.labelLarge)
                 }
             }
             IconButton(onClick = onNextDay,

@@ -10,6 +10,7 @@ import com.example.ui.theme.NourSize
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.SheetExpressiveShape
 import com.example.ui.components.NourEmptyState
+import com.example.ui.components.NourSectionHeader
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -177,7 +178,7 @@ private fun SeedColorCard(
         modifier = modifier.fillMaxWidth(),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
     ) {
         Column(modifier = Modifier.padding(NourSpace.lg)) {
             Text(
@@ -411,14 +412,13 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
         item {
-            Text(strings.appearanceTitle, style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            NourSectionHeader(strings.appearanceTitle)
         }
         item {
             Card(
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(Modifier.padding(NourSpace.lg)) {
                     Text(strings.themeTitle, style = MaterialTheme.typography.titleMedium)
@@ -451,7 +451,7 @@ fun SettingsScreen(
                 modifier = Modifier.testTag("settings_seed_card")
             )
         }
-        item { Text(strings.sectionLanguageFormats, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { NourSectionHeader(strings.sectionLanguageFormats) }
         // App Language Card
         item {
             Card(
@@ -460,7 +460,7 @@ fun SettingsScreen(
                     .testTag("settings_language_card"),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -514,7 +514,7 @@ fun SettingsScreen(
                             shape = PillShape,
                             modifier = Modifier
                                 .testTag("btn_change_language")
-                                .heightIn(min = 44.dp)
+                                .heightIn(min = NourSize.touchTarget)
                         ) {
                             Text(
                                 strings.changeLocation,
@@ -535,7 +535,7 @@ fun SettingsScreen(
                     .testTag("settings_numerals_card"),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -590,7 +590,7 @@ fun SettingsScreen(
                     .testTag("settings_timeformat_card"),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -639,14 +639,14 @@ fun SettingsScreen(
             }
         }
 
-        item { Text(strings.sectionLocation, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { NourSectionHeader(strings.sectionLocation) }
         // Location & City
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -677,7 +677,7 @@ fun SettingsScreen(
                         Button(
                             onClick = { showLocationDialog = true },
                             shape = PillShape,
-                            modifier = Modifier.heightIn(min = 44.dp)
+                            modifier = Modifier.heightIn(min = NourSize.touchTarget)
                         ) {
                             Text(strings.changeLocation, maxLines = 1, softWrap = false)
                         }
@@ -686,14 +686,14 @@ fun SettingsScreen(
             }
         }
 
-        item { Text(strings.sectionPrayerCalc, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { NourSectionHeader(strings.sectionPrayerCalc) }
         // Calculation Authority & Method
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -736,7 +736,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -774,7 +774,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Text(
@@ -818,7 +818,7 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Row(
                     modifier = Modifier
@@ -862,14 +862,14 @@ fun SettingsScreen(
             }
         }
 
-        item { Text(strings.sectionAdhan, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { NourSectionHeader(strings.sectionAdhan) }
         // Adhan & Notifications Sound Manager
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(
@@ -902,7 +902,7 @@ fun SettingsScreen(
                                 }
                             },
                             shape = PillShape,
-                            modifier = Modifier.heightIn(min = 44.dp)
+                            modifier = Modifier.heightIn(min = NourSize.touchTarget)
                         ) {
                             Text(if (isTestingAdhan) strings.stopAudio else strings.testAudio, maxLines = 1, softWrap = false)
                         }
@@ -950,6 +950,17 @@ fun SettingsScreen(
                             context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
                         }
                         var exactTick by remember { mutableIntStateOf(0) }
+                        // Refresh when returning from system settings (ON_RESUME).
+                        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                        androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+                            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                                    exactTick++
+                                }
+                            }
+                            lifecycleOwner.lifecycle.addObserver(observer)
+                            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                        }
                         val canExact = remember(exactTick, alarmsEnabled) {
                             alarmManager?.canScheduleExactAlarms() ?: false
                         }
@@ -1238,13 +1249,13 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
                     }
                 }
             }
         }
 
-        item { Text(strings.sectionPrivacy, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { NourSectionHeader(strings.sectionPrivacy) }
         // Privacy & Offline Audit Badge
         item {
             Card(
@@ -1284,7 +1295,7 @@ fun SettingsScreen(
                     .testTag("settings_rerun_setup_card"),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Row(
                     modifier = Modifier
@@ -1407,7 +1418,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 Button(
-                    modifier = Modifier.heightIn(min = 44.dp),
+                    modifier = Modifier.heightIn(min = NourSize.touchTarget),
                     onClick = {
                         onAdjustmentsChange(
                             PrayerAdjustments(
@@ -1550,7 +1561,7 @@ fun SettingsScreen(
                                 )
                             }
                             item {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
                             }
                         }
                         items(filteredWorld) { world ->

@@ -96,6 +96,7 @@ import com.example.localization.LocalUseEasternNumerals
 import com.example.localization.LocalUse24HourFormat
 import com.example.localization.LocalizationManager
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.NourSpace
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -375,7 +376,7 @@ fun NourMainApp(
                                 .testTag("nour_navigation_rail"),
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             header = {
-                                Spacer(modifier = Modifier.padding(top = 16.dp))
+                                Spacer(modifier = Modifier.padding(top = NourSpace.xl))
                             }
                         ) {
                             NourNavDestination.values().forEach { destination ->
@@ -423,7 +424,7 @@ fun NourMainApp(
                             targetState = currentDestination,
                             transitionSpec = {
                                 fadeIn(tween(NourMotion.medium, easing = NourMotion.easing))
-                                    .togetherWith(fadeOut(tween(NourMotion.short)))
+                                    .togetherWith(fadeOut(tween(NourMotion.short, easing = NourMotion.easing)))
                             },
                             label = "m3e_nav_transition"
                         ) { destination ->

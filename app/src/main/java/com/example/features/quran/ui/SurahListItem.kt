@@ -43,18 +43,18 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
     val arabicUi = LocalAppLanguage.current == AppLanguage.ARABIC
     Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = ListRowShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))) {
-        Row(Modifier.padding(horizontal = NourSpace.md, vertical = 10.dp),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))) {
+        Row(Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NourSpace.md)) {
             Surface(shape = CardSubtleShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = NourAlpha.BadgeTint),
+                color = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.size(NourSize.badge)) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         formatNumerals(surah.number.toString()),
                         style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )
@@ -63,7 +63,7 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
             FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(NourSpace.sm),
                 verticalArrangement = Arrangement.spacedBy(NourSpace.xs)) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (arabicUi) surah.nameArabic else surah.nameEnglish, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(if (arabicUi) surah.nameArabic else surah.nameEnglish, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     Text(formatNumerals("${surah.ayahCount} ${strings.versesWord} · $revelation"),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -74,7 +74,9 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
                     }
                 }
                 if (!arabicUi) {
-                    Text(surah.nameArabic, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 2.dp))
+                    Text(surah.nameArabic, style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = NourSpace.xs))
                 }
             }
         }

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.models.CountdownState
@@ -418,6 +419,7 @@ fun ImmersiveSkyBackground(
     precipitationIntensity: Float = 0f,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val surfaceColor = MaterialTheme.colorScheme.surface
     val dynamicPrimary = MaterialTheme.colorScheme.primary
     val dynamicTertiary = MaterialTheme.colorScheme.tertiary
@@ -440,28 +442,46 @@ fun ImmersiveSkyBackground(
         getInterpolatedAtmosphericState(prayerTimes, nowMillis)
     }
 
-    // Restrained, subtle ambient animations
+    // Restrained, subtle ambient animations.
+    // Rain is gated: no caller enables precipitation today, so avoid a free 60fps loop.
+    // Reduced-motion (animator duration scale = 0) freezes ambient loops.
+    val rainEnabled = precipitationIntensity > 0f || showPrecipitation
+    val reducedMotion = remember {
+        try {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) == 0f
+        } catch (_: Throwable) {
+            false
+        }
+    }
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
 
-    // Smooth monotonic clock for cloud drift & bob via standard Compose transition.
-    // Avoids continuous withFrameNanos while-loop recompositions.
-    val smoothSeconds by infiniteTransition.animateFloat(
+    // Monotonic cloud clock: linear 0..1 progress over a long cycle, scaled in draw.
+    // Restart is invisible because cloud placement uses continuous modulo drift.
+    val cloudProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 600f,
+        targetValue = if (reducedMotion) 0f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 600_000, easing = LinearEasing),
+            animation = tween(
+                durationMillis = if (reducedMotion) 1 else 600_000,
+                easing = LinearEasing
+            ),
             repeatMode = RepeatMode.Restart
         ),
         label = "smooth_cloud_seconds"
     )
+    val cloudCycleSeconds = 600.0
     val wallBaseSeconds = remember { nowMillis / 1000.0 }
 
     // Star twinkle oscillation
     val starTwinkle by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.95f,
+        initialValue = if (reducedMotion) 0.65f else 0.35f,
+        targetValue = if (reducedMotion) 0.65f else 0.95f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3200, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = if (reducedMotion) 1 else 3200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "star_twinkle"
@@ -469,10 +489,10 @@ fun ImmersiveSkyBackground(
 
     // Corona & Celestial halo gentle pulse
     val coronaPulse by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.08f,
+        initialValue = if (reducedMotion) 1f else 0.95f,
+        targetValue = if (reducedMotion) 1f else 1.08f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3600, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = if (reducedMotion) 1 else 3600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "corona_pulse"
@@ -481,9 +501,9 @@ fun ImmersiveSkyBackground(
     // Stately Sun ray rotation (50 seconds per full 360° rotation)
     val sunRayRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 360f,
+        targetValue = if (reducedMotion) 0f else 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 50000, easing = LinearEasing),
+            animation = tween(durationMillis = if (reducedMotion) 1 else 50000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "sun_ray_rotation"
@@ -492,24 +512,28 @@ fun ImmersiveSkyBackground(
     // Shooting star streak
     val shootingStarProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 1f,
+        targetValue = if (reducedMotion) 0f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 15000, easing = LinearEasing),
+            animation = tween(durationMillis = if (reducedMotion) 1 else 15000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "shooting_star"
     )
 
-    // Google Weather smooth rain loop animation
-    val rainProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1600, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "google_weather_rain"
-    )
+    // Google Weather rain loop — only while precipitation is actually shown.
+    val rainProgress by if (rainEnabled && !reducedMotion) {
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1600, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "google_weather_rain"
+        )
+    } else {
+        remember { mutableFloatStateOf(0f) }
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -550,8 +574,8 @@ fun ImmersiveSkyBackground(
             val w = size.width
             val h = size.height
             val celestialCenter = Offset(celestialX, celestialY)
-            // Smooth cloud time: wall base (layout-preserving) + 60fps frame clock.
-            val timeSeconds = wallBaseSeconds + smoothSeconds.toDouble()
+            // Smooth cloud time: wall base (layout-preserving) + cycle progress.
+            val timeSeconds = wallBaseSeconds + (cloudProgress.toDouble() * cloudCycleSeconds)
             val cloudLuminosity = atmosphericState.skyLuminosity
             val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
             val isDarkNight = cloudLuminosity < 0.25f

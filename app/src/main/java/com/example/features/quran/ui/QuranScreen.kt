@@ -55,8 +55,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.foundation.shape.CircleShape
@@ -103,6 +101,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.PillShape
@@ -231,9 +230,9 @@ private fun GlassPillTab(
             .clip(PillShape)
             .background(solidFill, shape = PillShape)
             .border(
-                width = if (selected) 1.5.dp else 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                width = if (selected) NourSize.selectedBorder else NourSize.border,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder),
                 shape = PillShape
             )
             .selectable(selected = selected, onClick = onClick, role = Role.Tab)
@@ -828,7 +827,7 @@ fun QuranSearchView(
                                 .clickable { onSelectAyah(ayah) },
                             shape = CardExpressiveShape,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
                         ) {
                             Column(modifier = Modifier.padding(NourSpace.lg)) {
                                 Row(
@@ -1061,7 +1060,7 @@ fun SurahReaderView(
                     modifier = Modifier.fillMaxWidth(),
                     shape = CardExpressiveShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                    border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
                 ) {
                     Column(
                         modifier = Modifier
@@ -1115,7 +1114,7 @@ fun SurahReaderView(
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
                     ) {
                         Column(
@@ -1123,7 +1122,6 @@ fun SurahReaderView(
                                 .fillMaxWidth()
                                 .padding(NourSpace.lg)
                         ) {
-                            // Header Row with Ayah badge & clean action icons
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1137,7 +1135,7 @@ fun SurahReaderView(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Medium,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 3.dp)
                                     )
                                 }
@@ -1318,7 +1316,7 @@ fun SurahReaderView(
                     modifier = Modifier.fillMaxWidth(),
                     shape = CardExpressiveShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    border = null
+                    border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                 ) {
                     Row(
                         modifier = Modifier
@@ -1335,11 +1333,12 @@ fun SurahReaderView(
                                 }
                             },
                             enabled = surah.number > 1,
-                            shape = PillShape
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = NourSpace.sm)
                         ) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(strings.previousSurah)
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(NourSize.smallIcon))
+                            Spacer(modifier = Modifier.width(NourSpace.xs))
+                            Text(strings.previousSurah, style = MaterialTheme.typography.labelLarge)
                         }
 
                         TextButton(
@@ -1350,11 +1349,12 @@ fun SurahReaderView(
                                 }
                             },
                             enabled = surah.number < 114,
-                            shape = PillShape
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = NourSpace.sm)
                         ) {
-                            Text(strings.nextSurah)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text(strings.nextSurah, style = MaterialTheme.typography.labelLarge)
+                            Spacer(modifier = Modifier.width(NourSpace.xs))
+                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(NourSize.smallIcon))
                         }
                     }
                 }
@@ -1362,230 +1362,6 @@ fun SurahReaderView(
         }
     }
 }
-}
-
-/**
- * 604-Page Quran Mushaf Viewer with memory-efficient HorizontalPager and LazyColumn modes.
- * Only visible and adjacent pages are rendered and retained in memory.
- */
-@Composable
-fun MushafPageView(
-    pageNumber: Int,
-    onPageChanged: (Int) -> Unit,
-    readingMode: QuranReadingMode,
-    onModeChange: (QuranReadingMode) -> Unit,
-    editionId: String,
-    tafsirId: String,
-    arabicFontSize: Float,
-    onPrevPage: () -> Unit,
-    onNextPage: () -> Unit,
-    onJumpPageClick: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onSelectTafsir: (Ayah) -> Unit,
-    onOpenFullSurah: (Surah) -> Unit,
-    onToggleBookmark: (Ayah) -> Unit,
-    bookmarks: List<BookmarkEntity>
-) {
-    val strings = LocalAppStrings.current
-    var isPagerMode by remember { mutableStateOf(true) }
-    val currentPageData = remember(pageNumber) { QuranRepository.getMushafPage(pageNumber) }
-
-    val pagerState = rememberPagerState(
-        initialPage = (pageNumber - 1).coerceIn(0, 603)
-    ) { 604 }
-
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (pageNumber - 1).coerceIn(0, 603)
-    )
-
-    LaunchedEffect(pageNumber) {
-        if (isPagerMode) {
-            if (pagerState.currentPage != pageNumber - 1) {
-                pagerState.scrollToPage(pageNumber - 1)
-            }
-        } else {
-            if (!listState.isScrollInProgress && listState.firstVisibleItemIndex != pageNumber - 1) {
-                listState.scrollToItem(pageNumber - 1)
-            }
-        }
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        if (isPagerMode) {
-            val newPage = pagerState.currentPage + 1
-            if (newPage != pageNumber) {
-                onPageChanged(newPage)
-            }
-        }
-    }
-
-    LaunchedEffect(listState.firstVisibleItemIndex) {
-        if (!isPagerMode && listState.isScrollInProgress) {
-            val newPage = listState.firstVisibleItemIndex + 1
-            if (newPage != pageNumber) {
-                onPageChanged(newPage)
-            }
-        }
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NourSpace.lg, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = onJumpPageClick,
-                    shape = PillShape
-                ) {
-                    Text(
-                        text = formatNumerals(String.format(strings.pageIndicatorPattern, pageNumber, currentPageData.juzNumber)),
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { isPagerMode = !isPagerMode }) {
-                        Icon(
-                            imageVector = if (isPagerMode) Icons.Rounded.SwapHoriz else Icons.Rounded.SwapVert,
-                            contentDescription = if (isPagerMode) strings.switchVertical else strings.switchPageFlip,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            val nextMode = if (readingMode == QuranReadingMode.CONTINUOUS) QuranReadingMode.CARDS else QuranReadingMode.CONTINUOUS
-                            onModeChange(nextMode)
-                        }
-                    ) {
-                        Icon(
-                            imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Rounded.ViewAgenda else Icons.Rounded.AutoStories,
-                            contentDescription = strings.toggleMode,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = strings.readingSettings,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        if (isPagerMode) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .testTag("mushaf_horizontal_pager"),
-                beyondViewportPageCount = 1,
-                key = { it }
-            ) { pageIdx ->
-                MushafSinglePageContent(
-                    pageNumber = pageIdx + 1,
-                    readingMode = readingMode,
-                    editionId = editionId,
-                    tafsirId = tafsirId,
-                    arabicFontSize = arabicFontSize,
-                    bookmarks = bookmarks,
-                    onOpenFullSurah = onOpenFullSurah,
-                    onSelectTafsir = onSelectTafsir,
-                    onToggleBookmark = onToggleBookmark
-                )
-            }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .testTag("mushaf_vertical_lazy_column"),
-                contentPadding = PaddingValues(NourSpace.lg),
-                verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
-            ) {
-                items(604, key = { it }) { pageIdx ->
-                    MushafSinglePageContent(
-                        pageNumber = pageIdx + 1,
-                        readingMode = readingMode,
-                        editionId = editionId,
-                        tafsirId = tafsirId,
-                        arabicFontSize = arabicFontSize,
-                        bookmarks = bookmarks,
-                        onOpenFullSurah = onOpenFullSurah,
-                        onSelectTafsir = onSelectTafsir,
-                        onToggleBookmark = onToggleBookmark
-                    )
-                    if (pageIdx < 603) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = NourSpace.md),
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 0.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = NourSpace.lg, vertical = 6.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedButton(
-                        onClick = onPrevPage,
-                        enabled = pageNumber > 1,
-                        shape = PillShape
-                    ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(strings.previousBtn)
-                    }
-
-                    Slider(
-                        value = pageNumber.toFloat(),
-                        onValueChange = { onPageChanged(it.toInt().coerceIn(1, 604)) },
-                        valueRange = 1f..604f,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = NourSpace.md)
-                            .testTag("mushaf_page_slider")
-                    )
-
-                    Button(
-                        onClick = onNextPage,
-                        enabled = pageNumber < 604,
-                        shape = PillShape
-                    ) {
-                        Text(strings.nextBtn)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
-    }
 }
 
 /**
@@ -1624,7 +1400,8 @@ fun MushafSinglePageContent(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                     ) {
                         Column(
                             modifier = Modifier
@@ -1670,7 +1447,7 @@ fun MushafSinglePageContent(
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        border = null
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                     ) {
                         Column(
                             modifier = Modifier
@@ -1690,7 +1467,7 @@ fun MushafSinglePageContent(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Medium,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                                         modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 3.dp)
                                     )
                                 }
@@ -2149,7 +1926,7 @@ fun ContinuousQuranTextCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardExpressiveShape)
+            .border(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder), CardExpressiveShape)
             .testTag("continuous_text_surface"),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
@@ -2224,7 +2001,7 @@ fun AyahInspectorCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.5.dp, MaterialTheme.colorScheme.primary, CardExpressiveShape)
+            .border(NourSize.selectedBorder, MaterialTheme.colorScheme.primary, CardExpressiveShape)
             .testTag("ayah_inspector_card"),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
@@ -2346,89 +2123,6 @@ fun AyahInspectorCard(
                         contentDescription = strings.shareAction,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SearchResultsView(
-    results: List<Ayah>,
-    query: String,
-    editionId: String,
-    onSelectAyah: (Ayah) -> Unit
-) {
-    val strings = LocalAppStrings.current
-    Column(modifier = Modifier.fillMaxSize()) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = formatNumerals(String.format(strings.versesFoundPattern, results.size, query)),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(NourSpace.lg)
-            )
-        }
-
-        if (results.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    strings.noVersesMatched,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(NourSpace.lg),
-                verticalArrangement = Arrangement.spacedBy(NourSpace.md)
-            ) {
-                items(results) { ayah ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectAyah(ayah) },
-                        shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                        border = null
-                    ) {
-                        Column(modifier = Modifier.padding(NourSpace.lg)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = formatNumerals("${strings.tabSurah} ${if (LocalAppLanguage.current == AppLanguage.ARABIC) QuranRepository.getSurah(ayah.surahNumber).nameArabic else QuranRepository.getSurah(ayah.surahNumber).nameEnglish} (${ayah.surahNumber}:${ayah.ayahNumber})"),
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                Text(
-                                    text = formatNumerals("${strings.pageLabel} ${ayah.pageNumber}"),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${ayah.arabicText} \u06DD${QuranRepository.toArabicDigits(ayah.ayahNumber)}",
-                                fontSize = 18.sp,
-                                textAlign = TextAlign.Right,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = ayah.getTranslation(editionId, strings.translationNotAvailable),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                 }
             }
         }

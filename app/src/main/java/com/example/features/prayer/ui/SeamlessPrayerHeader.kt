@@ -57,6 +57,7 @@ import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
 import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
@@ -112,7 +113,7 @@ fun SeamlessPrayerHeader(
                 .clip(CardExpressiveShape)
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .border(
-                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                    BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                     shape = CardExpressiveShape
                 )
         ) {
@@ -129,11 +130,11 @@ fun SeamlessPrayerHeader(
 
             // 2. High-legibility atmospheric scrim overlay for daylight, twilight, and night contrast
             // Starts transparent at the top so the sun/moon/stars remain fully vivid,
-            // then deepens gently toward the bottom to ensure crisp text separation.
+            // then deepens toward the bottom to ensure crisp text separation.
             val scrimAlphas = if (isDarkTheme) {
-                listOf(0.04f, 0.18f, 0.45f)
+                listOf(0.10f, 0.32f, 0.58f)
             } else {
-                listOf(0.0f, 0.12f, 0.34f)
+                listOf(0.0f, 0.14f, 0.38f)
             }
             Box(
                 modifier = Modifier
@@ -163,13 +164,14 @@ fun SeamlessPrayerHeader(
                     Surface(
                         shape = PillShape,
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                     ) {
                         Text(
                             text = strings.nextBadge,
                             style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = 5.dp),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -183,23 +185,23 @@ fun SeamlessPrayerHeader(
                             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                        contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = 7.dp),
                         modifier = Modifier.testTag("prayer_location_button")
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.LocationOn,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(NourSize.smallIcon)
                         )
                         Text(
                             text = location.cityName,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = 4.dp)
+                            modifier = Modifier.padding(start = NourSpace.xs)
                         )
                     }
                 }
@@ -276,8 +278,8 @@ fun SeamlessPrayerHeader(
                     )
                     Text(
                         text = formatNumerals("${(dayProgress * 100).toInt()}%"),
-                        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         softWrap = false
                     )

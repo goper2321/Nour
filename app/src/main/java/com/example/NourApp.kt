@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Application
+import android.util.Log
 import com.example.database.NourDatabase
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +21,9 @@ class NourApp : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 PrayerNotificationScheduler.scheduleOfflineRollingWindow(this@NourApp)
-            } catch (_: Exception) {}
+            } catch (t: Throwable) {
+                Log.e("NourApp", "Failed to schedule offline rolling window", t)
+            }
         }
     }
 

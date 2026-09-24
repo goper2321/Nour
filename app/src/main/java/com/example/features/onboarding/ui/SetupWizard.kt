@@ -141,6 +141,7 @@ import com.example.features.prayer.models.UserLocation
 import com.example.localization.AppLanguage
 import com.example.localization.LocalAppStrings
 import com.example.localization.Numerals
+import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.ButtonExpressiveShape
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
@@ -373,7 +374,7 @@ fun SetupWizard(
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
-                                text = "100% OFFLINE",
+                                text = strings.setupFeatureOfflineTitle,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -389,7 +390,6 @@ fun SetupWizard(
                         onClick = { finishSetup() },
                         modifier = Modifier
                             .testTag("setup_skip_button")
-                            .testTag("setup_skip")
                     ) {
                         Text(
                             text = strings.setupSkip,
@@ -432,7 +432,7 @@ fun SetupWizard(
                                 when {
                                     isCurrent -> MaterialTheme.colorScheme.primary
                                     isPast -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                                    else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)
                                 }
                             )
                             .testTag("setup_step_indicator_$index")
@@ -449,8 +449,12 @@ fun SetupWizard(
             ) { currentStep ->
                 val title = stepTitles.getOrElse(currentStep) { "" }
                 Text(
-                    text = "Step ${currentStep + 1} of $totalSteps • $title",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = String.format(
+                        strings.setupStepProgressPattern,
+                        currentStep + 1,
+                        totalSteps
+                    ) + " • " + title,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -587,7 +591,7 @@ fun SetupWizard(
                             step--
                         },
                         shape = ButtonExpressiveShape,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier
                             .heightIn(min = NourSize.touchTarget)
                             .testTag("setup_back")
@@ -780,7 +784,7 @@ private fun SetupWelcomeStep(
         Surface(
             shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
@@ -806,7 +810,7 @@ private fun SetupFeatureCard(
     Card(
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -892,7 +896,7 @@ private fun SetupLanguageStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1012,7 +1016,7 @@ private fun SetupLanguageStep(
                         color = if (isSelected)
                             MaterialTheme.colorScheme.primary
                         else
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1090,7 +1094,7 @@ private fun FormatChoiceChip(
             MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(
             1.dp,
-            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)
         ),
         modifier = modifier
             .heightIn(min = 48.dp)
@@ -1118,8 +1122,8 @@ private fun FormatChoiceChip(
                 Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(NourSize.smallIcon)
                 )
             }
         }
@@ -1176,7 +1180,7 @@ private fun SetupLocationStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1211,7 +1215,7 @@ private fun SetupLocationStep(
                             MaterialTheme.colorScheme.secondaryContainer
                     ) {
                         Text(
-                            text = if (userLocation.isAutoDetected) "GPS" else "MANUAL",
+                            text = if (userLocation.isAutoDetected) "GPS" else strings.accuracyManual,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = if (userLocation.isAutoDetected)
@@ -1304,7 +1308,7 @@ private fun SetupLocationStep(
                     OutlinedButton(
                         onClick = onOpenCityPicker,
                         shape = ButtonExpressiveShape,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier
                             .weight(1f)
                             .heightIn(min = NourSize.touchTarget)
@@ -1331,7 +1335,7 @@ private fun SetupLocationStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1351,7 +1355,7 @@ private fun SetupLocationStep(
                         onClick = { methodExpanded = true },
                         shape = ChipExpressiveShape,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
@@ -1598,7 +1602,7 @@ private fun SetupAlertsStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -1658,7 +1662,7 @@ private fun SetupAlertsStep(
             Card(
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -1719,7 +1723,7 @@ private fun SetupAlertsStep(
             Card(
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -1792,7 +1796,7 @@ private fun SetupAlertsStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1823,7 +1827,7 @@ private fun SetupAlertsStep(
                             MaterialTheme.colorScheme.surfaceContainerHigh,
                         border = BorderStroke(
                             1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1920,7 +1924,7 @@ private fun SetupAlertsStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -2093,7 +2097,7 @@ private fun SetupReadyStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -2130,7 +2134,7 @@ private fun SetupReadyStep(
         Surface(
             shape = CardSubtleShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(

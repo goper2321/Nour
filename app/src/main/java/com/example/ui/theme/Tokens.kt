@@ -45,4 +45,7 @@ object NourMotion {
 object NourAlpha {
     const val BadgeTint = 0.15f
     const val Hairline = 0.35f
+
+    /** Canonical outline opacity for resting card/panel borders (M3E hairline). */
+    const val CardBorder = 0.40f
 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import android.widget.Toast
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.NourSize
+import com.example.ui.theme.NourAlpha
 import com.example.ui.components.NourBadge
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.foundation.layout.FlowRow
@@ -106,20 +107,30 @@ fun PrayerScreen(
 
     var selectedDayOffset by remember { mutableIntStateOf(0) }
 
-    val displayedDate = remember(currentTime, selectedDayOffset) {
-        if (selectedDayOffset == 0) {
-            currentTime
-        } else {
-            val cal = Calendar.getInstance()
-            cal.time = currentTime
-            cal.add(Calendar.DAY_OF_YEAR, selectedDayOffset)
-            cal.time
-        }
+    // Day-bucket key so expensive prayer-time math runs at day boundaries,
+    // not on every 1s countdown tick.
+    val todayDayKey = remember(currentTime) {
+        val cal = Calendar.getInstance()
+        cal.time = currentTime
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        cal.timeInMillis
     }
 
-    val todayPrayerTimes = remember(currentTime, location, calculationMethod, madhab, highLatRule, adjustments) {
+    val displayedDate = remember(todayDayKey, selectedDayOffset) {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = todayDayKey
+        if (selectedDayOffset != 0) {
+            cal.add(Calendar.DAY_OF_YEAR, selectedDayOffset)
+        }
+        cal.time
+    }
+
+    val todayPrayerTimes = remember(todayDayKey, location, calculationMethod, madhab, highLatRule, adjustments) {
         PrayerCalculationEngine.calculate(
-            date = currentTime,
+            date = Date(todayDayKey),
             location = location,
             method = calculationMethod,
             madhab = madhab,
@@ -287,7 +298,7 @@ fun PrayerCard(
         border = when {
             isNext -> BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary)
             isCurrent -> BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary)
-            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+            else -> BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         }
     ) {
         Row(Modifier.fillMaxWidth().padding(NourSpace.lg), verticalAlignment = Alignment.CenterVertically,
@@ -328,10 +339,15 @@ fun PrayerCard(
                         else -> ""
                     }
                     if (badge.isNotBlank()) {
+                        val badgeColor = when (rowState) {
+                            1 -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
+                            0 -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                         Text(
                             badge,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = badgeColor,
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )

@@ -24,15 +24,15 @@ object CrashReporter {
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
                 try {
                     writeCrashLog(appContext, thread, throwable)
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                     // Recording failed; fall through to the system handler.
                 }
                 try {
                     previous?.uncaughtException(thread, throwable)
-                } catch (_: Exception) {
+                } catch (_: Throwable) {
                 }
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
         }
     }
 
@@ -41,7 +41,7 @@ object CrashReporter {
         val version = try {
             @Suppress("DEPRECATION")
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             "unknown"
         }
         val sw = StringWriter().also { throwable.printStackTrace(java.io.PrintWriter(it)) }
@@ -54,6 +54,13 @@ object CrashReporter {
             .appendLine("--- stack ---")
             .appendLine(sw.toString())
             .toString()
+
+        // Prefer app-private files on all API levels; MediaStore Downloads needs API 29+.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            val fallback = java.io.File(context.filesDir, "nour-crash-${System.currentTimeMillis()}.log")
+            fallback.writeText(text, Charsets.UTF_8)
+            return
+        }
 
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, "nour-crash-${System.currentTimeMillis()}.log")
