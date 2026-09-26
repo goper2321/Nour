@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.models.CountdownState
+import com.example.ui.theme.NourReduceMotion
 import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
 import com.example.features.prayer.calculation.CelestialMath
@@ -447,17 +448,7 @@ fun ImmersiveSkyBackground(
     // Rain is gated: no caller enables precipitation today, so avoid a free 60fps loop.
     // Reduced-motion (animator duration scale = 0) freezes ambient loops.
     val rainEnabled = precipitationIntensity > 0f || showPrecipitation
-    val reducedMotion = remember {
-        try {
-            android.provider.Settings.Global.getFloat(
-                context.contentResolver,
-                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                1f
-            ) == 0f
-        } catch (_: Throwable) {
-            false
-        }
-    }
+    val reducedMotion = NourReduceMotion.isEnabled(context)
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
 
     // Monotonic cloud clock: linear 0..1 progress over a long cycle, scaled in draw.

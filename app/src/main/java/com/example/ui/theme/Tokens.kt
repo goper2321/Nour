@@ -36,7 +36,24 @@ object NourMotion {
     const val medium = 250
     const val long = 300
     val easing = FastOutSlowInEasing
+
+    /**
+     * Mirrors [NourReduceMotion.Local] so the helpers below, which run without a
+     * composable context, can still honour the user's reduced-motion setting.
+     * Set once per composition by [NourReduceMotionProvider].
+     */
+    internal var reduced: Boolean = false
+
+    /**
+     * `tween` that collapses to an instant change when motion is reduced.
+     * Prefer this over calling `tween(...)` directly.
+     */
+    fun duration(millis: Int): Int = if (reduced) 0 else millis
+
+    /** True when decorative, endlessly-repeating motion must not be started. */
+    val allowContinuous: Boolean get() = !reduced
 }
+
 
 /**
  * Single opacity scale for accent-derived fills. The accent itself is always

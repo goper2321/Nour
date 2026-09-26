@@ -80,6 +80,8 @@ object AdhanPlayer {
     ) {
         stop()
 
+        // Clamp: persisted/legacy values outside 0..1 must not reach the player.
+        val safeVolume = volume.coerceIn(0f, 1f)
         if (!customUriString.isNullOrEmpty()) {
             try {
                 mediaPlayer = MediaPlayer().apply {
@@ -90,7 +92,7 @@ object AdhanPlayer {
                             .build()
                     )
                     setDataSource(context, Uri.parse(customUriString))
-                    setVolume(volume, volume)
+                    setVolume(safeVolume, safeVolume)
                     setOnCompletionListener {
                         this@AdhanPlayer.isPlaying = false
                         onCompletion?.invoke()
@@ -117,7 +119,7 @@ object AdhanPlayer {
                             .build()
                     )
                     setDataSource(context, Uri.parse("android.resource://${context.packageName}/$bundledRes"))
-                    setVolume(volume, volume)
+                    setVolume(safeVolume, safeVolume)
                     setOnCompletionListener {
                         this@AdhanPlayer.isPlaying = false
                         onCompletion?.invoke()
@@ -133,7 +135,7 @@ object AdhanPlayer {
         }
 
         // Offline synthesized fallback (Maqam Hijaz melody, no recording needed)
-        playHarmonicAdhan(toneName, volume, onCompletion)
+        playHarmonicAdhan(toneName, safeVolume, onCompletion)
     }
 
     private fun playHarmonicAdhan(

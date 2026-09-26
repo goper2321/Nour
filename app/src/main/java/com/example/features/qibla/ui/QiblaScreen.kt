@@ -2,6 +2,7 @@ package com.example.features.qibla.ui
 
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.NourAlpha
+import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.SheetExpressiveShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import java.util.Locale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -132,7 +134,9 @@ fun QiblaScreen(
 
     val animatedRotation by animateFloatAsState(
         targetValue = -effectiveHeading,
-        animationSpec = spring(stiffness = 300f),
+        // Reduced motion: settle on the target heading immediately instead of
+        // springing. The compass still tracks, it just does not overshoot.
+        animationSpec = if (NourMotion.reduced) tween(0) else spring(stiffness = 300f),
         label = "compass_rotation"
     )
 

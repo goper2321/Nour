@@ -148,6 +148,7 @@ import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.ChipExpressiveShape
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.ListRowShape
+import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.PillShape
@@ -443,7 +444,7 @@ fun SetupWizard(
             // Step Label & Title
             AnimatedContent(
                 targetState = step,
-                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
+                transitionSpec = { fadeIn(tween(NourMotion.duration(180))) togetherWith fadeOut(tween(NourMotion.duration(180))) },
                 label = "step_title_label",
                 modifier = Modifier.fillMaxWidth()
             ) { currentStep ->
@@ -984,7 +985,7 @@ private fun SetupLanguageStep(
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { searchQuery = "" }) {
-                        Icon(imageVector = Icons.Rounded.Close, contentDescription = null)
+                        Icon(imageVector = Icons.Rounded.Close, contentDescription = strings.clearSearch)
                     }
                 }
             },
@@ -1763,7 +1764,7 @@ private fun SetupAlertsStep(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (canExact) "Exact alarms active (Doze bypass)" else "System permission recommended",
+                                text = if (canExact) strings.exactAlarmActive else strings.exactAlarmRecommended,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1778,7 +1779,7 @@ private fun SetupAlertsStep(
                                 .testTag("setup_exact_alarm")
                                 .testTag("setup_exact_alarm_btn")
                         ) {
-                            Text("Enable")
+                            Text(strings.enableAction)
                         }
                     } else {
                         Icon(
@@ -1811,9 +1812,9 @@ private fun SetupAlertsStep(
 
                 // 3 Voices Choices
                 val tones = listOf(
-                    Triple(AdhanTones.MAKKAH, strings.adhanToneMakkah, "Full recording from Holy Haram"),
-                    Triple(AdhanTones.HAYYA, strings.adhanToneHayya, "Short 12-second call to prayer"),
-                    Triple(AdhanTones.GENTLE, strings.adhanToneGentle, "Harmonic melodic chime")
+                    Triple(AdhanTones.MAKKAH, strings.adhanToneMakkah, strings.adhanToneMakkahDesc),
+                    Triple(AdhanTones.HAYYA, strings.adhanToneHayya, strings.adhanToneHayyaDesc),
+                    Triple(AdhanTones.GENTLE, strings.adhanToneGentle, strings.adhanToneGentleDesc)
                 )
 
                 tones.forEach { (toneId, name, desc) ->
@@ -1959,38 +1960,52 @@ private fun SetupAlertsStep(
 }
 
 /**
- * Animated Soundwave Visualizer with bouncing bars
+ * Animated Soundwave Visualizer with bouncing bars.
+ *
+ * Purely decorative. When the user has reduced motion enabled the bars are drawn
+ * at a fixed mid-height instead of looping forever, so the control still reads
+ * as an audio indicator without continuous movement.
  */
 @Composable
 private fun AnimatedSoundwaveVisualizer() {
-    val infiniteTransition = rememberInfiniteTransition(label = "soundwave_transition")
-    val height1 by infiniteTransition.animateFloat(
-        initialValue = 6f,
-        targetValue = 22f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar1"
-    )
-    val height2 by infiniteTransition.animateFloat(
-        initialValue = 20f,
-        targetValue = 8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(320, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar2"
-    )
-    val height3 by infiniteTransition.animateFloat(
-        initialValue = 10f,
-        targetValue = 24f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(480, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bar3"
-    )
+    val reducedMotion = NourMotion.reduced
+    // Static mid-range heights used when motion is reduced.
+    val (h1, h2, h3) = if (reducedMotion) {
+        Triple(14f, 14f, 14f)
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "soundwave_transition")
+        val a by infiniteTransition.animateFloat(
+            initialValue = 6f,
+            targetValue = 22f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(400, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar1"
+        )
+        val b by infiniteTransition.animateFloat(
+            initialValue = 20f,
+            targetValue = 8f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(320, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar2"
+        )
+        val c by infiniteTransition.animateFloat(
+            initialValue = 10f,
+            targetValue = 24f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(480, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar3"
+        )
+        Triple(a, b, c)
+    }
+    val height1 = h1
+    val height2 = h2
+    val height3 = h3
 
     Row(
         modifier = Modifier
@@ -2289,7 +2304,7 @@ private fun WorldCityPickerDialog(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    placeholder = { Text("Search city or country...") },
+                    placeholder = { Text(strings.searchLocationHint) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Rounded.Search,
@@ -2300,7 +2315,7 @@ private fun WorldCityPickerDialog(
                     trailingIcon = {
                         if (query.isNotEmpty()) {
                             IconButton(onClick = { query = "" }) {
-                                Icon(Icons.Rounded.Close, contentDescription = null)
+                                Icon(Icons.Rounded.Close, contentDescription = strings.clearSearch)
                             }
                         }
                     },

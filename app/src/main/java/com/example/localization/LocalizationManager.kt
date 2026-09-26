@@ -19,24 +19,16 @@ object LocalizationManager {
         applySystemLocale(context, language)
     }
 
-    fun getLocale(language: AppLanguage): java.util.Locale {
-        return when (language) {
-            AppLanguage.ENGLISH -> java.util.Locale("en")
-            AppLanguage.ARABIC -> java.util.Locale("ar")
-            AppLanguage.FRENCH -> java.util.Locale("fr")
-            AppLanguage.TURKISH -> java.util.Locale("tr")
-            AppLanguage.INDONESIAN -> java.util.Locale("id")
-            AppLanguage.URDU -> java.util.Locale("ur")
-            AppLanguage.SPANISH -> java.util.Locale("es")
-            AppLanguage.GERMAN -> java.util.Locale("de")
-            AppLanguage.MALAY -> java.util.Locale("ms")
-            AppLanguage.BENGALI -> java.util.Locale("bn")
-            AppLanguage.PERSIAN -> java.util.Locale("fa")
-            AppLanguage.HAUSA -> java.util.Locale("ha")
-            AppLanguage.PASHTO -> java.util.Locale("ps")
-            AppLanguage.HINDI -> java.util.Locale("hi")
-        }
-    }
+    /**
+     * Maps an in-app language to its platform [java.util.Locale].
+     *
+     * `AppLanguage.code` is already a BCP-47 language tag, so build the Locale
+     * from that single source of truth instead of repeating a parallel `when`
+     * that has to be kept in sync by hand. (The `Locale(String)` constructor is
+     * also deprecated in API 36; `forLanguageTag` is the replacement.)
+     */
+    fun getLocale(language: AppLanguage): java.util.Locale =
+        java.util.Locale.forLanguageTag(language.code)
 
     /**
      * Syncs system locale for dates, numbers, permission dialogs and

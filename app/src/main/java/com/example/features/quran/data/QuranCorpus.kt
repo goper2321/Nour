@@ -63,7 +63,10 @@ internal object QuranCorpus {
     val ayahs: List<Ayah> by lazy {
         // Force translation load first so a corrupt translation fails fast with a clear error.
         val translations = englishByRef
-        val text = resource("uthmani.txt", TEXT_HASH).toString(Charsets.UTF_8).removePrefix("﻿")
+        // Tolerate a leading byte-order mark in the corpus. Written as an escape so the
+        // character stays visible in this source file; a raw U+FEFF literal here is
+        // invisible in most editors and trips lint's ByteOrderMark check.
+        val text = resource("uthmani.txt", TEXT_HASH).toString(Charsets.UTF_8).removePrefix("\uFEFF")
         val verses = text.lineSequence().filter { it.firstOrNull()?.isDigit() == true }.map { line ->
             val fields = line.split('|', limit = 3)
             require(fields.size == 3 && fields[2].isNotBlank())

@@ -1,5 +1,6 @@
 package com.example.ui.theme
 
+import android.annotation.SuppressLint
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -17,7 +18,22 @@ import com.google.android.material.color.utilities.SchemeTonalSpot
  * palettes (the neutral palettes keep a subtle tint of the seed instead of
  * going fully gray), then mapped onto every semantic M3 color role below.
  * Contrast for each on-* color follows the M3 spec inside the library.
+ *
+ * ## Why `RestrictedApi` is suppressed here
+ *
+ * `com.google.android.material.color.utilities.*` is annotated
+ * `@RestrictTo(LIBRARY_GROUP)`, so lint flags it for app code. We use it anyway,
+ * deliberately, for one reason: it is the only implementation of the M3 tonal
+ * palette + contrast algorithm that stays spec-correct. Re-deriving it by hand
+ * would risk shipping on-* colors that fail contrast, which is a worse outcome
+ * than depending on a library-internal API.
+ *
+ * The risk is bounded: Material is pinned in `gradle/libs.versions.toml`, so an
+ * upgrade is always a deliberate act, and if the API moves the build fails
+ * loudly here instead of silently producing wrong colors at runtime. If the
+ * library ever ships these as public API, delete this suppression.
  */
+@SuppressLint("RestrictedApi")
 object SeedColorSchemes {
     /** Brand seed: reproduces the closest stock look when no custom seed is set. */
     const val DEFAULT_SEED_ARGB = 0xFF4A4459.toInt()

@@ -53,10 +53,14 @@ object PrayerCalculationEngine {
         val solarNoonHours = 12.0 + timezoneOffset - (location.longitude / 15.0) - (eqTime / 60.0)
 
         // Sunrise & Sunset angle: -0.833°
+        // In polar day/night the sun never crosses this altitude and hourAngle()
+        // returns NaN. Fall back to a symmetric 6h half-day so the schedule
+        // stays ordered instead of propagating NaN into date construction.
         val sunAltitude = -0.8333
         val sunriseHourAngle = hourAngle(location.latitude, declination, sunAltitude)
-        val sunriseHours = solarNoonHours - (sunriseHourAngle / 15.0)
-        val sunsetHours = solarNoonHours + (sunriseHourAngle / 15.0)
+        val safeSunriseHourAngle = if (sunriseHourAngle.isNaN()) 90.0 else sunriseHourAngle
+        val sunriseHours = solarNoonHours - (safeSunriseHourAngle / 15.0)
+        val sunsetHours = solarNoonHours + (safeSunriseHourAngle / 15.0)
 
         // Fajr
         val fajrAngle = -method.fajrAngle
@@ -64,7 +68,6 @@ object PrayerCalculationEngine {
         if (fajrHourAngle.isNaN()) {
             fajrHourAngle = adjustHighLatitudeHourAngle(sunriseHourAngle, method.fajrAngle, highLatRule)
         }
-        val fajrHours = solarNoonHours - (fajrHourAngle / 15.0)
 
         // Asr: shadow factor (1 for standard, 2 for Hanafi)
         val latRad = location.latitude * DEG_TO_RAD
@@ -72,13 +75,19 @@ object PrayerCalculationEngine {
         val shadow = madhab.shadowFactor + tan(abs(latRad - decRad))
         val asrAltitude = kotlin.math.atan(1.0 / shadow) * RAD_TO_DEG
         val asrHourAngle = hourAngle(location.latitude, declination, asrAltitude)
-        val asrHours = solarNoonHours + (asrHourAngle / 15.0)
+        // Polar night can leave the sun below the Asr altitude all day (NaN);
+        // pin Asr to early afternoon so ordering is preserved.
+        val asrHours = if (asrHourAngle.isNaN()) {
+            solarNoonHours + 1.0
+        } else {
+            solarNoonHours + (asrHourAngle / 15.0)
+        }
 
         // Maghrib: sunset (for some Shia methods, slight twilight depression like 4.5°)
         val maghribHours = if (method == CalculationMethod.TEHRAN) {
             val maghribAngle = -4.5
             val maghribHourAngle = hourAngle(location.latitude, declination, maghribAngle)
-            solarNoonHours + (maghribHourAngle / 15.0)
+            if (maghribHourAngle.isNaN()) sunsetHours else solarNoonHours + (maghribHourAngle / 15.0)
         } else {
             sunsetHours
         }
@@ -95,13 +104,23 @@ object PrayerCalculationEngine {
             solarNoonHours + (ishaHourAngle / 15.0)
         }
 
+        // Polar day/night can invert individual times (e.g. a reachable Fajr
+        // twilight angle combined with a never-rising sun). Enforce a
+        // monotonic schedule so downstream UI/scheduler code can rely on
+        // fajr <= sunrise <= dhuhr <= asr <= maghrib <= isha.
+        val fajrHours = (solarNoonHours - (fajrHourAngle / 15.0)).coerceAtMost(sunriseHours)
+        val dhuhrHours = solarNoonHours.coerceAtLeast(fajrHours)
+        val asrHoursClamped = asrHours.coerceAtLeast(dhuhrHours)
+        val maghribHoursClamped = maghribHours.coerceAtLeast(asrHoursClamped)
+        val ishaHoursClamped = ishaHours.coerceAtLeast(maghribHoursClamped)
+
         // Convert calculated fractional hours to Dates with adjustments
         val fajrDate = makeDate(year, month, day, fajrHours, adjustments.fajr)
-        val sunriseDate = makeDate(year, month, day, sunriseHours, adjustments.sunrise)
-        val dhuhrDate = makeDate(year, month, day, solarNoonHours, adjustments.dhuhr)
-        val asrDate = makeDate(year, month, day, asrHours, adjustments.asr)
-        val maghribDate = makeDate(year, month, day, maghribHours, adjustments.maghrib)
-        val ishaDate = makeDate(year, month, day, ishaHours, adjustments.isha)
+        val sunriseDate = makeDate(year, month, day, sunriseHours.coerceAtLeast(fajrHours), adjustments.sunrise)
+        val dhuhrDate = makeDate(year, month, day, dhuhrHours, adjustments.dhuhr)
+        val asrDate = makeDate(year, month, day, asrHoursClamped, adjustments.asr)
+        val maghribDate = makeDate(year, month, day, maghribHoursClamped, adjustments.maghrib)
+        val ishaDate = makeDate(year, month, day, ishaHoursClamped, adjustments.isha)
 
         return PrayerTimes(
             date = date,

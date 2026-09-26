@@ -146,6 +146,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.database.BookmarkEntity
 import com.example.database.NourDatabase
+import com.example.features.quran.data.QuranCorpus
 import com.example.features.quran.data.QuranRepository
 import com.example.features.settings.NourPreferences
 import com.example.features.quran.models.Ayah
@@ -301,6 +302,22 @@ fun QuranScreen(
 
     val strings = LocalAppStrings.current
     val bookmarks by db.bookmarkDao().getAllBookmarks().collectAsState(initial = emptyList())
+    // Fail gracefully (not crash) if the bundled Quran text is corrupt or
+    // missing: integrity is verified on first access, and the lazy corpus
+    // caches that result, so checking once here guards every read below.
+    val corpusFailure = remember { runCatching { QuranCorpus.ayahs }.exceptionOrNull() }
+    if (corpusFailure != null) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .testTag("quran_corpus_error"),
+            contentAlignment = Alignment.Center
+        ) {
+            NourEmptyState(title = strings.corpusErrorTitle, message = strings.corpusErrorMessage)
+        }
+        return
+    }
     LaunchedEffect(openSurahRequest) {
         if (openSurahRequest != null) {
             selectedSurahForReading = openSurahRequest

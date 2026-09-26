@@ -10,6 +10,12 @@ import java.util.Locale
 
 object QuranRepository {
 
+    // Precompiled once: search normalizes all 6,236 verses per keystroke, so
+    // compiling these patterns per ayah caused visible input lag on low-end
+    // devices. Hoisting is behavior-preserving (same patterns, same order).
+    private val HarakatRegex = Regex("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]")
+    private val AlifRegex = Regex("[\\u0622\\u0623\\u0625\\u0671]")
+
     val TRANSLATION_EDITIONS = listOf(
         TranslationEdition("sahih_en", "Sahih International", "English", "Saheeh Int."),
         TranslationEdition("pickthall_en", "Pickthall", "English", "Marmaduke Pickthall"),
@@ -189,12 +195,13 @@ object QuranRepository {
     fun getMushafPage(pageNumber: Int): MushafPage {
         val page = pageNumber.coerceIn(1, 604)
         val ayahs = QuranCorpus.ayahs.filter { it.pageNumber == page }
-        val surahHeader = ALL_SURAHS.lastOrNull { it.number == ayahs.firstOrNull()?.surahNumber }
+        val first = ayahs.firstOrNull()
+        val surahHeader = ALL_SURAHS.lastOrNull { it.number == first?.surahNumber }
         return MushafPage(
             pageNumber = page,
-            juzNumber = ayahs.firstOrNull()?.juzNumber ?: 1,
-            hizbQuarter = QuranCorpus.quarterFor(ayahs.first().surahNumber, ayahs.first().ayahNumber),
-            surahHeader = if (ayahs.firstOrNull()?.ayahNumber == 1) surahHeader else null,
+            juzNumber = first?.juzNumber ?: 1,
+            hizbQuarter = if (first != null) QuranCorpus.quarterFor(first.surahNumber, first.ayahNumber) else 1,
+            surahHeader = if (first?.ayahNumber == 1) surahHeader else null,
             ayahs = ayahs
         )
     }
@@ -206,11 +213,11 @@ object QuranRepository {
     fun normalizeArabic(text: String): String {
         return text
             // Remove Harakat (Tashkeel: Fathah, Dammah, Kasrah, Sukun, Shaddah, Tanween, etc.)
-            .replace(Regex("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]"), "")
+            .replace(HarakatRegex, "")
             // Remove Tatweel / Kashida
             .replace("\u0640", "")
             // Normalize Alif forms (أ, إ, آ, ٱ -> ا)
-            .replace(Regex("[\\u0622\\u0623\\u0625\\u0671]"), "\u0627")
+            .replace(AlifRegex, "\u0627")
             // Normalize Taa Marbuta (ة -> ه)
             .replace("\u0629", "\u0647")
             // Normalize Yaa (ى -> ي)

@@ -53,6 +53,21 @@ Nour calculates prayer times locally with an on-device astronomical engine, sche
 
 Nour follows a restrained Material 3 Expressive language: shared spacing/dimension/motion tokens, semantic color roles (with Android 12+ dynamic color), readable typography, 48 dp touch targets, wrapping rows that adapt to large font scales, bounded content widths on wide screens, and quiet transitions. Arabic scripture direction is independent of the interface language, and RTL layouts are supported.
 
+## Accessibility
+
+* **Reduced motion**: when the system animation scale is 0 (*Remove animations* /
+  developer setting), decorative motion is disabled app-wide. The sky
+  visualizer, the wizard soundwave indicator and the Qibla spring settle on
+  their final state instead of looping — nothing disappears, it just stops
+  moving. Implemented in `ui/theme/Motion.kt`; every animation goes through
+  `NourMotion.duration(...)`.
+* **Screen readers**: icon-only controls carry content descriptions, clear
+  buttons in the setup wizard are labelled, and purely decorative icons use
+  `contentDescription = null` so they are not announced twice.
+* **Touch targets** are 48 dp minimum.
+* **Layout** uses wrapping rows and bounded content widths, so it survives large
+  font scales and small screens.
+
 ---
 
 ## Architecture & Tech Stack
@@ -103,18 +118,71 @@ Nour keeps your data on your device:
 ## Getting Started
 
 ### Prerequisites
-* **JDK 17** or **JDK 21**.
-* **Android SDK**: `minSdk 24` (Android 7.0+), `compileSdk 36`.
+* **JDK 17** or **JDK 21** (`JAVA_HOME` must point at it).
+* **Android SDK** with platform 36 and build-tools (`ANDROID_HOME` must point at it): `minSdk 24` (Android 7.0+), `compileSdk 36`.
+* Gradle comes from the checked-in wrapper (`./gradlew`, Gradle 9.3.1), so no separate Gradle install is needed.
 
 ### Build & Run
-1. Open the project in Android Studio and let Gradle sync, or build from the command line with `gradle :app:assembleDebug` (this repository ships without the Gradle wrapper).
-2. Install the generated debug APK on a device.
+```bash
+# Debug APK
+./gradlew :app:assembleDebug
+
+# Termux / ARM64 Linux (uses the system aapt2; Maven's aapt2 is x86_64-only)
+JAVA_HOME=$PREFIX/lib/jvm/java-21-openjdk ANDROID_HOME=~/android-sdk \
+  ./gradlew :app:assembleDebug --no-daemon \
+  -Pandroid.aapt2FromMavenOverride=$PREFIX/bin/aapt2 \
+  -Dorg.gradle.vfs.watch=false -Dorg.gradle.native=false \
+  -Dorg.gradle.jvmargs='-Xmx2g' --max-workers=2
+```
+Install the resulting APK from `app/build/outputs/apk/debug/` on a device.
+
+### Release build & signing
+Release signing reads (in order of preference):
+* `KEYSTORE_PATH` — path to an upload keystore file,
+* `STORE_PASSWORD`, `KEY_PASSWORD`, and optional `KEY_ALIAS` (default `upload`).
+
+```bash
+KEYSTORE_PATH=/path/to/my-upload-key.jks STORE_PASSWORD='…' KEY_PASSWORD='…' \
+  ./gradlew :app:assembleRelease
+```
+If no upload keystore is configured, the release build logs a warning and signs
+with the local `debug.keystore` so `assembleRelease` still succeeds for
+verification — **never ship a debug-signed APK to users.**
 
 ### Running Unit Tests
 ```bash
-gradle :app:testDebugUnitTest
+./gradlew :app:testDebugUnitTest
 ```
-Corpus-integrity and pure-logic tests run on any JVM. Robolectric/Compose UI tests require an x86_64 host (they do not run on ARM64 Linux, including Termux).
+Pure-JVM tests (`QuranCorpusTest`, `CelestialMathTest`, `SeedSchemeTest`,
+`PrayerCalculationTest` — 14 tests) run on any host.
+
+The Robolectric-driven tests (`ExampleRobolectricTest`, `NourDesignSystemTest`,
+`SetupWizardTest` — 20 tests) need an **x86_64 Linux or macOS** host: Robolectric
+4.15+ requires its native runtime, which has no ARM64 Linux build. The build
+detects this and skips exactly those classes on ARM64 Linux (e.g. Termux) with a
+loud log line, so the build stays green for the right reason instead of failing
+for a platform one. Run them on CI or an x86_64 machine to exercise them.
+
+### Permissions (why each exists)
+Nour is offline-first and declares **no `INTERNET` permission**. Prayer times,
+Qibla bearings, and the Quran reader run 100% on-device.
+* `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`: on-device prayer-time and Qibla computation. A preset city can be chosen manually without granting location.
+* `SCHEDULE_EXACT_ALARM`: punctual Adhan notifications at the computed minute.
+* `POST_NOTIFICATIONS`: delivers Adhan notifications.
+* `RECEIVE_BOOT_COMPLETED`: re-registers scheduled prayer alarms after reboot.
+* `FOREGROUND_SERVICE` (+ `mediaPlayback` type), `VIBRATE`, `WAKE_LOCK`: reliable Adhan audio playback while the device sleeps.
+
+### Configuration
+There are no API keys, feature flags, or required environment variables for
+normal use. The offline corpus (`app/src/main/resources/quran/`) is
+SHA-256-verified at load; see `SOURCES.md` there for provenance and licenses.
+
+### Known limitations
+* Robolectric/Compose UI tests need an x86_64 host or CI; they are skipped automatically on ARM64 (see above).
+* Translations beyond the bundled Saheeh International English text and tafsir are intentionally not bundled; the reader says so instead of substituting unverified prose.
+* Full visual verification (daylight/twilight/night sky, 360/800/1200 dp widths, dark/light/dynamic themes, RTL, 200% font scale, TalkBack pass) requires a physical device.
+* Newly added strings (exact-alarm status, Adhan voice descriptions, corpus-error message) currently fall back to English in non-English locales until translated.
+* `release` builds are unsigned-for-production unless the signing environment variables are set (see Release build & signing above).
 
 ---
 

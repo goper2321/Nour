@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.core.tween
 import com.example.ui.theme.NourMotion
+import com.example.ui.theme.NourReduceMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.components.NourContentFrame
 import androidx.compose.foundation.layout.safeDrawing
@@ -58,6 +59,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,10 +71,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
 import com.example.features.location.DeviceLocationHelper
 import com.example.features.location.rememberLocationPermissionState
@@ -133,6 +133,10 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableStateOf(appearance.themeMode) }
             var dynamicColors by remember { mutableStateOf(appearance.dynamicColors) }
             var seedColorArgb by remember { mutableStateOf(appearance.seedColorArgb) }
+            val reduceMotion = NourReduceMotion.remember()
+            // Publish to the animation-spec helpers (no composable context there).
+            SideEffect { NourMotion.reduced = reduceMotion }
+            CompositionLocalProvider(NourReduceMotion.Local provides reduceMotion) {
             MyApplicationTheme(
                 darkTheme = when (themeMode) {
                     "light" -> false
@@ -154,6 +158,7 @@ class MainActivity : ComponentActivity() {
                             appearance.dynamicColors = false
                         }
                     })
+            }
             }
         }
     }
@@ -423,8 +428,8 @@ fun NourMainApp(
                         AnimatedContent(
                             targetState = currentDestination,
                             transitionSpec = {
-                                fadeIn(tween(NourMotion.medium, easing = NourMotion.easing))
-                                    .togetherWith(fadeOut(tween(NourMotion.short, easing = NourMotion.easing)))
+                                fadeIn(tween(NourMotion.duration(NourMotion.medium), easing = NourMotion.easing))
+                                    .togetherWith(fadeOut(tween(NourMotion.duration(NourMotion.short), easing = NourMotion.easing)))
                             },
                             label = "m3e_nav_transition"
                         ) { destination ->
@@ -500,6 +505,24 @@ fun NourMainApp(
                                                         }
                                                     )
                                                 } catch (_: Exception) {
+                                                    // Some OEM builds omit this settings screen.
+                                                    // Fall back to the app's own details page, and
+                                                    // tell the user if even that fails rather
+                                                    // than swallowing the error silently.
+                                                    val fallback = Intent(
+                                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    )
+                                                    val ok = runCatching {
+                                                        context.startActivity(fallback)
+                                                    }.isSuccess
+                                                    if (!ok) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            strings.exactAlarmSettingsUnavailable,
+                                                            Toast.LENGTH_LONG
+                                                        ).show()
+                                                    }
                                                 }
                                             }
                                         }
@@ -515,15 +538,3 @@ fun NourMainApp(
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(text = "Nour - $name", modifier = modifier)
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MyApplicationTheme {
-        Greeting("Android")
-    }
-}

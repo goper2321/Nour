@@ -317,6 +317,15 @@ class AppStrings {
     var setupStart: String = "Get started"
     var setupSkip: String = "Skip"
     var setupStepProgressPattern: String = "Step %1\$d of %2\$d"
+    var enableAction: String = "Enable"
+    var exactAlarmActive: String = "Exact alarms active (Doze bypass)"
+    var exactAlarmRecommended: String = "System permission recommended"
+    var exactAlarmSettingsUnavailable: String = "This device does not provide an exact-alarm settings screen. Enable \"Alarms & reminders\" for Nour in your system settings."
+    var adhanToneMakkahDesc: String = "Full recording from Holy Haram"
+    var adhanToneHayyaDesc: String = "Short 12-second call to prayer"
+    var adhanToneGentleDesc: String = "Harmonic melodic chime"
+    var corpusErrorTitle: String = "Quran text unavailable"
+    var corpusErrorMessage: String = "The bundled Quran text failed its integrity check. Prayer times and settings are unaffected. Please reinstall the app to restore the reader."
     companion object {
         fun forLanguage(language: AppLanguage): AppStrings {
             return when (language) {

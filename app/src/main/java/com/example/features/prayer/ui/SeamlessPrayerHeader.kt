@@ -366,7 +366,7 @@ private fun AdaptiveCountdownText(
     }
     val animatedColor by animateColorAsState(
         targetValue = targetColor,
-        animationSpec = tween(durationMillis = 900, easing = NourMotion.easing),
+        animationSpec = tween(durationMillis = NourMotion.duration(900), easing = NourMotion.easing),
         label = "adaptive_countdown_text"
     )
     val haloStrength = ((sample.high - sample.low - 0.18f) / 0.32f).coerceIn(0f, 1f)
@@ -458,7 +458,7 @@ fun SeamlessPrayerHeader(
     }
     val dayProgress by animateFloatAsState(
         dayProgressTarget,
-        animationSpec = tween(NourMotion.long, easing = NourMotion.easing),
+        animationSpec = tween(NourMotion.duration(NourMotion.long), easing = NourMotion.easing),
         label = "seamless_day_progress"
     )
 
@@ -589,10 +589,10 @@ fun SeamlessPrayerHeader(
                     targetState = countdownState.formattedRemaining,
                     transitionSpec = {
                         (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioLowBouncy)) { it / 3 } +
-                            fadeIn(animationSpec = tween(120)))
+                            fadeIn(animationSpec = tween(NourMotion.duration(120))))
                             .togetherWith(
                                 slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium)) { -it / 3 } +
-                                    fadeOut(animationSpec = tween(120))
+                                    fadeOut(animationSpec = tween(NourMotion.duration(120)))
                             )
                     },
                     label = "countdown_animated_digits"

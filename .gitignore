@@ -21,3 +21,6 @@ debug.keystore
 
 # Claude Code local tooling (do not commit)
 .claude/
+
+# Local editor/notes workspace state (Obsidian) — not part of the app
+.obsidian/
