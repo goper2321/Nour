@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -32,10 +33,16 @@ import com.example.ui.theme.PillShape
 fun NourContentFrame(
     modifier: Modifier = Modifier,
     maxWidth: Dp = NourSize.contentWidth,
+    /**
+     * Global side gutter. Applied once here so every screen shares the same
+     * left/right margin; screens whose own background must bleed to the edge
+     * can pass [PaddingValues] zero and inset their content instead.
+     */
+    contentPadding: PaddingValues = PaddingValues(horizontal = NourSpace.lg),
     content: @Composable () -> Unit
 ) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.widthIn(max = maxWidth).fillMaxSize()) { content() }
+        Box(Modifier.widthIn(max = maxWidth).fillMaxSize().padding(contentPadding)) { content() }
     }
 }
 

@@ -543,6 +543,9 @@ fun ImmersiveSkyBackground(
 
         // True astronomical placement for this instant, latitude and longitude.
         // East (morning) sits left, west (evening) right; altitude sets height.
+        // The Sun and the Moon are placed and shaded independently, so both can
+        // be on the canvas at once exactly as in a real sky (the Moon is often
+        // above the horizon during the day).
         val cloudDrift = remember { googleWeatherCloudSpecs() }
         val sunPos = remember(nowMillis, location.latitude, location.longitude) {
             CelestialMath.sunPosition(nowMillis, location.latitude, location.longitude)
@@ -550,22 +553,25 @@ fun ImmersiveSkyBackground(
         val moon = remember(nowMillis, location.latitude, location.longitude) {
             CelestialMath.moonInfo(nowMillis, location.latitude, location.longitude)
         }
-        val activeAlt = if (isDaytime) sunPos.altitudeDeg else moon.position.altitudeDeg
-        val activeHour = if (isDaytime) sunPos.hourAngleDeg else moon.position.hourAngleDeg
-        // Bodies fade smoothly across the horizon line instead of popping.
-        val bodyAlpha = ((activeAlt + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
-        val hourFrac = ((activeHour + 120.0) / 240.0).coerceIn(0.0, 1.0)
-        val celestialX = widthPx * (0.12f + 0.76f * hourFrac).toFloat()
         val yTop = skyBand * 0.02f
-        val celestialY = (horizonY - (activeAlt / maxElevation) * (horizonY - yTop))
-            .toFloat()
-            .coerceIn(0f, horizonY + with(density) { 36.dp.toPx() })
+        fun bodyX(hourAngleDeg: Double): Float =
+            widthPx * (0.12f + 0.76f * ((hourAngleDeg + 120.0) / 240.0).coerceIn(0.0, 1.0)).toFloat()
+        fun bodyY(altitudeDeg: Double): Float =
+            (horizonY - (altitudeDeg / maxElevation) * (horizonY - yTop)).toFloat()
+                .coerceIn(0f, horizonY + with(density) { 36.dp.toPx() })
+        // Each body fades smoothly across the horizon line instead of popping.
+        val sunAlpha = ((sunPos.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
+        val moonAlpha = ((moon.position.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
+        val sunCenter = Offset(bodyX(sunPos.hourAngleDeg), bodyY(sunPos.altitudeDeg))
+        val moonCenter = Offset(bodyX(moon.position.hourAngleDeg), bodyY(moon.position.altitudeDeg))
+        // The ambient light wash follows the dominant body (Sun by day, Moon by night).
+        val glareCenter = if (isDaytime) sunCenter else moonCenter
+        val glareAlpha = if (isDaytime) sunAlpha else moonAlpha
 
         // Primary Immersive Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val celestialCenter = Offset(celestialX, celestialY)
             // Smooth cloud time: wall base (layout-preserving) + cycle progress.
             val timeSeconds = wallBaseSeconds + (cloudProgress.toDouble() * cloudCycleSeconds)
             val cloudLuminosity = atmosphericState.skyLuminosity
@@ -580,15 +586,15 @@ fun ImmersiveSkyBackground(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        glareGlow.copy(alpha = (if (isDaytime) 0.35f else 0.20f) * bodyAlpha),
-                        glareGlow.copy(alpha = 0.12f * bodyAlpha),
+                        glareGlow.copy(alpha = (if (isDaytime) 0.35f else 0.20f) * glareAlpha),
+                        glareGlow.copy(alpha = 0.12f * glareAlpha),
                         Color.Transparent
                     ),
-                    center = celestialCenter,
+                    center = glareCenter,
                     radius = atmosphericGlareRadius
                 ),
                 radius = atmosphericGlareRadius,
-                center = celestialCenter
+                center = glareCenter
             )
 
             // -------------------------------------------------------------
@@ -663,23 +669,26 @@ fun ImmersiveSkyBackground(
             // -------------------------------------------------------------
             // 4. Celestial Body (Google Weather Sun or True-Phase Moon)
             // -------------------------------------------------------------
-            if (isDaytime) {
+            // Both bodies draw independently: the Moon keeps its true illuminated
+            // phase, so a day-time Moon and the Sun can share the sky.
+            if (sunAlpha > 0.005f) {
                 GoogleWeatherSkyElements.drawSun(
                     drawScope = this,
-                    center = celestialCenter,
-                    bodyAlpha = bodyAlpha,
+                    center = sunCenter,
+                    bodyAlpha = sunAlpha,
                     coronaPulse = coronaPulse,
                     sunRayRotation = sunRayRotation,
                     dynamicAccent = dynamicPrimary,
                     duskWarmth = duskWarmth,
                     atmosphericGlow = atmosphericState.celestialGlowColor
                 )
-            } else {
+            }
+            if (moonAlpha > 0.005f) {
                 GoogleWeatherSkyElements.drawMoon(
                     drawScope = this,
-                    center = celestialCenter,
+                    center = moonCenter,
                     moon = moon,
-                    bodyAlpha = bodyAlpha,
+                    bodyAlpha = moonAlpha,
                     coronaPulse = coronaPulse,
                     starTwinkle = starTwinkle,
                     dynamicAccent = dynamicTertiary

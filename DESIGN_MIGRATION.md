@@ -1,5 +1,9 @@
 # Nour implementation status
 
+> Android 16 (API 36) / Material 3 Expressive refinement pass: see
+> `docs/android16-m3e/` for the baseline audit, migration plan, design-system
+> specification, test report, and handover.
+
 ## Implemented
 - Visual foundation follows the user's supplied Prayer App M3E reference (`Download/Prayer App — M3E.html`): muted lavender palette (light: #4A4459 primary, #FCF8FD background, #E6E0F0 primary container; coherent dark counterpart), 28dp feature cards, 22dp list rows, 40dp/14dp-radius icon tiles, bold hero typography.
 - Functional appearance settings: theme mode (System/Light/Dark) and wallpaper-based dynamic colors are persisted opt-in controls in Settings (dynamic color now off by default).

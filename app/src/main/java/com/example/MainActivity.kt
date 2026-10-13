@@ -17,14 +17,12 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -319,6 +317,15 @@ fun NourMainApp(
                 }
             )
         } else {
+            // Predictive back (enabled by default for targetSdk 36): from any
+            // secondary destination, back returns to the prayer screen instead of
+            // unexpectedly exiting the app. On the Salah tab the system default
+            // (leave the app) still applies. Screens with an internal layer - the
+            // Quran reader - register their own BackHandler, which is composed
+            // later and therefore takes precedence while that layer is open.
+            BackHandler(enabled = currentDestination != NourNavDestination.SALAH) {
+                currentDestination = NourNavDestination.SALAH
+            }
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isExpandedScreen = maxWidth >= NourSize.compactBreakpoint
 
@@ -326,6 +333,9 @@ fun NourMainApp(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("nour_main_scaffold"),
+                // Match the screens' own surface so the global side gutter
+                // (applied in NourContentFrame) reads as one continuous page.
+                containerColor = MaterialTheme.colorScheme.surface,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 bottomBar = {
                     if (!isExpandedScreen) {
@@ -418,7 +428,18 @@ fun NourMainApp(
 
                     NourContentFrame(
                         modifier = Modifier.weight(1f).fillMaxHeight()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            // On the rail (expanded) layout there is no bottom bar,
+                            // so apply the navigation-bar inset here or the last row
+                            // can sit under the gesture/navigation bar. On the compact
+                            // layout the NavigationBar already accounts for it.
+                            .then(
+                                if (isExpandedScreen) {
+                                    Modifier.windowInsetsPadding(
+                                        WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+                                    )
+                                } else Modifier
+                            ),
                         maxWidth = when (currentDestination) {
                             NourNavDestination.SALAH -> androidx.compose.ui.unit.Dp.Infinity
                             NourNavDestination.QURAN -> NourSize.readingWidth
@@ -441,9 +462,6 @@ fun NourMainApp(
                                         madhab = madhab,
                                         highLatRule = highLatRule,
                                         adjustments = adjustments,
-                                        onOpenAdjustments = { currentDestination = NourNavDestination.SETTINGS },
-                                        onOpenSettings = { currentDestination = NourNavDestination.SETTINGS },
-                                        onLocationUpdated = { userLocation = it },
                                         onRequestLocationUpdate = handleRequestLocationUpdate
                                     )
                                 }

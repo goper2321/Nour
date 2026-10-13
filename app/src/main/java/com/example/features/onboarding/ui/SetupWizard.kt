@@ -17,7 +17,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -319,7 +318,8 @@ fun SetupWizard(
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
-            .padding(NourSpace.md),
+            // Shares the app-wide side gutter (Setup runs outside NourContentFrame).
+            .padding(horizontal = NourSpace.lg, vertical = NourSpace.md),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // ====================================================================
@@ -345,13 +345,13 @@ fun SetupWizard(
                     modifier = Modifier.height(36.dp)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = NourSpace.xs),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(NourSize.icon)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary),
                             contentAlignment = Alignment.Center
@@ -407,7 +407,7 @@ fun SetupWizard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = NourSpace.xs, bottom = 4.dp),
+                    .padding(top = NourSpace.xs, bottom = NourSpace.xs),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -416,7 +416,7 @@ fun SetupWizard(
                     val isPast = index < step
                     val pillWidth by animateDpAsState(
                         targetValue = if (isCurrent) 38.dp else if (isPast) 12.dp else 8.dp,
-                        animationSpec = spring(
+                        animationSpec = NourMotion.spring(
                             stiffness = Spring.StiffnessMediumLow,
                             dampingRatio = Spring.DampingRatioMediumBouncy
                         ),
@@ -477,18 +477,18 @@ fun SetupWizard(
                 targetState = step,
                 transitionSpec = {
                     if (targetState > initialState) {
-                        (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } +
-                                fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)))
+                        (slideInHorizontally(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } +
+                                fadeIn(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)))
                             .togetherWith(
-                                slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it / 2 } +
-                                        fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                                slideOutHorizontally(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)) { -it / 2 } +
+                                        fadeOut(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow))
                             )
                     } else {
-                        (slideInHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { -it / 2 } +
-                                fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)))
+                        (slideInHorizontally(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)) { -it / 2 } +
+                                fadeIn(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)))
                             .togetherWith(
-                                slideOutHorizontally(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } +
-                                        fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+                                slideOutHorizontally(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow)) { it / 2 } +
+                                        fadeOut(animationSpec = NourMotion.spring(stiffness = Spring.StiffnessMediumLow))
                             )
                     }
                 },
@@ -645,7 +645,7 @@ fun SetupWizard(
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(NourSpace.sm))
                     Icon(
                         imageVector = if (step == totalSteps - 1)
                             Icons.Rounded.Check
@@ -694,7 +694,7 @@ private fun SetupWelcomeStep(
         Surface(
             shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
             modifier = Modifier.padding(top = NourSpace.xs)
         ) {
             Text(
@@ -741,7 +741,7 @@ private fun SetupWelcomeStep(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(NourSpace.xs))
             Text(
                 text = strings.setupWelcomeSubtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -831,7 +831,7 @@ private fun SetupFeatureCard(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(NourSize.rowIcon)
                     )
                 }
             }
@@ -1056,7 +1056,7 @@ private fun SetupLanguageStep(
                             Surface(
                                 shape = CircleShape,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(NourSize.icon)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
@@ -1098,11 +1098,11 @@ private fun FormatChoiceChip(
             if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)
         ),
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = NourSize.touchTarget)
             .testTag(testTag)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = NourSpace.sm),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -1223,7 +1223,7 @@ private fun SetupLocationStep(
                                 MaterialTheme.colorScheme.onPrimaryContainer
                             else
                                 MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = NourSpace.xs)
                         )
                     }
                 }
@@ -1359,11 +1359,11 @@ private fun SetupLocationStep(
                         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 48.dp)
+                            .heightIn(min = NourSize.touchTarget)
                             .testTag("setup_method_dropdown")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.md),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1447,7 +1447,7 @@ private fun SetupLocationStep(
         Card(
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -1483,7 +1483,7 @@ private fun SetupLocationStep(
                         Row(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(NourSpace.xs)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.CheckCircle,
@@ -1492,7 +1492,7 @@ private fun SetupLocationStep(
                                 modifier = Modifier.size(12.dp)
                             )
                             Text(
-                                text = "CALCULATED",
+                                text = strings.calculatedBadge,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1515,19 +1515,19 @@ private fun SetupLocationStep(
                     horizontalArrangement = Arrangement.spacedBy(NourSpace.xs),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(prayers) { (prayer, label, icon) ->
+                    items(prayers, key = { it.first.name }) { (prayer, label, icon) ->
                         val timeStr = todayTimes.formattedTime(prayer, use24Hour)
                         val formattedTime = Numerals.convert(timeStr, useEasternNumerals)
 
                         Surface(
                             shape = ChipExpressiveShape,
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            modifier = Modifier.width(92.dp)
+                            modifier = Modifier.widthIn(min = 92.dp)
                         ) {
                             Column(
                                 modifier = Modifier.padding(NourSpace.sm),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
                             ) {
                                 Icon(
                                     imageVector = icon,
@@ -1621,14 +1621,14 @@ private fun SetupAlertsStep(
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(NourSize.badge)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Rounded.Alarm,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(NourSize.rowIcon)
                             )
                         }
                     }
@@ -1684,14 +1684,14 @@ private fun SetupAlertsStep(
                                 MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(NourSize.badge)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.Notifications,
                                     contentDescription = null,
                                     tint = if (notifGranted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(NourSize.rowIcon)
                                 )
                             }
                         }
@@ -1703,7 +1703,7 @@ private fun SetupAlertsStep(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (notifGranted) "Notifications active" else "Permission required for banners",
+                                text = if (notifGranted) strings.notifPermissionGranted else strings.notifPermissionNeeded,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1745,14 +1745,14 @@ private fun SetupAlertsStep(
                                 MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(NourSize.badge)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.Alarm,
                                     contentDescription = null,
                                     tint = if (canExact) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(NourSize.rowIcon)
                                 )
                             }
                         }
@@ -1786,7 +1786,7 @@ private fun SetupAlertsStep(
                             imageVector = Icons.Rounded.CheckCircle,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(NourSize.icon)
                         )
                     }
                 }
@@ -1858,7 +1858,7 @@ private fun SetupAlertsStep(
                                     imageVector = Icons.Rounded.Check,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
+                                    modifier = Modifier.size(NourSize.smallIcon)
                                 )
                             }
                         }
@@ -1884,7 +1884,7 @@ private fun SetupAlertsStep(
                                 imageVector = Icons.Rounded.MusicNote,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(NourSize.icon)
                             )
                         }
 
@@ -1937,12 +1937,12 @@ private fun SetupAlertsStep(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "15-Minute Pre-Adhan Reminder",
+                        text = strings.setupPreAdhanTitle,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Gentle heads-up notification to prepare for prayer and make wudhu.",
+                        text = strings.setupPreAdhanSubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2099,7 +2099,7 @@ private fun SetupReadyStep(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(NourSpace.xs))
             Text(
                 text = strings.setupReadySubtitle,
                 style = MaterialTheme.typography.bodyMedium,
@@ -2161,7 +2161,7 @@ private fun SetupReadyStep(
                     imageVector = Icons.Rounded.Tune,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(NourSize.smallIcon)
                 )
                 Text(
                     text = strings.setupReassurance,
@@ -2245,7 +2245,7 @@ private fun StepHeader(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(NourSize.rowIcon)
                 )
             }
         }
@@ -2332,11 +2332,11 @@ private fun WorldCityPickerDialog(
                 // Holy Cities Quick Row
                 if (query.isBlank()) {
                     Text(
-                        text = "Holy Cities",
+                        text = strings.holyCitiesLabel,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = NourSpace.xs)
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2359,7 +2359,7 @@ private fun WorldCityPickerDialog(
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(vertical = 8.dp)
+                                    modifier = Modifier.padding(vertical = NourSpace.sm)
                                 )
                             }
                         }
@@ -2370,7 +2370,7 @@ private fun WorldCityPickerDialog(
                 // Filtered List
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
                 ) {
                     items(filtered) { item ->
                         Surface(
@@ -2381,11 +2381,11 @@ private fun WorldCityPickerDialog(
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 48.dp)
+                                .heightIn(min = NourSize.touchTarget)
                                 .testTag("setup_city_item_${item.capital}")
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 8.dp),
+                                modifier = Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.sm),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {

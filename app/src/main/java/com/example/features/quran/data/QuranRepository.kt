@@ -16,20 +16,23 @@ object QuranRepository {
     private val HarakatRegex = Regex("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]")
     private val AlifRegex = Regex("[\\u0622\\u0623\\u0625\\u0671]")
 
+    // `language` is a BCP-47 tag, not an English display name, so the UI can
+    // render the language endonym (e.g. "sv" -> "svenska") instead of leaking
+    // the English words "Swedish"/"Russian" into every interface language.
     val TRANSLATION_EDITIONS = listOf(
-        TranslationEdition("sahih_en", "Sahih International", "English", "Saheeh Int."),
-        TranslationEdition("pickthall_en", "Pickthall", "English", "Marmaduke Pickthall"),
-        TranslationEdition("hamidullah_fr", "Muhammad Hamidullah", "French", "Muhammad Hamidullah"),
-        TranslationEdition("bernstrom_sv", "Knut Bernström", "Swedish", "Knut Bernström"),
-        TranslationEdition("diyanet_tr", "Diyanet İşleri", "Turkish", "Diyanet"),
-        TranslationEdition("jalandhry_ur", "Fateh Muhammad Jalandhry", "Urdu", "Jalandhry"),
-        TranslationEdition("bubenheim_de", "Frank Bubenheim", "German", "Bubenheim & Elyas"),
-        TranslationEdition("cortes_es", "Julio Cortés", "Spanish", "Julio Cortés"),
-        TranslationEdition("indonesian_id", "Indonesian Ministry", "Indonesian", "Kemenag"),
-        TranslationEdition("rahman_bn", "Mujibur Rahman", "Bengali", "Mujibur Rahman"),
-        TranslationEdition("khan_hi", "Suhel Farooq Khan", "Hindi", "Farooq Khan & Nadwi"),
-        TranslationEdition("kuliev_ru", "Elmir Kuliev", "Russian", "Elmir Kuliev"),
-        TranslationEdition("jian_zh", "Ma Jian", "Chinese", "Ma Jian")
+        TranslationEdition("sahih_en", "Sahih International", "en", "Saheeh Int."),
+        TranslationEdition("pickthall_en", "Pickthall", "en", "Marmaduke Pickthall"),
+        TranslationEdition("hamidullah_fr", "Muhammad Hamidullah", "fr", "Muhammad Hamidullah"),
+        TranslationEdition("bernstrom_sv", "Knut Bernström", "sv", "Knut Bernström"),
+        TranslationEdition("diyanet_tr", "Diyanet İşleri", "tr", "Diyanet"),
+        TranslationEdition("jalandhry_ur", "Fateh Muhammad Jalandhry", "ur", "Jalandhry"),
+        TranslationEdition("bubenheim_de", "Frank Bubenheim", "de", "Bubenheim & Elyas"),
+        TranslationEdition("cortes_es", "Julio Cortés", "es", "Julio Cortés"),
+        TranslationEdition("indonesian_id", "Indonesian Ministry", "id", "Kemenag"),
+        TranslationEdition("rahman_bn", "Mujibur Rahman", "bn", "Mujibur Rahman"),
+        TranslationEdition("khan_hi", "Suhel Farooq Khan", "hi", "Farooq Khan & Nadwi"),
+        TranslationEdition("kuliev_ru", "Elmir Kuliev", "ru", "Elmir Kuliev"),
+        TranslationEdition("jian_zh", "Ma Jian", "zh", "Ma Jian")
     )
 
     val TAFSIR_EDITIONS = listOf(

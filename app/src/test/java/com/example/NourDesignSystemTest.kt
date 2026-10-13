@@ -1,7 +1,6 @@
 package com.example
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -13,8 +12,8 @@ import com.example.features.prayer.models.CountdownState
 import com.example.features.prayer.models.PrayerName
 import com.example.features.prayer.models.UserLocation
 import com.example.features.prayer.ui.DaySwitcherBar
-import com.example.features.prayer.ui.PrayerCard
 import com.example.features.prayer.ui.SeamlessPrayerHeader
+import com.example.features.prayer.ui.SimplifiedPrayerTimesCard
 import com.example.features.settings.NourPreferences
 import com.example.ui.theme.MyApplicationTheme
 import org.junit.Assert.assertEquals
@@ -80,7 +79,7 @@ class NourDesignSystemTest {
         }
         compose.onNodeWithTag("day_switcher_prev").performClick()
         compose.onNodeWithTag("day_switcher_next").performClick()
-        compose.onNodeWithTag("day_switcher_today_btn").performClick()
+        compose.onNodeWithTag("day_switcher_reset").performClick()
         compose.runOnIdle {
             assertEquals(1, previous)
             assertEquals(1, next)
@@ -89,14 +88,25 @@ class NourDesignSystemTest {
     }
 
     @Test
-    fun prayerCompletionExposesCheckedStateAndCallback() {
-        var clicks = 0
+    fun simplifiedCardShowsFivePrayerRowsReadOnly() {
+        val location = UserLocation(21.4225, 39.8262, "Makkah", "Saudi Arabia", 3.0)
+        val times = PrayerCalculationEngine.calculate(
+            date = Date(),
+            location = location,
+            method = CalculationMethod.UMM_AL_QURA
+        )
         compose.setContent {
             MyApplicationTheme(dynamicColor = false) {
-                PrayerCard(prayer = PrayerName.FAJR, timeFormatted = "05:30", isNext = false, isCurrent = false, isSunrise = false, isPrayed = true) { clicks++ }
+                SimplifiedPrayerTimesCard(prayerTimes = times, use24Hour = true)
             }
         }
-        compose.onNodeWithTag("log_prayer_FAJR").assertIsOn().performClick()
-        compose.runOnIdle { assertEquals(1, clicks) }
+        compose.onNodeWithTag("simplified_prayer_card").assertIsDisplayed()
+        compose.onNodeWithTag("simplified_prayer_row_FAJR").assertIsDisplayed()
+        compose.onNodeWithTag("simplified_prayer_row_DHUHR").assertIsDisplayed()
+        compose.onNodeWithTag("simplified_prayer_row_ASR").assertIsDisplayed()
+        compose.onNodeWithTag("simplified_prayer_row_MAGHRIB").assertIsDisplayed()
+        compose.onNodeWithTag("simplified_prayer_row_ISHA").assertIsDisplayed()
+        // Sunrise is intentionally outside the five-prayer summary.
+        compose.onNodeWithTag("simplified_prayer_row_SUNRISE").assertDoesNotExist()
     }
 }

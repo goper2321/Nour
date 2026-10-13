@@ -1,8 +1,13 @@
 package com.example.features.settings.ui
 
+import android.Manifest
 import android.app.AlarmManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.material.icons.rounded.Alarm
 import com.example.ui.theme.NourSpace
 import com.example.ui.theme.NourAlpha
@@ -62,6 +67,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
@@ -111,6 +117,9 @@ import com.example.database.NourDatabase
 import com.example.features.adhan.player.AdhanPlayer
 import com.example.features.adhan.player.AdhanTones
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.PermissionStatus
+import com.google.accompanist.permissions.rememberPermissionState
 import com.example.features.prayer.models.CalculationMethod
 import com.example.features.prayer.models.HighLatitudeRule
 import com.example.features.prayer.models.Madhab
@@ -212,7 +221,7 @@ private fun SeedColorCard(
                             else MaterialTheme.colorScheme.outlineVariant
                         ),
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(NourSize.badge)
                             .clickable { onSeedChange(preset) }
                             .testTag("seed_preset_$index")
                     ) {}
@@ -242,13 +251,15 @@ private fun SeedColorCard(
                             text = strings.seedCustomTitle,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Medium,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                         Text(
                             text = seedHex(currentSeed),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -355,6 +366,7 @@ private fun GradientSlider(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun SettingsScreen(
     location: UserLocation,
@@ -407,8 +419,13 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
+            // Keep the inline seed-colour hex field scrollable above the soft
+            // keyboard. The root frame opts out of window insets (the compact
+            // NavigationBar handles the system bars), so screens own IME insets.
+            .imePadding()
             .testTag("settings_screen_list"),
-        contentPadding = PaddingValues(NourSpace.lg),
+        // Horizontal margin comes from the global NourContentFrame gutter.
+        contentPadding = PaddingValues(vertical = NourSpace.lg),
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
         item {
@@ -482,11 +499,11 @@ fun SettingsScreen(
                                         imageVector = Icons.Rounded.Translate,
                                         contentDescription = strings.languageSectionTitle,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(NourSize.rowIcon)
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(NourSpace.md))
                             Column {
                                 Text(
                                     text = strings.languageSectionTitle,
@@ -508,7 +525,7 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(NourSpace.sm))
                         Button(
                             onClick = { showLanguageDialog = true },
                             shape = PillShape,
@@ -550,7 +567,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
                     listOf(false to "0123456789", true to "٠١٢٣٤٥٦٧٨٩").forEach { (value, sample) ->
                         Row(
                             Modifier
@@ -564,7 +581,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant), selected = useEasternNumerals == value, onClick = null)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(NourSpace.sm))
                             Text(
                                 sample,
                                 style = MaterialTheme.typography.titleLarge,
@@ -600,7 +617,7 @@ fun SettingsScreen(
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
                     listOf(
                         false to formatNumerals("5:30 PM"),
                         true to formatNumerals("17:30")
@@ -617,7 +634,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant), selected = use24Hour == value, onClick = null)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(NourSpace.sm))
                             Column {
                                 Text(
                                     text = if (value) strings.timeFormat24 else strings.timeFormat12,
@@ -701,7 +718,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
 
                     var methodMenuOpen by remember { mutableStateOf(false) }
                     OutlinedButton(
@@ -744,7 +761,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
 
                     Madhab.values().forEach { m ->
                         // Mutually exclusive choice: expose radio semantics instead of independent switches
@@ -782,7 +799,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
 
                     var highLatMenuOpen by remember { mutableStateOf(false) }
                     OutlinedButton(
@@ -851,12 +868,12 @@ fun SettingsScreen(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(NourSpace.sm))
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = strings.tuneButton,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(NourSize.icon)
                     )
                 }
             }
@@ -908,7 +925,7 @@ fun SettingsScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.md))
 
                     // Master prayer-alarms switch: off cancels every scheduled
                     // alarm and stops all future scheduling (see NourPreferences).
@@ -977,9 +994,9 @@ fun SettingsScreen(
                                     imageVector = Icons.Rounded.Alarm,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(NourSize.rowIcon)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(NourSpace.sm))
                                 Text(
                                     text = strings.alarmsSystemSettings,
                                     style = MaterialTheme.typography.titleSmall,
@@ -1005,6 +1022,88 @@ fun SettingsScreen(
                         )
                     }
 
+                    // Notification permission row (Android 13+). Gives users a way to
+                    // grant — or re-grant — POST_NOTIFICATIONS after onboarding, so a
+                    // dismissed prompt never silently blocks prayer alerts forever.
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        val notifPermission = rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
+                        val notifGranted = notifPermission.status is PermissionStatus.Granted
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(NourSize.rowIcon)
+                                )
+                                Spacer(modifier = Modifier.width(NourSpace.sm))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = strings.setupNotifTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 2,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (notifGranted) strings.notifPermissionGranted else strings.notifPermissionNeeded,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                                checked = notifGranted,
+                                onCheckedChange = {
+                                    if (notifGranted) {
+                                        try {
+                                            context.startActivity(
+                                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                                }
+                                            )
+                                        } catch (_: Exception) {
+                                            // Some OEM builds omit the notification settings
+                                            // screen. Fall back to the app's own details page,
+                                            // and tell the user if even that fails rather than
+                                            // swallowing the error silently.
+                                            val fallback = Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                Uri.parse("package:${context.packageName}")
+                                            )
+                                            val ok = runCatching {
+                                                context.startActivity(fallback)
+                                            }.isSuccess
+                                            if (!ok) {
+                                                Toast.makeText(
+                                                    context,
+                                                    strings.notifSettingsUnavailable,
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        }
+                                    } else {
+                                        notifPermission.launchPermissionRequest()
+                                    }
+                                },
+                                enabled = alarmsEnabled,
+                                modifier = Modifier.testTag("notification_permission_switch")
+                            )
+                        }
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline),
+                            modifier = Modifier.padding(vertical = NourSpace.sm)
+                        )
+                    }
+
                     // Global Adhan voice (applies to all prayers) + volume + credit
                     var voiceMenuOpen by remember { mutableStateOf(false) }
                     Text(
@@ -1014,7 +1113,7 @@ fun SettingsScreen(
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.xs))
                     OutlinedButton(
                         onClick = { voiceMenuOpen = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -1050,7 +1149,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1090,14 +1189,14 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.sm))
                     Text(
                         text = strings.prayerNotificationsSubtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(NourSpace.md))
 
                     val prayers = listOf("FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA")
                     var toneMenuFor by remember { mutableStateOf<String?>(null) }
@@ -1262,12 +1361,12 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(NourSpace.sm))
                         Text(
                             text = strings.privacyPledgeTitle,
                             style = MaterialTheme.typography.titleMedium,
@@ -1312,14 +1411,14 @@ fun SettingsScreen(
                         Surface(
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(NourSize.badge)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Rounded.Explore,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(NourSize.rowIcon)
                                 )
                             }
                         }
@@ -1342,7 +1441,7 @@ fun SettingsScreen(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(NourSize.icon)
                     )
                 }
             }
@@ -1493,7 +1592,7 @@ fun SettingsScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(NourSpace.sm))
                         Text(
                             text = formatNumerals(world.utcLabel()),
                             style = MaterialTheme.typography.labelSmall,
@@ -1511,7 +1610,12 @@ fun SettingsScreen(
             shape = DialogExpressiveShape,
             title = { Text(strings.selectCity, style = MaterialTheme.typography.titleLarge) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(NourSpace.sm)) {
+                Column(
+                    // Let the city search field and result list rise above the
+                    // soft keyboard (matches the SetupWizard search dialog).
+                    modifier = Modifier.imePadding(),
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
+                ) {
                     OutlinedTextField(
                         value = locationQuery,
                         onValueChange = { locationQuery = it },
@@ -1643,7 +1747,7 @@ fun SettingsScreen(
                                         imageVector = Icons.Rounded.CheckCircle,
                                         contentDescription = strings.prayedStatus,
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(NourSize.smallIcon)
                                     )
                                 }
                             }

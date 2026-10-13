@@ -1,6 +1,9 @@
 package com.example.ui.theme
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
 import androidx.compose.ui.unit.dp
 
 /** Shared layout and motion values. Text sizes belong to Typography. */
@@ -17,6 +20,8 @@ object NourSize {
     val touchTarget = 48.dp
     val icon = 24.dp
     val smallIcon = 20.dp
+    /** Leading icon inside a settings/list row (22 dp): between [smallIcon] and [icon]. */
+    val rowIcon = 22.dp
     val badge = 40.dp
     val input = 56.dp
     val compactBreakpoint = 600.dp
@@ -49,6 +54,20 @@ object NourMotion {
      * Prefer this over calling `tween(...)` directly.
      */
     fun duration(millis: Int): Int = if (reduced) 0 else millis
+
+    /**
+     * `spring` that collapses to an instant change when motion is reduced.
+     * Prefer this over calling `spring(...)` directly for finite transitions
+     * (slides, fades, size and colour changes). Uses the Compose
+     * [Spring.StiffnessMediumLow] / [Spring.DampingRatioNoBouncy] defaults unless
+     * overridden, so call sites only state what they need.
+     */
+    fun <T> spring(
+        stiffness: Float = Spring.StiffnessMediumLow,
+        dampingRatio: Float = Spring.DampingRatioNoBouncy
+    ): FiniteAnimationSpec<T> =
+        if (reduced) snap()
+        else androidx.compose.animation.core.spring(stiffness = stiffness, dampingRatio = dampingRatio)
 
     /** True when decorative, endlessly-repeating motion must not be started. */
     val allowContinuous: Boolean get() = !reduced

@@ -3,66 +3,36 @@ package com.example.features.prayer.ui
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-import android.widget.Toast
-import com.example.ui.theme.NourSpace
-import com.example.ui.theme.NourSize
-import com.example.ui.theme.NourAlpha
-import com.example.ui.components.NourBadge
-import androidx.compose.material3.IconToggleButton
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import com.example.ui.components.NourContentFrame
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.WbSunny
-import com.example.ui.theme.CardExpressiveShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import com.example.localization.LocalAppStrings
-import com.example.localization.formatNumerals
-import com.example.localization.LocalUse24HourFormat
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.database.NourDatabase
-import com.example.database.PrayerLogEntity
 import com.example.features.adhan.player.AdhanPlayer
 import com.example.features.prayer.calculation.PrayerCalculationEngine
 import com.example.features.prayer.models.CalculationMethod
@@ -70,9 +40,18 @@ import com.example.features.prayer.models.HighLatitudeRule
 import com.example.features.prayer.models.Madhab
 import com.example.features.prayer.models.PrayerAdjustments
 import com.example.features.prayer.models.PrayerName
+import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
+import com.example.localization.AppStrings
+import com.example.localization.LocalAppStrings
+import com.example.localization.LocalUse24HourFormat
+import com.example.localization.formatNumerals
+import com.example.ui.components.NourContentFrame
+import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.NourAlpha
+import com.example.ui.theme.NourSize
+import com.example.ui.theme.NourSpace
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -85,15 +64,9 @@ fun PrayerScreen(
     madhab: Madhab,
     highLatRule: HighLatitudeRule,
     adjustments: PrayerAdjustments,
-    onOpenAdjustments: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onLocationUpdated: ((UserLocation) -> Unit)? = null,
     onRequestLocationUpdate: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val db = remember { NourDatabase.getInstance(context) }
     val use24Hour = LocalUse24HourFormat.current
 
     var currentTime by remember { mutableStateOf(Date()) }
@@ -156,9 +129,6 @@ fun PrayerScreen(
 
     val countdownState = todayPrayerTimes.getCountdownState(currentTime)
 
-    val displayedDateStr = remember(displayedDate) { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(displayedDate) }
-    val displayedPrayerLogs by db.prayerLogDao().getLogsForDate(displayedDateStr).collectAsState(initial = emptyList())
-
     // Stop adhan if composable leaves composition
     DisposableEffect(Unit) {
         onDispose {
@@ -168,197 +138,143 @@ fun PrayerScreen(
         }
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .testTag("prayer_sky_page")
     ) {
-        val skyReveal = NourSpace.md
-        NourContentFrame {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .testTag("prayer_screen_list"),
-            contentPadding = PaddingValues(start = NourSpace.lg, end = NourSpace.lg,
-                top = skyReveal, bottom = NourSpace.lg),
-            verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
-        ) {
-            // Dates, location, and the live next-prayer summary.
-            item {
-                SeamlessPrayerHeader(
-                    location = location,
-                    countdownState = countdownState,
-                    todayPrayerTimes = todayPrayerTimes,
-                    now = currentTime,
-                    onRequestLocationUpdate = onRequestLocationUpdate
-                )
-            }
+        // The outer (MainActivity) frame already applies the global side
+        // gutter; this nested frame only caps the reading width.
+        NourContentFrame(contentPadding = PaddingValues(0.dp)) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("prayer_screen_list"),
+                contentPadding = PaddingValues(bottom = NourSpace.lg),
+                verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
+            ) {
+                // Immersive sky header: the sky bleeds up behind the system
+                // status bar; content stays clear of it.
+                item {
+                    SeamlessPrayerHeader(
+                        location = location,
+                        countdownState = countdownState,
+                        todayPrayerTimes = todayPrayerTimes,
+                        now = currentTime,
+                        onRequestLocationUpdate = onRequestLocationUpdate
+                    )
+                }
 
-            // Daily navigation remains separate from the live countdown.
-            item {
-                DaySwitcherBar(
-                    selectedDate = displayedDate,
-                    dayOffset = selectedDayOffset,
-                    onPreviousDay = { selectedDayOffset-- },
-                    onNextDay = { selectedDayOffset++ },
-                    onResetToToday = { selectedDayOffset = 0 }
-                )
-            }
+                // Day navigation sits between the sky and the prayer-times card.
+                // Tapping the bar returns to today (no separate "Today" button).
+                item {
+                    DaySwitcherBar(
+                        selectedDate = displayedDate,
+                        dayOffset = selectedDayOffset,
+                        onPreviousDay = { selectedDayOffset-- },
+                        onNextDay = { selectedDayOffset++ },
+                        onResetToToday = { selectedDayOffset = 0 },
+                        modifier = Modifier
+                    )
+                }
 
-            // Today's / Selected Day's Individual Prayer Cards
-            items(PrayerName.values()) { prayer ->
-                val isToday = selectedDayOffset == 0
-                val isNext = isToday && countdownState.nextPrayer == prayer
-                val isCurrent = isToday && countdownState.currentPrayer == prayer
-                val isSunrise = prayer == PrayerName.SUNRISE
-                val log = displayedPrayerLogs.firstOrNull { it.prayerName == prayer.name }
-                val isPrayed = log?.status == "PRAYED"
-
-                PrayerCard(
-                    prayer = prayer,
-                    timeFormatted = displayedPrayerTimes.formattedTime(prayer, use24Hour),
-                    isNext = isNext,
-                    isCurrent = isCurrent,
-                    isSunrise = isSunrise,
-                    isPrayed = isPrayed,
-                    onTogglePrayed = {
-                        coroutineScope.launch {
-                            val newStatus = if (isPrayed) "MISSED" else "PRAYED"
-                            db.prayerLogDao().insertOrUpdateLog(
-                                PrayerLogEntity(
-                                    date = displayedDateStr,
-                                    prayerName = prayer.name,
-                                    status = newStatus
-                                )
-                            )
-                            val stringsNow = com.example.localization.AppStrings.forLanguage(
-                                com.example.localization.LocalizationManager.getSavedLanguage(context)
-                            )
-                            val prayerTitle = when (prayer) {
-                                PrayerName.FAJR -> stringsNow.fajr
-                                PrayerName.SUNRISE -> stringsNow.sunrise
-                                PrayerName.DHUHR -> stringsNow.dhuhr
-                                PrayerName.ASR -> stringsNow.asr
-                                PrayerName.MAGHRIB -> stringsNow.maghrib
-                                PrayerName.ISHA -> stringsNow.isha
-                            }
-                            val msg = if (!isPrayed) "$prayerTitle ${stringsNow.markedAsPrayed}" else "$prayerTitle ${stringsNow.unmarkedPrayer}"
-                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                )
+                // Simplified, read-only daily prayer times (Fajr -> Isha).
+                // No own side padding: like the sky card and the day
+                // switcher, it takes exactly the global frame gutter.
+                item {
+                    SimplifiedPrayerTimesCard(
+                        prayerTimes = displayedPrayerTimes,
+                        use24Hour = use24Hour,
+                        nextPrayer = if (selectedDayOffset == 0) countdownState.nextPrayer else null,
+                        modifier = Modifier
+                    )
+                }
             }
-        }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Read-only summary of the five obligatory prayers for the selected day: one
+ * compact card with five plain rows (name, time). There is deliberately no
+ * per-prayer completion toggle here — the prayer log is written from the
+ * "Mark as prayed" action on the Adhan notification.
+ */
 @Composable
-fun PrayerCard(
-    prayer: PrayerName,
-    timeFormatted: String,
-    isNext: Boolean,
-    isCurrent: Boolean,
-    isSunrise: Boolean,
-    isPrayed: Boolean,
-    onTogglePrayed: () -> Unit
+fun SimplifiedPrayerTimesCard(
+    prayerTimes: PrayerTimes,
+    use24Hour: Boolean,
+    nextPrayer: PrayerName? = null,
+    modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
-    val title = when (prayer) {
-        PrayerName.FAJR -> strings.fajr
-        PrayerName.SUNRISE -> strings.sunrise
-        PrayerName.DHUHR -> strings.dhuhr
-        PrayerName.ASR -> strings.asr
-        PrayerName.MAGHRIB -> strings.maghrib
-        PrayerName.ISHA -> strings.isha
-    }
-    // Three visual states: completed (filled check), next (accent ring),
-    // upcoming (muted). The ring uses the shared selected-border token.
-    val rowState = when {
-        isPrayed -> 0
-        isNext -> 1
-        else -> 2
-    }
-    val solidContainer =
-        if (isNext) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-    val titleColor = when (rowState) {
-        1 -> MaterialTheme.colorScheme.onPrimaryContainer
-        2 -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.onSurface
+    val prayers = remember {
+        listOf(
+            PrayerName.FAJR,
+            PrayerName.DHUHR,
+            PrayerName.ASR,
+            PrayerName.MAGHRIB,
+            PrayerName.ISHA
+        )
     }
     Card(
-        modifier = Modifier.fillMaxWidth()
-            .testTag("prayer_card_${prayer.name}"),
-        shape = com.example.ui.theme.ListRowShape,
-        colors = CardDefaults.cardColors(containerColor = solidContainer,
-            contentColor = if (isNext) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
-        border = when {
-            isNext -> BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary)
-            isCurrent -> BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary)
-            else -> BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
-        }
+        modifier = modifier.fillMaxWidth().testTag("simplified_prayer_card"),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
     ) {
-        Row(Modifier.fillMaxWidth().padding(NourSpace.lg), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(NourSpace.md)) {
-            if (!isSunrise) {
-                IconToggleButton(
-                    checked = isPrayed,
-                    onCheckedChange = { onTogglePrayed() },
-                    modifier = Modifier.size(NourSize.touchTarget).testTag("log_prayer_${prayer.name}")
-                        .semantics { stateDescription = if (isPrayed) strings.prayedStatus else strings.notPrayedStatus }
+        Column(Modifier.fillMaxWidth()) {
+            prayers.forEachIndexed { index, prayer ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline),
+                        modifier = Modifier.padding(horizontal = NourSpace.lg)
+                    )
+                }
+                val isNext = prayer == nextPrayer
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = NourSpace.lg, vertical = NourSpace.md)
+                        // The next prayer must not be colour/weight-only:
+                        // expose it as state for screen readers.
+                        .semantics { if (isNext) stateDescription = strings.nextBadge }
+                        .testTag("simplified_prayer_row_${prayer.name}"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(if (isPrayed) Icons.Rounded.CheckCircle else Icons.Outlined.CheckCircle,
-                        contentDescription = if (isPrayed) "${strings.unmarkPrayer} $title" else "${strings.markAsPrayed}: $title",
-                        tint = when (rowState) {
-                            0 -> MaterialTheme.colorScheme.primary
-                            1 -> MaterialTheme.colorScheme.onPrimaryContainer
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        })
+                    Text(
+                        text = prayerNameLabel(prayer, strings),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Text(
+                        text = formatNumerals(prayerTimes.formattedTime(prayer, use24Hour)),
+                        style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+                        color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
-            } else {
-                Icon(Icons.Rounded.WbSunny, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(NourSize.touchTarget).padding(NourSpace.md))
-            }
-            FlowRow(Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(NourSpace.md),
-                verticalArrangement = Arrangement.spacedBy(NourSpace.xs)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(NourSpace.xs)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium,
-                        color = titleColor,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    val badge = when {
-                        isPrayed -> strings.completedBadge
-                        isNext -> strings.nextBadge
-                        isCurrent -> strings.currentBadge
-                        isSunrise -> strings.shuruqBadge
-                        else -> ""
-                    }
-                    if (badge.isNotBlank()) {
-                        val badgeColor = when (rowState) {
-                            1 -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.80f)
-                            0 -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                        Text(
-                            badge,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = badgeColor,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Text(formatNumerals(timeFormatted),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                    color = titleColor,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    maxLines = 1, softWrap = false)
             }
         }
     }
+}
+
+private fun prayerNameLabel(prayer: PrayerName, strings: AppStrings): String = when (prayer) {
+    PrayerName.FAJR -> strings.fajr
+    PrayerName.SUNRISE -> strings.sunrise
+    PrayerName.DHUHR -> strings.dhuhr
+    PrayerName.ASR -> strings.asr
+    PrayerName.MAGHRIB -> strings.maghrib
+    PrayerName.ISHA -> strings.isha
 }

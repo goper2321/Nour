@@ -20,6 +20,9 @@ val ExpressiveShapes = Shapes(
 // Semantic Expressive Shape Tokens
 val PillShape = CircleShape
 val CardExpressiveShape = RoundedCornerShape(28.dp)
+// Immersive hero header: square at the top so the sky bleeds under the system
+// status bar, rounded at the bottom where it meets the scrolling content.
+val ImmersiveHeaderShape = RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
 val CardSubtleShape = RoundedCornerShape(14.dp)
 val ListRowShape = RoundedCornerShape(22.dp)
 val DialogExpressiveShape = RoundedCornerShape(28.dp)

@@ -150,7 +150,8 @@ fun QiblaScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .verticalScroll(scrollState)
-            .padding(NourSpace.lg),
+            // Horizontal margin comes from the global NourContentFrame gutter.
+            .padding(vertical = NourSpace.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
@@ -625,7 +626,7 @@ fun QiblaScreen(
                         imageVector = Icons.Rounded.WbSunny,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(NourSize.smallIcon)
                     )
                     }
                 }
@@ -733,7 +734,7 @@ fun QiblaScreen(
                                 color = MaterialTheme.colorScheme.primary,
                                 style = MaterialTheme.typography.titleSmall
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(NourSpace.xs))
                             Text(
                                 text = strings.figure8Desc,
                                 style = MaterialTheme.typography.bodySmall,

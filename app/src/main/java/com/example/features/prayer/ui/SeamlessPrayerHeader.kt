@@ -1,16 +1,9 @@
 package com.example.features.prayer.ui
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,11 +14,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocationOn
@@ -53,6 +47,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -69,7 +65,7 @@ import com.example.features.widgets.getInterpolatedAtmosphericState
 import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
-import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.ImmersiveHeaderShape
 import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
@@ -113,10 +109,12 @@ private data class CountdownSkyProbe(
     val height: Float,
     val density: Float,
     val horizonY: Float,
-    val celestialX: Float,
-    val celestialY: Float,
-    val bodyAlpha: Float,
-    val isDaytime: Boolean,
+    val sunX: Float,
+    val sunY: Float,
+    val sunAlpha: Float,
+    val moonX: Float,
+    val moonY: Float,
+    val moonAlpha: Float,
     val timeSeconds: Double
 ) {
     fun sample(bounds: Rect): CountdownLuminance {
@@ -188,22 +186,10 @@ private data class CountdownSkyProbe(
             color = mixColors(color, cloudColor, cloudAlpha)
         }
 
-        val deltaX = x - celestialX
-        val deltaY = y - celestialY
-        val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
-        val outerRadius = (if (isDaytime) 75f else 52f) * density
-        val glowAlpha = (
-            (1f - distance / (outerRadius * 3.2f)).coerceIn(0f, 1f).let { it * it } *
-                bodyAlpha * (if (isDaytime) 0.50f else 0.26f)
-            )
-        val glowColor = if (isDaytime) Color(0xFFFFC857) else Color(0xFFFFE082)
-        color = mixColors(color, glowColor, glowAlpha)
-
-        val bodyRadius = (if (isDaytime) 18f else 20f) * density
-        if (distance < bodyRadius && bodyAlpha > 0f) {
-            val bodyAlphaAtCenter = bodyAlpha * (0.92f - 0.12f * distance / bodyRadius)
-            color = mixColors(color, glowColor, bodyAlphaAtCenter)
-        }
+        // Model both bodies so text keeps its guaranteed contrast whenever
+        // either the Sun or the Moon passes behind it.
+        color = withCelestialGlow(color, x, y, sunX, sunY, sunAlpha, isSun = true)
+        color = withCelestialGlow(color, x, y, moonX, moonY, moonAlpha, isSun = false)
 
         val horizonDistance = abs(y - horizonY)
         val bloomAlpha = (
@@ -217,6 +203,39 @@ private data class CountdownSkyProbe(
         }
 
         return color
+    }
+
+    /**
+     * The approximate Sun/Moon contribution at a point: a soft ambient glow
+     * plus the brighter disk core, so adaptive text keeps its contrast even
+     * when a body sits directly behind it.
+     */
+    private fun withCelestialGlow(
+        base: Color,
+        x: Float,
+        y: Float,
+        centerX: Float,
+        centerY: Float,
+        alpha: Float,
+        isSun: Boolean
+    ): Color {
+        if (alpha <= 0f) return base
+        val deltaX = x - centerX
+        val deltaY = y - centerY
+        val distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+        val outerRadius = (if (isSun) 75f else 52f) * density
+        val glowAlpha = (
+            (1f - distance / (outerRadius * 3.2f)).coerceIn(0f, 1f).let { it * it } *
+                alpha * (if (isSun) 0.50f else 0.26f)
+            )
+        val glowColor = if (isSun) Color(0xFFFFC857) else Color(0xFFFFE082)
+        val withGlow = mixColors(base, glowColor, glowAlpha)
+        val bodyRadius = (if (isSun) 18f else 20f) * density
+        return if (distance < bodyRadius) {
+            mixColors(withGlow, glowColor, alpha * (0.92f - 0.12f * distance / bodyRadius))
+        } else {
+            withGlow
+        }
     }
 }
 
@@ -252,7 +271,6 @@ private fun createCountdownSkyProbe(
     val safeHeight = max(height, 1f)
     val safeDensity = max(density, 0.1f)
     val nowMillis = now.time
-    val isDaytime = nowMillis in prayerTimes.sunrise.time..prayerTimes.maghrib.time
     val atmosphere = getInterpolatedAtmosphericState(prayerTimes, nowMillis)
     val calendar = Calendar.getInstance().apply { time = now }
     val dayOfYear = calendar.get(Calendar.DAY_OF_YEAR)
@@ -260,27 +278,29 @@ private fun createCountdownSkyProbe(
     val maxElevation = (90.0 - abs(location.latitude - declination)).coerceIn(15.0, 90.0)
     val sun = CelestialMath.sunPosition(nowMillis, location.latitude, location.longitude)
     val moon = CelestialMath.moonInfo(nowMillis, location.latitude, location.longitude)
-    val activeAltitude = if (isDaytime) sun.altitudeDeg else moon.position.altitudeDeg
-    val activeHour = if (isDaytime) sun.hourAngleDeg else moon.position.hourAngleDeg
-    val bodyAlpha = ((activeAltitude + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
-    val hourFraction = ((activeHour + 120.0) / 240.0).coerceIn(0.0, 1.0)
     val horizonY = safeHeight * 0.62f
     val skyBand = (safeHeight * 0.18f).coerceIn(48f * safeDensity, 144f * safeDensity)
-    val celestialX = safeWidth * (0.12f + 0.76f * hourFraction).toFloat()
     val top = skyBand * 0.02f
-    val celestialY = (horizonY - (activeAltitude / maxElevation) * (horizonY - top))
-        .toFloat()
-        .coerceIn(0f, horizonY + 36f * safeDensity)
+    fun xFor(hourAngleDeg: Double): Float =
+        safeWidth * (0.12f + 0.76f * ((hourAngleDeg + 120.0) / 240.0).coerceIn(0.0, 1.0)).toFloat()
+    fun yFor(altitudeDeg: Double): Float =
+        (horizonY - (altitudeDeg / maxElevation) * (horizonY - top)).toFloat()
+            .coerceIn(0f, horizonY + 36f * safeDensity)
+    // Mirror the renderer: each body is visible on its own altitude.
+    val sunAlpha = ((sun.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
+    val moonAlpha = ((moon.position.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
     return CountdownSkyProbe(
         atmosphere = atmosphere,
         width = safeWidth,
         height = safeHeight,
         density = safeDensity,
         horizonY = horizonY,
-        celestialX = celestialX,
-        celestialY = celestialY,
-        bodyAlpha = bodyAlpha,
-        isDaytime = isDaytime,
+        sunX = xFor(sun.hourAngleDeg),
+        sunY = yFor(sun.altitudeDeg),
+        sunAlpha = sunAlpha,
+        moonX = xFor(moon.position.hourAngleDeg),
+        moonY = yFor(moon.position.altitudeDeg),
+        moonAlpha = moonAlpha,
         timeSeconds = nowMillis / 1000.0
     )
 }
@@ -472,11 +492,11 @@ fun SeamlessPrayerHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CardExpressiveShape)
+                .clip(ImmersiveHeaderShape)
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .border(
                     BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
-                    shape = CardExpressiveShape
+                    shape = ImmersiveHeaderShape
                 )
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()
@@ -506,7 +526,8 @@ fun SeamlessPrayerHeader(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(NourSpace.lg),
+                    .statusBarsPadding()
+                    .padding(horizontal = NourSpace.lg, vertical = NourSpace.lg),
                 verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
             ) {
                 // Header row: Next badge & location button
@@ -541,7 +562,9 @@ fun SeamlessPrayerHeader(
                         ),
                         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                         contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = 7.dp),
-                        modifier = Modifier.testTag("prayer_location_button")
+                        modifier = Modifier
+                            .testTag("prayer_location_button")
+                            .heightIn(min = NourSize.touchTarget)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.LocationOn,
@@ -550,7 +573,12 @@ fun SeamlessPrayerHeader(
                             modifier = Modifier.size(NourSize.smallIcon)
                         )
                         Text(
-                            text = location.cityName,
+                            // Same honest convention as the permission screen:
+                            // a non-GPS location is labelled, never silent.
+                            text = if (location.isAutoDetected)
+                                location.cityName
+                            else
+                                "${strings.defaultLocationPrefix}: ${location.cityName}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -569,7 +597,8 @@ fun SeamlessPrayerHeader(
                     cardBounds = cardBounds,
                     palette = adaptiveTextPalette,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { heading() }
                 )
 
                 // Scheduled Time
@@ -584,34 +613,24 @@ fun SeamlessPrayerHeader(
                     softWrap = false
                 )
 
-                // Animated Countdown Digits
-                AnimatedContent(
-                    targetState = countdownState.formattedRemaining,
-                    transitionSpec = {
-                        (slideInVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioLowBouncy)) { it / 3 } +
-                            fadeIn(animationSpec = tween(NourMotion.duration(120))))
-                            .togetherWith(
-                                slideOutVertically(animationSpec = spring(stiffness = Spring.StiffnessMedium)) { -it / 3 } +
-                                    fadeOut(animationSpec = tween(NourMotion.duration(120)))
-                            )
-                    },
-                    label = "countdown_animated_digits"
-                ) { remaining ->
-                    AdaptiveCountdownText(
-                        text = formatNumerals(remaining),
-                        style = MaterialTheme.typography.displaySmall.copy(
-                            fontFeatureSettings = "tnum",
-                            fontWeight = FontWeight.Bold
-                        ),
-                        role = CountdownTextRole.Accent,
-                        probe = skyProbe,
-                        cardBounds = cardBounds,
-                        palette = adaptiveTextPalette,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.testTag("countdown_timer_text")
-                    )
-                }
+                // Countdown digits: deliberately not animated. The text itself
+                // changes every second, so a slide/fade on top is constant
+                // motion with no information value (and re-announces under
+                // screen readers). Colour still adapts to the sky behind it.
+                AdaptiveCountdownText(
+                    text = formatNumerals(countdownState.formattedRemaining),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontFeatureSettings = "tnum",
+                        fontWeight = FontWeight.Bold
+                    ),
+                    role = CountdownTextRole.Accent,
+                    probe = skyProbe,
+                    cardBounds = cardBounds,
+                    palette = adaptiveTextPalette,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.testTag("countdown_timer_text")
+                )
 
                 // Progress Bar
                 LinearProgressIndicator(

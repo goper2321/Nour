@@ -64,35 +64,34 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Release signing uses env-provided credentials when available. Without an
+  // upload keystore (no KEYSTORE_PATH file and no STORE_PASSWORD), release
+  // builds fall back to the built-in Android debug keystore so
+  // `assembleRelease` still works for local verification. CI/production must
+  // provide a real keystore:
+  //   KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS (default "upload"), KEY_PASSWORD
+  //
+  // Both build types use AGP's built-in `debug` signing config, whose keystore
+  // lives at the standard `~/.android/debug.keystore` and is created by AGP on
+  // first use. Earlier revisions pointed at a repo-root `debug.keystore`, but
+  // that path is gitignored, so a clean checkout could not build at all
+  // (`validateSigningDebug` failed: "Keystore file '<rootDir>/debug.keystore'
+  // not found"). The standard location removes that footgun without weakening
+  // release signing: a real upload keystore is still required for production.
+  val uploadKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
+  val hasReleaseCreds = uploadKeystore != null && !System.getenv("STORE_PASSWORD").isNullOrEmpty()
+  if (!hasReleaseCreds) {
+    logger.warn("Nour: no upload keystore configured; release builds will use the debug keystore (not for production).")
+  }
+
   signingConfigs {
-    // Release signing uses env-provided credentials when available. Without an
-    // upload keystore (no KEYSTORE_PATH file and no STORE_PASSWORD), release
-    // builds fall back to the debug keystore so `assembleRelease` still works
-    // for local verification. CI/production must provide a real keystore:
-    //   KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS (default "upload"), KEY_PASSWORD
-    val uploadKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
-    val hasReleaseCreds = uploadKeystore != null && !System.getenv("STORE_PASSWORD").isNullOrEmpty()
-    if (!hasReleaseCreds) {
-      logger.warn("Nour: no upload keystore configured; release builds will use the debug keystore (not for production).")
-    }
-    create("release") {
-      if (hasReleaseCreds) {
+    if (hasReleaseCreds) {
+      create("release") {
         storeFile = uploadKeystore
         storePassword = System.getenv("STORE_PASSWORD")
         keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
         keyPassword = System.getenv("KEY_PASSWORD")
-      } else {
-        storeFile = file("${rootDir}/debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
       }
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
     }
   }
 
@@ -101,9 +100,13 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // Real upload keystore when configured, otherwise the debug keystore.
+      signingConfig =
+        if (hasReleaseCreds) signingConfigs.getByName("release")
+        else signingConfigs.getByName("debug")
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    // Uses AGP's built-in debug signing config (~/.android/debug.keystore).
+    debug { }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
