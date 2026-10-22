@@ -43,8 +43,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -340,6 +342,17 @@ private fun mixColors(first: Color, second: Color, fraction: Float): Color {
     )
 }
 
+/**
+ * Numerals already carry their meaning in the digits, so they should not
+ * swallow the hero when the system font scale grows — and these single-line
+ * strings cannot wrap (softWrap is disabled with Clip), so at very large
+ * scales they would silently cut digits off the edge. Compose multiplies
+ * each sp by the font scale; cancelling most of that growth caps the
+ * rendered size below a chosen multiple of the base size.
+ */
+private fun TextStyle.withFontScaleCap(fontScale: Float, cap: Float = 1.3f): TextStyle =
+    if (fontScale <= cap) this else copy(fontSize = fontSize * (cap / fontScale))
+
 private fun contrastRatio(first: Float, second: Float): Float {
     val lighter = max(first, second)
     val darker = min(first, second)
@@ -556,10 +569,10 @@ fun SeamlessPrayerHeader(
 
             // 3. Countdown Card Content
             //
-            // Grouping, not uniform gaps: the name and its scheduled time read
-            // as one unit (NourSpace.xs), the live countdown sits one step
-            // aside (NourSpace.md), and the progress/status pair closes the
-            // card after the widest gap of all (NourSpace.lg).
+            // Grouping, not uniform gaps: the kicker's name and scheduled
+            // time read as one unit (NourSpace.sm), the live countdown sits
+            // one step aside (NourSpace.md), and the progress/status pair
+            // closes the card after the widest gap of all (NourSpace.lg).
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -607,34 +620,42 @@ fun SeamlessPrayerHeader(
 
                 Spacer(Modifier.height(NourSpace.xl))
 
-                // Coming prayer and its scheduled time: one tight pair. The
-                // time hangs directly under the name, so "Maghrib / 17:46"
-                // reads as a single unit instead of two competing headlines.
-                AdaptiveCountdownText(
-                    text = prayerLabel(countdownState.nextPrayer),
-                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                    role = CountdownTextRole.Primary,
-                    probe = skyProbe,
-                    cardBounds = cardBounds,
-                    palette = adaptiveTextPalette,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.semantics { heading() }
-                )
-
-                Spacer(Modifier.height(NourSpace.xs))
-
-                // Scheduled time — same pair as the name above.
-                AdaptiveCountdownText(
-                    text = formatNumerals(todayPrayerTimes.formattedTime(countdownState.nextPrayer, use24Hour)),
-                    style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                    role = CountdownTextRole.Muted,
-                    probe = skyProbe,
-                    cardBounds = cardBounds,
-                    palette = adaptiveTextPalette,
-                    maxLines = 1,
-                    softWrap = false
-                )
+                // Kicker: the coming prayer and its scheduled time as one
+                // small, quiet pair. The countdown below is the hero's single
+                // dominant headline — two same-size headlines used to compete
+                // for the eye (and the period end time now lives right here,
+                // so the status row never has to repeat it). Mirrors in RTL.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { heading() },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(NourSpace.sm)
+                ) {
+                    AdaptiveCountdownText(
+                        text = prayerLabel(countdownState.nextPrayer),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        role = CountdownTextRole.Primary,
+                        probe = skyProbe,
+                        cardBounds = cardBounds,
+                        palette = adaptiveTextPalette,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AdaptiveCountdownText(
+                        text = formatNumerals(todayPrayerTimes.formattedTime(countdownState.nextPrayer, use24Hour)),
+                        style = MaterialTheme.typography.titleMedium
+                            .copy(fontFeatureSettings = "tnum")
+                            .withFontScaleCap(density.fontScale),
+                        role = CountdownTextRole.Muted,
+                        probe = skyProbe,
+                        cardBounds = cardBounds,
+                        palette = adaptiveTextPalette,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
 
                 Spacer(Modifier.height(NourSpace.md))
 
@@ -650,7 +671,7 @@ fun SeamlessPrayerHeader(
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontFeatureSettings = "tnum",
                         fontWeight = FontWeight.Bold
-                    ),
+                    ).withFontScaleCap(density.fontScale),
                     role = CountdownTextRole.Accent,
                     probe = skyProbe,
                     cardBounds = cardBounds,
@@ -721,6 +742,11 @@ fun SeamlessPrayerHeader(
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(PillShape)
+                        // Expose the live fraction to screen readers; the
+                        // "%" beside it is plain text they otherwise skip.
+                        .semantics {
+                            progressBarRangeInfo = ProgressBarRangeInfo(dayProgress, 0f..1f)
+                        }
                         .onGloballyPositioned { coordinates ->
                             val position = coordinates.positionInRoot()
                             val size = coordinates.size

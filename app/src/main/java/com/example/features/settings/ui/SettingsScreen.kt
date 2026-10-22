@@ -469,7 +469,10 @@ fun SettingsScreen(
             .imePadding()
             .testTag("settings_screen_list"),
         // Horizontal margin comes from the global NourContentFrame gutter.
-        // Bottom follows the floating clearance rule ([NourSize.floatingClearance]).
+        // Bottom is absolute: the system inset + the bar's band plus its gap
+        // below and an 8 dp breath above. The last row rests one small breath
+        // above the band's edge — readable, never hidden — while scrolling
+        // rows sweep under the pill and the gesture area.
         contentPadding = PaddingValues(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {

@@ -73,10 +73,13 @@ data class NourNavItem(
 )
 
 /**
- * Floating, opaque bottom navigation for compact windows. Sits above the
- * system navigation inset with a 16 dp side gutter. The host reserves space by
- * measurement (see [NourSize.floatingClearance]) so the bar floats on its own
- * empty slot at the scroll ends — nothing resting behind it.
+ * Floating, opaque bottom navigation for compact windows. Keeps an 8 dp gap
+ * above the system navigation inset — it never touches the gesture area —
+ * with the usual side gutters. The host budgets the inset, that gap, the
+ * bar's real measured band plus an 8 dp breathing gap above the band, so
+ * resting content sits one small breath above the band's edge at the scroll
+ * ends: readable, never hidden behind the pill. The list itself stays free
+ * to draw under the system gesture area while scrolling.
  *
  * Selection is deliberately restrained: accent tint, filled icon and a short
  * 16 x 3 dp mark. No glass, no blur, no translucent background.
@@ -104,9 +107,9 @@ fun NourFloatingNavigationBar(
                 .fillMaxWidth()
                 .height(nourNavigationBarHeight(twoLabelLines))
                 .onGloballyPositioned { coords ->
-                    // Real laid-out height, so callers can obey the floating
-                    // clearance rule ([NourSize.floatingClearance]) instead of
-                    // assuming a token that drifts at large font scales.
+                    // Real laid-out height, so callers can reserve the band
+                    // plus the breathing gap (never an assumed token) at any
+                    // font scale.
                     onHeightMeasured(measuredDensity.run { coords.size.height.toDp() })
                 }
                 .testTag("nour_navigation_bar"),
@@ -317,8 +320,8 @@ private fun FloatingRailItem(
 /**
  * Top floating toolbar for contextual actions. Solid chrome, 24 dp corners,
  * 52 dp minimum height and 48 dp action targets. Reports its real laid-out
- * height via [onHeightMeasured] so overlaying screens can obey the floating
- * clearance rule ([NourSize.floatingClearance]) at every font scale.
+ * height via [onHeightMeasured] so overlaying screens can reserve the band
+ * plus a small 8 dp breathing gap at every font scale.
  */
 @Composable
 fun NourFloatingToolbar(

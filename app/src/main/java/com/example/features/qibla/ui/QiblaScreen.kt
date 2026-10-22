@@ -199,9 +199,10 @@ fun QiblaScreen(
             .statusBarsPadding()
             .verticalScroll(scrollState)
             // Horizontal margin comes from the global NourContentFrame gutter.
-            // Bottom follows the floating clearance rule
-            // ([NourSize.floatingClearance]): the last row leaves the bar its
-            // full measured band plus the clearance slot.
+            // Bottom is absolute: the system inset + the bar's band plus its
+            // gap below and an 8 dp breath above. The last row rests one small
+            // breath above the band's edge — readable, never hidden — while
+            // scrolling rows sweep under the pill and the gesture area.
             .padding(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)

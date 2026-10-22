@@ -128,6 +128,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Android's default contrast scrim paints a thin grey band across
+            // the system gesture area: it dimmed whatever our page drew there
+            // and read as a dead strip at the bottom of every screen. Our
+            // surfaces are opaque and full-contrast — draw our own page
+            // cleanly under the gesture pill instead.
+            window.isNavigationBarContrastEnforced = false
+        }
         setContent {
             val context = LocalContext.current
             val appearance = remember { NourPreferences(context) }
@@ -341,8 +349,8 @@ fun NourMainApp(
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isExpandedScreen = maxWidth >= NourSize.compactBreakpoint
             // Live bottom-bar height, measured by the bar itself. The screens'
-            // bottom reserve derives from it so the floating clearance rule
-            // ([NourSize.floatingClearance]) stays exact at every font scale.
+            // bottom reserve derives from it so the reserve is the pill's real
+            // band — not an assumed token — at every font scale.
             var floatingBarHeight by remember { mutableStateOf(NourSize.navBarHeight) }
             val navItems = NourNavDestination.values().map { destination ->
                 NourNavItem(
@@ -363,10 +371,13 @@ fun NourMainApp(
                 bottomBar = {}
             ) { innerPadding ->
                 val navBottomInset = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
+                // NO bottom padding here: the scroll content stays free to
+                // draw under the system gesture area — the list scrolls
+                // beneath the gesture pill, so the zone is part of the page,
+                // not a dead band. Each layout budgets its own bottom inset
+                // via the screens' LocalFloatingBottomExtra below.
                 Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = (navBottomInset + NourSpace.lg).coerceAtLeast(0.dp))
+                    modifier = Modifier.fillMaxSize()
                 ) {                    if (isExpandedScreen) {
                         NourFloatingNavigationRail(
                             items = navItems,
@@ -384,18 +395,7 @@ fun NourMainApp(
                     AnimatedContent(
                         targetState = currentDestination,
                         modifier = Modifier.weight(1f).fillMaxHeight()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                            // On the rail (expanded) layout there is no bottom bar,
-                            // so apply the navigation-bar inset here or the last row
-                            // can sit under the gesture/navigation bar. On the compact
-                            // layout the floating navigation bar already accounts for it.
-                            .then(
-                                if (isExpandedScreen) {
-                                    Modifier.windowInsetsPadding(
-                                        WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
-                                    )
-                                } else Modifier
-                            ),
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
                         transitionSpec = {
                             fadeIn(tween(NourMotion.duration(NourMotion.medium), easing = NourMotion.easing))
                                 .togetherWith(fadeOut(tween(NourMotion.duration(NourMotion.short), easing = NourMotion.easing)))
@@ -405,18 +405,20 @@ fun NourMainApp(
                         // Keep the frame inside the transition: the outgoing
                         // screen must not be re-measured with the incoming
                         // screen's gutter while it fades.
-                        // Floating clearance rule ([NourSize.floatingClearance]):
-                        // screens get the extra bottom padding derived from the
-                        // bar's real measured band plus the clearance slot the
-                        // pill floats in at the scroll end, minus the 16 dp of
-                        // baseline rhythm the host row already reserves. On the
-                        // expanded (rail) layout there is no bottom bar, so
-                        // screens keep the plain 16 dp default.
+                        // Floating breathing rule: the screens' bottom padding
+                        // is absolute — the system navigation inset + the 8 dp
+                        // gap the bar keeps above it + the bar's real measured
+                        // band + an 8 dp breath — so the last resting row sits
+                        // one small breath above the band's edge (readable,
+                        // never hidden behind the pill), while the list stays
+                        // free to draw under the gesture area while scrolling.
+                        // Rail (expanded) layout has no bottom bar: the inset
+                        // plus the 16 dp baseline.
                         val floatingBottomExtra = if (isExpandedScreen) {
-                            NourSpace.lg
+                            navBottomInset + NourSpace.lg
                         } else {
-                            (NourSpace.sm + floatingBarHeight + NourSize.floatingClearance - NourSpace.lg)
-                                .coerceAtLeast(NourSpace.lg)
+                            (navBottomInset + NourSpace.sm + floatingBarHeight + NourSpace.sm)
+                                .coerceAtLeast(0.dp)
                         }
                         CompositionLocalProvider(
                             LocalFloatingBottomExtra provides floatingBottomExtra

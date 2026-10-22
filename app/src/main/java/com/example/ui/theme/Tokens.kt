@@ -46,17 +46,6 @@ object NourSize {
     /** Horizontal space reserved for the floating rail in the expanded layout. */
     val navRailReserve = 88.dp
     val toolbarHeight = 52.dp
-    /**
-     * Floating chrome clearance rule: how much empty scrollable space a pill
-     * band gets at the scroll extremes. Every scroll surface reserves
-     * (the pill's real measured band + [floatingClearance]) plus such an
-     * empty slot sized to the pill's opaque footprint (its width plus side
-     * padding), so nothing — not even a card edge — sits behind a pill when
-     * content rests at either scroll end, and the pill never kisses a row.
-     * Measuring the pill (not assuming a height token) keeps the slot exact
-     * at every font scale, including Android's non-linear scaling.
-     */
-    val floatingClearance = 8.dp
 }
 
 object NourElevation {

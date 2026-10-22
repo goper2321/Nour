@@ -133,13 +133,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.platform.testTag
@@ -927,14 +927,14 @@ fun SurahReaderView(
     var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
     var showTranslationsInContinuous by remember { mutableStateOf(false) }
 
-    // Floating clearance rule ([NourSize.floatingClearance]): the content list
-    // reserves the toolbar's real measured band plus the clearance slot, so
-    // nothing sits behind the pill when reading starts at the top. Initialized
-    // from the height token; the first layout pass corrects it (the pill grows
-    // at larger font scales, where a fixed reserve would sit wrong).
+    // Band-plus-breathing reserve ([onGloballyPositioned]): the content list
+    // reserves the toolbar's real measured band plus an 8 dp breath, so the
+    // first resting card stays readable, never slides under the pill, and
+    // doesn't kiss its edge. Initialized from the height token; the first
+    // layout pass corrects it (the pill grows at larger font scales).
     val toolbarDensity = LocalDensity.current
     var toolbarReserve by remember {
-        mutableStateOf(NourSpace.sm + NourSize.toolbarHeight + NourSize.floatingClearance)
+        mutableStateOf(NourSpace.lg + NourSize.toolbarHeight)
     }
 
     Box(
@@ -959,11 +959,11 @@ fun SurahReaderView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .onGloballyPositioned { coords ->
-                            // Reserve = the pill's band (sm above it) plus the
-                            // clearance slot for the first resting card.
+                            // Reserve = the pill's real measured band plus an
+                            // 8 dp breath: the first resting card sits one
+                            // small breath below the band's edge.
                             toolbarReserve =
-                                NourSpace.sm + toolbarDensity.run { coords.size.height.toDp() } +
-                                    NourSize.floatingClearance
+                                NourSpace.lg + toolbarDensity.run { coords.size.height.toDp() }
                         }
                         .testTag("surah_reader_toolbar")
                 ) {
@@ -1064,8 +1064,9 @@ fun SurahReaderView(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             // Horizontal margin comes from the global NourContentFrame gutter.
-            // Vertical: measured toolbar band plus clearance above; the host's
-            // floating-bar slot below, both per [NourSize.floatingClearance].
+            // Vertical: the toolbar's band plus an 8 dp breath above, and the
+            // bar's band plus a breath below — resting content sits one small
+            // breath clear of each band's edge (readable, never behind a pill).
             contentPadding = PaddingValues(top = toolbarReserve, bottom = LocalFloatingBottomExtra.current),
             verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
         ) {

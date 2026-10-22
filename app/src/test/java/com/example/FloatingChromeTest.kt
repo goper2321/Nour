@@ -59,13 +59,14 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Floating clearance rule verification ([NourSize.floatingClearance]).
+ * Floating chrome contract verification.
  *
- * Renders the two floating chrome surfaces and asserts the layout contract:
- * at the scroll ends the pill floats entirely on its own empty slot — one
- * clearance of air between the band and any resting content — and the reserve
- * follows the pill's real measured band so large font scales (where assumed
- * heights used to drift by 30-48 dp) stay exact.
+ * Renders the two floating chrome surfaces and asserts the band-plus-breathing
+ * contract: the pill keeps an 8 dp gap above the system gesture area, and the
+ * screens' absolute bottom reserve is the inset + that gap + the bar's real
+ * measured band + an 8 dp breath — resting content sits one small breath
+ * above the band's edge (readable, never hidden behind the pill) at every
+ * font scale.
  *
  * Structural checks only: sensors, TalkBack and real IME behaviour still need
  * a physical device.
@@ -116,7 +117,7 @@ class FloatingChromeTest {
         assertEquals(message, 0f, delta, 0.6f)
     }
 
-    // ---------- Reader toolbar: measured band plus clearance, at every font scale ----------
+    // ---------- Reader toolbar: resting card one breath above the band ----------
 
     private fun readerScreen(cards: Boolean, fontScale: Float = 1f) {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -136,54 +137,50 @@ class FloatingChromeTest {
         settle()
     }
 
-    private fun assertReaderToolbarClearance(fontLabel: String) {
+    private fun assertReaderToolbarBreath(fontLabel: String) {
         val pill = boundsOf("surah_reader_toolbar")
         val header = boundsOf("reader_header_card")
-        // The header card (first list item) starts exactly one clearance above
-        // the toolbar's bottom edge: reserve top == sm(8) + pillHeight +
-        // clearance; pill bottom == sm + pillHeight ⇒ header.top − pill.bottom
-        // == clearance. Nothing of the card sits behind the pill.
-        assertDpClose(NourSize.floatingClearance, header.top - pill.bottom,
-            "Reader $fontLabel: air between toolbar and resting card must equal the clearance")
+        // Reserve = the toolbar's real measured band plus an 8 dp breath: the
+        // first card sits one small breath below the pill's bottom edge —
+        // readable, never hidden, and no slim dead band between them.
+        assertDpClose(pill.bottom + NourSpace.sm, header.top,
+            "Reader $fontLabel: card sits one 8 dp breath below the toolbar band")
         // The pill actually sits sm below the very top (sanity).
         assertDpClose(NourSpace.sm, pill.top, "Reader $fontLabel: toolbar top offset")
-        // The pill grows with font scale — assert the reserve tracks the real
-        // measured band, so the air above it is always the clearance, never a
-        // leftover token amount.
-        assertDpClose(header.top - NourSize.floatingClearance, pill.bottom,
-            "Reader $fontLabel: reserve tracks the measured band plus clearance")
     }
 
     @Test
-    fun readerToolbarClearanceDefaultFont() {
+    fun readerToolbarBreathBelowBandDefaultFont() {
         readerScreen(cards = true, fontScale = 1f)
-        assertReaderToolbarClearance("font 1.0")
+        assertReaderToolbarBreath("font 1.0")
     }
 
     @Test
-    fun readerToolbarClearanceFont160() {
+    fun readerToolbarBreathBelowBandFont160() {
         readerScreen(cards = true, fontScale = 1.6f)
-        assertReaderToolbarClearance("font 1.6")
+        assertReaderToolbarBreath("font 1.6")
     }
 
     @Test
-    fun readerToolbarClearanceFont200() {
+    fun readerToolbarBreathBelowBandFont200() {
         readerScreen(cards = true, fontScale = 2f)
-        assertReaderToolbarClearance("font 2.0")
+        assertReaderToolbarBreath("font 2.0")
     }
 
     @Test
-    fun readerToolbarClearanceContinuousMode() {
+    fun readerToolbarBreathBelowBandContinuousMode() {
         readerScreen(cards = false, fontScale = 1f)
-        assertReaderToolbarClearance("continuous")
+        assertReaderToolbarBreath("continuous")
     }
 
-    // ---------- Bottom bar: measured band plus clearance, at every font scale ----------
+    // ---------- Bottom bar: resting content one breath above the band ----------
 
     /**
-     * Mimics NourMainActivity's compact arrangement: a host box whose content
-     * area keeps the baseline 16 dp, plus the measured band + clearance slot
-     * that screens consume via [LocalFloatingBottomExtra]; the bar overlays.
+     * Mimics NourMainActivity's compact arrangement: the content's bottom
+     * padding is absolute — host formula = system inset (0 in Robolectric) +
+     * the bar's 8 dp gap above it + the bar's real measured band + an 8 dp
+     * breath — so resting content sits one small breath above the band's
+     * edge while the pill keeps its own gap above the gesture area.
      */
     private fun bottomBarScreen(fontScale: Float = 1f) {
         val items = listOf(
@@ -197,13 +194,14 @@ class FloatingChromeTest {
                 ScaledDensity(fontScale) {
                     Box(Modifier.fillMaxSize()) {
                         var barHeight by remember { mutableStateOf(NourSize.navBarHeight) }
-                        // Exact MainActivity formula (Robolectric nav inset is 0).
-                        val extra = (NourSpace.sm + barHeight + NourSize.floatingClearance - NourSpace.lg)
-                            .coerceAtLeast(NourSpace.lg)
+                        // Exact MainActivity formula (Robolectric nav inset is 0):
+                        // inset + the bar's 8 dp gap + measured band + 8 dp breath.
+                        val extra = (NourSpace.sm + barHeight + NourSpace.sm)
+                            .coerceAtLeast(0.dp)
                         Column(
                             Modifier
                                 .fillMaxSize()
-                                .padding(bottom = NourSpace.lg + extra)
+                                .padding(bottom = extra)
                                 .testTag("probe_content"),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -236,25 +234,25 @@ class FloatingChromeTest {
     }
 
     @Test
-    fun bottomBarReserveTracksMeasuredBand() {
+    fun bottomBarReserveBreathAboveBandAtScrollEnd() {
         bottomBarScreen(fontScale = 1f)
         val content = boundsOf("probe_content")
         val pill = boundsOf("nour_navigation_bar")
-        // When the list scrolls to its very end, the last row ends exactly one
-        // clearance above the pill's band: the band top distance from the
-        // screen bottom is the pill's top edge; add the clearance slot.
-        assertDpClose(pill.topFromEdge + NourSize.floatingClearance, content.bottomFromEdge,
-            "Bottom bar: content reserve must equal measured band plus the clearance")
-        // And the pill band really starts sm above the nav inset (Robolectric: 0).
-        assertDpClose(NourSpace.sm, pill.bottomFromEdge, "Bottom bar: pill bottom gap")
+        // Reserve = inset + the bar's 8 dp gap + measured band + 8 dp breath:
+        // resting content sits one small breath above the band's edge —
+        // readable, never hidden behind the pill (Robolectric nav inset is 0).
+        assertDpClose(pill.topFromEdge + NourSpace.sm, content.bottomFromEdge,
+            "Bottom bar: content reserve = measured band + one 8 dp breath")
+        // The pill keeps its 8 dp gap above the system gesture area.
+        assertDpClose(NourSpace.sm, pill.bottomFromEdge, "Bottom bar: gap above the inset")
     }
 
     @Test
-    fun bottomBarReserveTrackScaleFont200() {
+    fun bottomBarReserveBreathAboveBandFont200() {
         bottomBarScreen(fontScale = 2f)
         val content = boundsOf("probe_content")
         val pill = boundsOf("nour_navigation_bar")
-        assertDpClose(pill.topFromEdge + NourSize.floatingClearance, content.bottomFromEdge,
-            "Bottom bar @200%: reserve follows the taller two-line bar")
+        assertDpClose(pill.topFromEdge + NourSpace.sm, content.bottomFromEdge,
+            "Bottom bar @200%: reserve = taller two-line band + one 8 dp breath")
     }
 }
