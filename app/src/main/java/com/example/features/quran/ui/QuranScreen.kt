@@ -8,6 +8,14 @@ import com.example.ui.theme.NourSize
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.SheetExpressiveShape
 import com.example.ui.components.NourEmptyState
+import com.example.ui.components.NourCircularIconButton
+import com.example.ui.components.NourFloatingToolbar
+import com.example.ui.components.NourSearchField
+import com.example.ui.components.NourSegmentOption
+import com.example.ui.components.NourSegmentedControl
+import com.example.ui.components.nourCardSurfaceColor
+import com.example.ui.components.nourSegmentedControlHeight
+import com.example.ui.components.LocalFloatingBottomExtra
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.imePadding
@@ -16,8 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import android.content.Intent
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -116,7 +122,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -124,12 +132,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.platform.testTag
@@ -139,6 +149,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -165,93 +176,40 @@ enum class QuranReadingMode(val label: String) {
     CONTINUOUS("Continuous Text")
 }
 
-/** Fixed pill-row content height shared by the overlay and the in-flow spacers. */
-private val PillsBarHeight = 48.dp
-
 /**
- * Floating tab pills shared by the library lists. Rendered in sticky headers
- * (in-flow layout makes overlap structurally impossible) with solid fills.
+ * Floating segmented tab bar for the Quran library. Solid track, opaque thumb,
+ * no glass and no oversized pills. Its height can grow when a label wraps to
+ * two lines at large font scales; the in-flow spacers reserve the same
+ * font-aware height, so rows never slide underneath it.
  */
 @Composable
-private fun GlassPillsRow(
+private fun QuranTabBar(
     selectedTab: Int,
     bookmarkCount: Int,
     onTabSelect: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
-    Column(
+    val options = listOf(
+        NourSegmentOption(value = 0, label = strings.tabSurah),
+        NourSegmentOption(
+            value = 1,
+            label = if (bookmarkCount > 0) {
+                formatNumerals("${strings.tabBookmark} ($bookmarkCount)")
+            } else {
+                strings.tabBookmark
+            }
+        ),
+        NourSegmentOption(value = 2, label = strings.tabSearch)
+    )
+    NourSegmentedControl(
+        options = options,
+        selected = selectedTab,
+        onSelected = onTabSelect,
         modifier = modifier
-            .fillMaxWidth()
             .statusBarsPadding()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = NourSpace.lg, vertical = NourSpace.sm),
-            horizontalArrangement = Arrangement.spacedBy(NourSpace.sm)
-        ) {
-            GlassPillTab(
-                selected = selectedTab == 0,
-                onClick = { onTabSelect(0) },
-                label = strings.tabSurah,
-                modifier = Modifier.weight(1f)
-            )
-            GlassPillTab(
-                selected = selectedTab == 1,
-                onClick = { onTabSelect(1) },
-                label = if (bookmarkCount > 0) formatNumerals("${strings.tabBookmark} ($bookmarkCount)")
-                else strings.tabBookmark,
-                modifier = Modifier.weight(1f)
-            )
-            GlassPillTab(
-                selected = selectedTab == 2,
-                onClick = { onTabSelect(2) },
-                label = strings.tabSearch,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/**
- * One tab pill. Selection shows via an accent container fill and border.
- */
-@Composable
-private fun GlassPillTab(
-    selected: Boolean,
-    onClick: () -> Unit,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    val solidFill =
-        if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainerLow
-    Box(
-        modifier = modifier
-            .clip(PillShape)
-            .background(solidFill, shape = PillShape)
-            .border(
-                width = if (selected) NourSize.selectedBorder else NourSize.border,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder),
-                shape = PillShape
-            )
-            .selectable(selected = selected, onClick = onClick, role = Role.Tab)
-            .padding(horizontal = NourSpace.md)
-            .height(PillsBarHeight),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            softWrap = false,
-            textAlign = TextAlign.Center
-        )
-    }
+            .padding(horizontal = NourSpace.lg, vertical = NourSpace.sm)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -266,7 +224,7 @@ fun QuranScreen(
     val db = remember { NourDatabase.getInstance(context) }
     val prefs = remember { NourPreferences(context) }
 
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Surahs, 1 = Mushaf, 2 = Bookmarks
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Surah list, 1 = Bookmarks, 2 = Search
     var currentPageNumber by remember { mutableIntStateOf(1) } // 1 to 604
     var selectedSurahForReading by remember { mutableStateOf<Surah?>(null) }
     var readingMode by remember {
@@ -323,6 +281,7 @@ fun QuranScreen(
         if (openSurahRequest != null) {
             selectedSurahForReading = openSurahRequest
             lastReadSurahNumber = openSurahRequest.number
+            lastReadAyahNumber = 1
             onOpenSurahConsumed()
         }
     }
@@ -360,6 +319,7 @@ fun QuranScreen(
                 onSelectSurah = { newSurah ->
                     selectedSurahForReading = newSurah
                     lastReadSurahNumber = newSurah.number
+                    lastReadAyahNumber = 1
                 },
                 onVisibleVerseChanged = { ayahNumber ->
                     lastReadAyahNumber = ayahNumber
@@ -411,6 +371,7 @@ fun QuranScreen(
                         onSurahClick = { surah ->
                             selectedSurahForReading = surah
                             lastReadSurahNumber = surah.number
+                            lastReadAyahNumber = 1
                         },
                         )
                 }
@@ -421,6 +382,7 @@ fun QuranScreen(
                         onGoToAyah = { bm ->
                             selectedSurahForReading = QuranRepository.getSurah(bm.surahNumber)
                             lastReadSurahNumber = bm.surahNumber
+                            lastReadAyahNumber = bm.ayahNumber
                         },
                         onDeleteBookmark = { id ->
                             coroutineScope.launch { db.bookmarkDao().deleteById(id) }
@@ -436,16 +398,18 @@ fun QuranScreen(
                         onSelectSurah = { surah ->
                             selectedSurahForReading = surah
                             lastReadSurahNumber = surah.number
+                            lastReadAyahNumber = 1
                         },
                         onSelectAyah = { ayah ->
                             selectedSurahForReading = QuranRepository.getSurah(ayah.surahNumber)
                             lastReadSurahNumber = ayah.surahNumber
+                            lastReadAyahNumber = ayah.ayahNumber
                         },
                         )
                 }
             }
             }
-            GlassPillsRow(
+            QuranTabBar(
                 selectedTab = selectedTab,
                 bookmarkCount = bookmarks.size,
                 onTabSelect = { selectedTab = it },
@@ -545,7 +509,7 @@ fun QuranScreen(
                     verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
                 ) {
                     Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
                         shape = CardSubtleShape,
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -553,6 +517,7 @@ fun QuranScreen(
                             text = "${ayah.arabicText} \u06DD${QuranRepository.toArabicDigits(ayah.ayahNumber)}",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
                             textAlign = TextAlign.Right,
                             lineHeight = 30.sp,
                             modifier = Modifier
@@ -634,15 +599,15 @@ fun ContinueReadingSurahCard(
             .clickable { onContinueReading() }
             .testTag("continue_reading_card"),
         shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
     ) {
         Column(Modifier.padding(NourSpace.lg)) {
         Text(strings.continueReadingBtn, style = MaterialTheme.typography.labelMedium)
         Text(
             if (arabicUi) lastReadSurah.nameArabic else lastReadSurah.nameEnglish,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
         )
         if (arabicUi) {
             val revelationAr = if (lastReadSurah.revelationType == RevelationType.MECCAN) strings.meccan else strings.medinan
@@ -662,7 +627,7 @@ fun ContinueReadingSurahCard(
             )
         }
         LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth().padding(top = NourSpace.md),
-            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceContainerLowest)
         Text(formatNumerals(String.format(strings.verseOfPattern, lastAyah, totalVerses, (fraction * 100).toInt())),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = NourSpace.xs))
@@ -683,7 +648,7 @@ fun SurahListView(
     val strings = LocalAppStrings.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = NourSpace.xs, bottom = NourSpace.xl),
+        contentPadding = PaddingValues(top = NourSpace.xs, bottom = LocalFloatingBottomExtra.current),
         verticalArrangement = Arrangement.spacedBy(NourSpace.md)
     ) {
         // Spacer reserves the overlay footprint so cards never slide under the pills.
@@ -692,7 +657,7 @@ fun SurahListView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .height(PillsBarHeight + NourSpace.sm * 2)
+                    .height(nourSegmentedControlHeight() + NourSpace.sm * 2)
             )
         }
         // "Continue Reading" card under the pills
@@ -734,77 +699,58 @@ fun QuranSearchView(
     }
 
     val arabicUi = LocalAppLanguage.current == AppLanguage.ARABIC
-    val matchingAyahs = remember(searchQuery) {
-        if (searchQuery.isBlank()) emptyList()
-        else QuranRepository.search(searchQuery)
+    var matchingAyahs by remember { mutableStateOf(emptyList<Ayah>()) }
+    var isSearching by remember { mutableStateOf(false) }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isBlank()) {
+            matchingAyahs = emptyList()
+            isSearching = false
+            return@LaunchedEffect
+        }
+        isSearching = true
+        // Search can scan the complete corpus. Keep even the uncached first scan
+        // off the main thread so composition never waits for the index.
+        matchingAyahs = withContext(Dispatchers.Default) {
+            QuranRepository.search(searchQuery)
+        }
+        isSearching = false
     }
 
     Column(
         // Horizontal margin comes from the global NourContentFrame gutter.
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
     ) {
         Spacer(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .height(PillsBarHeight + NourSpace.sm * 2)
+                .height(nourSegmentedControlHeight() + NourSpace.sm * 2)
         )
-        // Minimalist search bar: slim pill, autofocus on entering the tab,
+        // Minimalist search field: slim pill, autofocus on entering the tab,
         // keyboard Search action dismisses the keyboard.
         val focusManager = LocalFocusManager.current
         val searchFocus = remember { FocusRequester() }
         LaunchedEffect(Unit) { searchFocus.requestFocus() }
-        OutlinedTextField(
+        NourSearchField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = NourSpace.sm, bottom = NourSpace.xs)
-                .focusRequester(searchFocus)
-                .testTag("quran_search_field"),
-            placeholder = {
-                Text(
-                    strings.searchVerseHint,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(NourSize.smallIcon)
-                )
-            },
-            trailingIcon = {
-                if (searchQuery.isNotBlank()) {
-                    IconButton(onClick = { onSearchQueryChange("") }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = strings.clearSearch
-                        )
-                    }
-                }
-            },
-            shape = PillShape,
-            singleLine = true,
+            placeholder = strings.searchVerseHint,
+            clearContentDescription = strings.clearSearch,
+            focusRequester = searchFocus,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-            )
+            modifier = Modifier
+                .padding(top = NourSpace.sm, bottom = NourSpace.xs),
+            fieldModifier = Modifier.testTag("quran_search_field")
         )
 
         if (searchQuery.isBlank()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(NourSpace.md),
-                contentPadding = PaddingValues(bottom = NourSpace.xl)
+                contentPadding = PaddingValues(bottom = LocalFloatingBottomExtra.current)
             ) {
                 item {
                     Text(
@@ -824,7 +770,7 @@ fun QuranSearchView(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(NourSpace.md),
-                contentPadding = PaddingValues(bottom = NourSpace.xl)
+                contentPadding = PaddingValues(bottom = LocalFloatingBottomExtra.current)
             ) {
                 if (matchingSurahs.isNotEmpty()) {
                     item {
@@ -859,8 +805,8 @@ fun QuranSearchView(
                                 .clip(CardExpressiveShape)
                                 .clickable { onSelectAyah(ayah) },
                             shape = CardExpressiveShape,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                            colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
+                            border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                         ) {
                             Column(modifier = Modifier.padding(NourSpace.lg)) {
                                 Row(
@@ -899,7 +845,7 @@ fun QuranSearchView(
                     }
                 }
 
-                if (matchingSurahs.isEmpty() && matchingAyahs.isEmpty()) {
+                if (!isSearching && matchingSurahs.isEmpty() && matchingAyahs.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -981,52 +927,85 @@ fun SurahReaderView(
     var selectedAyahForInspector by remember { mutableStateOf<Ayah?>(null) }
     var showTranslationsInContinuous by remember { mutableStateOf(false) }
 
+    // Floating clearance rule ([NourSize.floatingClearance]): the content list
+    // reserves the toolbar's real measured band plus the clearance slot, so
+    // nothing sits behind the pill when reading starts at the top. Initialized
+    // from the height token; the first layout pass corrects it (the pill grows
+    // at larger font scales, where a fixed reserve would sit wrong).
+    val toolbarDensity = LocalDensity.current
+    var toolbarReserve by remember {
+        mutableStateOf(NourSpace.sm + NourSize.toolbarHeight + NourSize.floatingClearance)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .testTag("surah_reader_view")
     ) {
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Minimalist, Peaceful Top Bar
-            Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                shadowElevation = NourSize.flat
-            ) {
-            Row(
+            // Floating, opaque reader toolbar: contextual actions stay put but
+            // never depend on the page behind them for contrast. It is overlaid
+            // so the reading content can peek through its side/bottom gutters.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = NourSpace.sm, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f)
+                    .padding(horizontal = NourSpace.md, vertical = NourSpace.sm)
             ) {
-                // Back & Surah Switcher
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
+                NourFloatingToolbar(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coords ->
+                            // Reserve = the pill's band (sm above it) plus the
+                            // clearance slot for the first resting card.
+                            toolbarReserve =
+                                NourSpace.sm + toolbarDensity.run { coords.size.height.toDp() } +
+                                    NourSize.floatingClearance
+                        }
+                        .testTag("surah_reader_toolbar")
+                ) {
+                    NourCircularIconButton(
                         onClick = onBack,
+                        contentDescription = strings.backToSurahs,
                         modifier = Modifier.testTag("surah_reader_back_button")
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = strings.backToSurahs)
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(NourSize.smallIcon)
+                        )
                     }
 
-                    Box {
+                    Box(Modifier.weight(1f)) {
                         TextButton(
                             onClick = { showSurahDropdown = true },
                             shape = PillShape,
-                            contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = NourSpace.xs)
+                            contentPadding = PaddingValues(horizontal = NourSpace.sm, vertical = NourSpace.xs),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
                                     text = formatNumerals("${surah.number}. ${if (arabicUi) surah.nameArabic else surah.nameEnglish} ▾"),
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = formatNumerals("${surah.nameArabic} • ${surah.ayahCount} ${strings.versesWord}"),
+                                    // The Arabic name is isolated so the Latin
+                                    // words stay whole instead of being woven
+                                    // into the Arabic run ("7 • الفاتحة Verses").
+                                    text = formatNumerals(
+                                        "${surah.nameArabic.isolateRtlDirection()} • ${surah.ayahCount} ${strings.versesWord}"
+                                    ),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -1048,53 +1027,57 @@ fun SurahReaderView(
                             }
                         }
                     }
-                }
 
-                // Quick Action Icons (View Mode Switcher + Reading Settings)
-                Row(verticalAlignment = Alignment.CenterVertically) {
                     // Quick Flow vs Cards Switcher
-                    IconButton(
+                    NourCircularIconButton(
                         onClick = {
                             val nextMode = if (readingMode == QuranReadingMode.CONTINUOUS) QuranReadingMode.CARDS else QuranReadingMode.CONTINUOUS
                             onModeChange(nextMode)
-                        }
+                        },
+                        contentDescription = strings.toggleMode
                     ) {
                         Icon(
                             imageVector = if (readingMode == QuranReadingMode.CONTINUOUS) Icons.Rounded.ViewAgenda else Icons.Rounded.AutoStories,
-                            contentDescription = strings.toggleMode,
-                            tint = MaterialTheme.colorScheme.primary
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(NourSize.smallIcon)
                         )
                     }
 
                     // Reading Settings Modal Trigger
-                    IconButton(onClick = onOpenSettings) {
+                    NourCircularIconButton(
+                        onClick = onOpenSettings,
+                        contentDescription = strings.readingSettings
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.Tune,
-                            contentDescription = strings.readingSettings,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(NourSize.smallIcon)
                         )
                     }
                 }
             }
-        }
 
         // Reading Content
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .weight(1f),
+            modifier = Modifier.fillMaxSize(),
             // Horizontal margin comes from the global NourContentFrame gutter.
-            contentPadding = PaddingValues(vertical = NourSpace.lg),
+            // Vertical: measured toolbar band plus clearance above; the host's
+            // floating-bar slot below, both per [NourSize.floatingClearance].
+            contentPadding = PaddingValues(top = toolbarReserve, bottom = LocalFloatingBottomExtra.current),
             verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
         ) {
             // Delicate, Spiritual Surah Header Banner
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("reader_header_card"),
                     shape = CardExpressiveShape,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                    border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                 ) {
                     Column(
                         modifier = Modifier
@@ -1147,7 +1130,7 @@ fun SurahReaderView(
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
                         elevation = CardDefaults.cardElevation(defaultElevation = NourSize.flat)
                     ) {
@@ -1156,20 +1139,23 @@ fun SurahReaderView(
                                 .fillMaxWidth()
                                 .padding(NourSpace.lg)
                         ) {
-                            Row(
+                            // Wraps below the reference pill when a large font
+                            // scale leaves no room for both on one line.
+                            FlowRow(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(NourSpace.xs),
+                                itemVerticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
                                     shape = PillShape
                                 ) {
                                     Text(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Medium,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 3.dp)
                                     )
                                 }
@@ -1425,7 +1411,7 @@ fun MushafSinglePageContent(
         modifier = modifier
             .fillMaxSize()
             .testTag("mushaf_single_page_$pageNumber"),
-        contentPadding = PaddingValues(vertical = NourSpace.lg),
+        contentPadding = PaddingValues(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
             // Surah Header if beginning of a Surah on this page
@@ -1480,7 +1466,7 @@ fun MushafSinglePageContent(
                             .fillMaxWidth()
                             .testTag("ayah_card_${ayah.ayahNumber}"),
                         shape = CardExpressiveShape,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
                     ) {
                         Column(
@@ -1494,14 +1480,14 @@ fun MushafSinglePageContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
                                     shape = PillShape
                                 ) {
                                     Text(
                                         text = "${ayah.surahNumber}:${ayah.ayahNumber}",
                                         fontWeight = FontWeight.Medium,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 3.dp)
                                     )
                                 }
@@ -1792,9 +1778,9 @@ fun QuranSettingsBottomSheet(
                             shape = PillShape,
                             label = { Text("${edition.name} (${languageEndonym(edition.language)})", style = MaterialTheme.typography.labelMedium) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                containerColor = nourCardSurfaceColor()
                             )
                         )
                     }
@@ -1818,83 +1804,27 @@ fun QuranViewModeToggle(
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        shape = PillShape,
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("quran_view_mode_toggle")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(NourSpace.xs)
-        ) {
-            // Verse Cards button
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(PillShape)
-                    .heightIn(min = NourSize.touchTarget)
-                    .selectable(selected = readingMode == QuranReadingMode.CARDS, role = Role.RadioButton, onClick = { onModeChange(QuranReadingMode.CARDS) })
-                    .testTag("toggle_cards_mode"),
-                color = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = PillShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(vertical = NourSpace.sm, horizontal = NourSpace.md),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.ViewAgenda,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = strings.cardsMode,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (readingMode == QuranReadingMode.CARDS) FontWeight.Medium else FontWeight.Medium,
-                        color = if (readingMode == QuranReadingMode.CARDS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Continuous Text button
-            Surface(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(PillShape)
-                    .heightIn(min = NourSize.touchTarget)
-                    .selectable(selected = readingMode == QuranReadingMode.CONTINUOUS, role = Role.RadioButton, onClick = { onModeChange(QuranReadingMode.CONTINUOUS) })
-                    .testTag("toggle_continuous_mode"),
-                color = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.primary else Color.Transparent,
-                shape = PillShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(vertical = NourSpace.sm, horizontal = NourSpace.md),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoStories,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = strings.continuousMode,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (readingMode == QuranReadingMode.CONTINUOUS) FontWeight.Medium else FontWeight.Medium,
-                        color = if (readingMode == QuranReadingMode.CONTINUOUS) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-    }
+    val options = listOf(
+        NourSegmentOption(
+            value = QuranReadingMode.CARDS,
+            label = strings.cardsMode,
+            icon = Icons.Rounded.ViewAgenda,
+            testTag = "toggle_cards_mode"
+        ),
+        NourSegmentOption(
+            value = QuranReadingMode.CONTINUOUS,
+            label = strings.continuousMode,
+            icon = Icons.Rounded.AutoStories,
+            testTag = "toggle_continuous_mode"
+        )
+    )
+    NourSegmentedControl(
+        options = options,
+        selected = readingMode,
+        onSelected = onModeChange,
+        modifier = modifier.testTag("quran_view_mode_toggle"),
+        role = Role.RadioButton
+    )
 }
 
 /**
@@ -1911,11 +1841,11 @@ fun ContinuousQuranTextCard(
 ) {
     val strings = LocalAppStrings.current
     val useEasternNumerals = LocalUseEasternNumerals.current
-    val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
-    val onPrimaryContainerColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val highlightContainerColor = MaterialTheme.colorScheme.secondaryContainer
+    val onHighlightContainerColor = MaterialTheme.colorScheme.onSecondaryContainer
     val ayahMarkerColor = MaterialTheme.colorScheme.primary
 
-    val continuousAnnotatedString = remember(ayahs, selectedAyahNumber, arabicFontSize, primaryContainerColor) {
+    val continuousAnnotatedString = remember(ayahs, selectedAyahNumber, arabicFontSize, highlightContainerColor) {
         buildAnnotatedString {
             ayahs.forEach { ayah ->
                 val isSelected = (ayah.ayahNumber == selectedAyahNumber)
@@ -1924,8 +1854,8 @@ fun ContinuousQuranTextCard(
                 if (isSelected) {
                     pushStyle(
                         SpanStyle(
-                            background = primaryContainerColor.copy(alpha = 0.5f),
-                            color = onPrimaryContainerColor,
+                            background = highlightContainerColor,
+                            color = onHighlightContainerColor,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
@@ -2054,14 +1984,14 @@ fun AyahInspectorCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = PillShape
                 ) {
                     Text(
                         text = formatNumerals(String.format(strings.surahVerseLabelPattern, if (LocalAppLanguage.current == AppLanguage.ARABIC) surah.nameArabic else surah.nameEnglish, ayah.ayahNumber)),
                         fontWeight = FontWeight.Medium,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         modifier = Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.xs)
                     )
                 }
@@ -2180,7 +2110,7 @@ fun BookmarksView(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.size(72.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -2211,7 +2141,7 @@ fun BookmarksView(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             // Horizontal margin comes from the global NourContentFrame gutter.
-            contentPadding = PaddingValues(vertical = NourSpace.lg),
+            contentPadding = PaddingValues(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
             verticalArrangement = Arrangement.spacedBy(NourSpace.md)
         ) {
             item {
@@ -2219,7 +2149,7 @@ fun BookmarksView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .height(PillsBarHeight + NourSpace.sm * 2)
+                        .height(nourSegmentedControlHeight() + NourSpace.sm * 2)
                 )
             }
             items(bookmarks, key = { it.id }) { bm ->
@@ -2286,6 +2216,17 @@ fun BookmarksView(
         }
     }
 }
+
+/**
+ * Wraps an Arabic (right-to-left) run in Unicode bidi isolates.
+ *
+ * A mixed line such as "الفاتحة • 7 Verses" is a single string handed to one
+ * `Text`, so the platform bidi algorithm is free to interleave the Latin words
+ * into the Arabic run — which renders as "7 • الفاتحة Verses". Isolating the
+ * Arabic keeps both parts whole in an LTR and an RTL interface alike, and keeps
+ * the scripture's own direction independent of the interface language.
+ */
+private fun String.isolateRtlDirection(): String = "\u2067$this\u2069"
 
 /**
  * Language endonym for a BCP-47 tag, e.g. "sv" -> "svenska", "zh" -> "中文",

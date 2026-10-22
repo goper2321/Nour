@@ -28,10 +28,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.example.features.prayer.models.CountdownState
 import com.example.ui.theme.NourReduceMotion
 import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
@@ -76,6 +77,259 @@ private fun googleWeatherCloudSpecs(): List<GoogleWeatherCloudSpec> = listOf(
     GoogleWeatherCloudSpec(baseX = 0.30f, yFrac = 0.27f, wFrac = 0.27f, hFrac = 0.08f, speed = 0.0046f, bobPhase = 4.2f, layer = 2),
     GoogleWeatherCloudSpec(baseX = 0.76f, yFrac = 0.29f, wFrac = 0.25f, hFrac = 0.075f, speed = 0.0042f, bobPhase = 5.0f, layer = 2)
 )
+
+/**
+ * Cached static scene geometry for the immersive sky. These are built during
+ * composition and only rebuilt when a slow colour/size input changes, so
+ * animation frames draw without allocating paths or gradient brushes.
+ */
+private class GlareArt(val brush: Brush, val baseRadius: Float)
+
+private class SkySceneArt(
+    val horizonBloomBrush: Brush,
+    val horizonBloomTopLeft: Offset,
+    val horizonBloomSize: Size,
+    val horizonLineBrush: Brush,
+    val horizonLineWidth: Float,
+    val dune1Path: Path,
+    val dune1Brush: Brush,
+    val dune2Path: Path,
+    val dune2Brush: Brush,
+    val dune3Path: Path,
+    val dune3Brush: Brush,
+    val scrimBrush: Brush?,
+    val scrimStartY: Float,
+    val scrimSize: Size
+)
+
+private fun buildGlareArt(
+    density: Density,
+    center: Offset,
+    glareAlpha: Float,
+    isDaytime: Boolean,
+    celestialScale: Float,
+    celestialGlowColor: Color,
+    dynamicPrimary: Color
+): GlareArt {
+    // The corona pulse is applied as a uniform scale at draw time; this radius
+    // is the un-pulsed base.
+    val baseRadius = with(density) { (if (isDaytime) 220.dp else 140.dp).toPx() } * celestialScale
+    val glareGlow = lerpColor(celestialGlowColor, dynamicPrimary, 0.12f)
+    return GlareArt(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                glareGlow.copy(alpha = (if (isDaytime) 0.35f else 0.20f) * glareAlpha),
+                glareGlow.copy(alpha = 0.12f * glareAlpha),
+                Color.Transparent
+            ),
+            center = center,
+            radius = baseRadius
+        ),
+        baseRadius = baseRadius
+    )
+}
+
+private fun buildCloudArts(
+    clouds: List<GoogleWeatherCloudSpec>,
+    width: Float,
+    height: Float,
+    atmosphericState: AtmosphericState,
+    dynamicPrimary: Color,
+    isReadingMode: Boolean
+): List<GoogleWeatherSkyElements.CloudArt?> {
+    val cloudLuminosity = atmosphericState.skyLuminosity
+    val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
+    val isDarkNight = cloudLuminosity < 0.25f
+    return clouds.map { cloud ->
+        // Time-of-day and dynamic accent responsive colors
+        val baseFill = if (isDarkNight) {
+            Color(0xFF1E283C)
+        } else {
+            lerpColor(Color(0xFFEBF3FC), Color.White, cloudLuminosity)
+        }
+        val highlightColor = when {
+            isDarkNight -> Color(0xFFADC6E5)
+            duskWarmth > 0.05f -> lerpColor(Color.White, Color(0xFFFFE082), duskWarmth * 0.85f)
+            else -> Color.White
+        }
+        val shadowColor = when {
+            isDarkNight -> Color(0xFF101724)
+            duskWarmth > 0.05f -> lerpColor(Color(0xFFD3E3F5), atmosphericState.horizonGlowColor.copy(alpha = 1f), duskWarmth * 0.65f)
+            else -> lerpColor(Color(0xFFD3E3F5), dynamicPrimary.copy(alpha = 0.12f), 0.20f)
+        }
+        val fillColor = if (duskWarmth > 0.05f && !isDarkNight) {
+            lerpColor(baseFill, Color(0xFFFFCC80), duskWarmth * 0.70f)
+        } else {
+            baseFill
+        }
+
+        // Layer-based depth opacity
+        val layerMultiplier = when (cloud.layer) {
+            0 -> 0.75f // distant
+            1 -> 1.0f  // midground
+            else -> 0.65f // foreground wisp
+        }
+        val baseAlpha = (0.12f + 0.15f * cloudLuminosity) * layerMultiplier
+        val finalAlpha = if (isReadingMode) baseAlpha * 0.70f else baseAlpha
+
+        if (finalAlpha <= 0.005f) {
+            null
+        } else {
+            GoogleWeatherSkyElements.buildCloudArt(
+                width = width * cloud.wFrac,
+                height = height * cloud.hFrac,
+                fillColor = fillColor,
+                highlightColor = highlightColor,
+                shadowColor = shadowColor,
+                alpha = finalAlpha,
+                isDarkNight = isDarkNight
+            )
+        }
+    }
+}
+
+private fun buildSkySceneArt(
+    density: Density,
+    width: Float,
+    height: Float,
+    horizonY: Float,
+    skyBand: Float,
+    atmosphericState: AtmosphericState,
+    dynamicPrimary: Color,
+    isReadingMode: Boolean,
+    showSurfaceScrim: Boolean,
+    surfaceColor: Color
+): SkySceneArt {
+    with(density) {
+        val horizonBloomColor = lerpColor(atmosphericState.horizonGlowColor, dynamicPrimary, 0.10f)
+        val horizonBloomBrush = Brush.verticalGradient(
+            colors = listOf(
+                Color.Transparent,
+                horizonBloomColor.copy(alpha = 0.25f),
+                horizonBloomColor.copy(alpha = 0.55f)
+            ),
+            startY = horizonY - 60.dp.toPx(),
+            endY = horizonY + 5.dp.toPx()
+        )
+        val horizonLineBrush = Brush.horizontalGradient(
+            colors = listOf(
+                Color.Transparent,
+                horizonBloomColor.copy(alpha = 0.50f),
+                Color.White.copy(alpha = 0.40f),
+                horizonBloomColor.copy(alpha = 0.50f),
+                Color.Transparent
+            ),
+            startX = 0f,
+            endX = width
+        )
+
+        val dune1Path = Path().apply {
+            moveTo(0f, horizonY + 7.dp.toPx())
+            cubicTo(
+                width * 0.28f, horizonY + 2.dp.toPx(),
+                width * 0.48f, horizonY + 13.dp.toPx(),
+                width * 0.70f, horizonY + 6.dp.toPx()
+            )
+            cubicTo(
+                width * 0.85f, horizonY + 2.dp.toPx(),
+                width * 0.95f, horizonY + 9.dp.toPx(),
+                width, horizonY + 5.dp.toPx()
+            )
+            lineTo(width, height)
+            lineTo(0f, height)
+            close()
+        }
+        val dune1Brush = Brush.verticalGradient(
+            colors = listOf(
+                atmosphericState.duneColor1.copy(alpha = 0.35f),
+                atmosphericState.duneColor1.copy(alpha = 0.60f)
+            ),
+            startY = horizonY,
+            endY = horizonY + 45.dp.toPx()
+        )
+
+        val dune2Path = Path().apply {
+            moveTo(0f, horizonY + 17.dp.toPx())
+            cubicTo(
+                width * 0.22f, horizonY + 21.dp.toPx(),
+                width * 0.40f, horizonY + 12.dp.toPx(),
+                width * 0.62f, horizonY + 10.dp.toPx()
+            )
+            cubicTo(
+                width * 0.80f, horizonY + 19.dp.toPx(),
+                width * 0.92f, horizonY + 23.dp.toPx(),
+                width, horizonY + 18.dp.toPx()
+            )
+            lineTo(width, height)
+            lineTo(0f, height)
+            close()
+        }
+        val dune2Brush = Brush.verticalGradient(
+            colors = listOf(
+                atmosphericState.duneColor2.copy(alpha = 0.45f),
+                atmosphericState.duneColor2.copy(alpha = 0.75f)
+            ),
+            startY = horizonY + 10.dp.toPx(),
+            endY = horizonY + 70.dp.toPx()
+        )
+
+        val dune3Path = Path().apply {
+            moveTo(0f, horizonY + 28.dp.toPx())
+            cubicTo(
+                width * 0.32f, horizonY + 34.dp.toPx(),
+                width * 0.65f, horizonY + 24.dp.toPx(),
+                width, horizonY + 30.dp.toPx()
+            )
+            lineTo(width, height)
+            lineTo(0f, height)
+            close()
+        }
+        val dune3Brush = Brush.verticalGradient(
+            colors = listOf(
+                atmosphericState.duneColor2.copy(alpha = 0.35f),
+                atmosphericState.duneColor2.copy(alpha = 0.85f)
+            ),
+            startY = horizonY + 20.dp.toPx(),
+            endY = horizonY + 90.dp.toPx()
+        )
+
+        val scrimStartY = if (isReadingMode) 0f else skyBand * 0.65f
+        val scrimBrush = if (showSurfaceScrim) {
+            val alpha1 = if (isReadingMode) 0.35f else 0.18f
+            val alpha2 = if (isReadingMode) 0.60f else 0.40f
+            val alpha3 = if (isReadingMode) 0.84f else 0.72f
+            Brush.verticalGradient(
+                colors = listOf(
+                    if (isReadingMode) surfaceColor.copy(alpha = 0.10f) else Color.Transparent,
+                    surfaceColor.copy(alpha = alpha1),
+                    surfaceColor.copy(alpha = alpha2),
+                    surfaceColor.copy(alpha = alpha3)
+                ),
+                startY = scrimStartY,
+                endY = height
+            )
+        } else {
+            null
+        }
+
+        return SkySceneArt(
+            horizonBloomBrush = horizonBloomBrush,
+            horizonBloomTopLeft = Offset(0f, horizonY - 60.dp.toPx()),
+            horizonBloomSize = Size(width, 65.dp.toPx()),
+            horizonLineBrush = horizonLineBrush,
+            horizonLineWidth = 1.0.dp.toPx(),
+            dune1Path = dune1Path,
+            dune1Brush = dune1Brush,
+            dune2Path = dune2Path,
+            dune2Brush = dune2Brush,
+            dune3Path = dune3Path,
+            dune3Brush = dune3Brush,
+            scrimBrush = scrimBrush,
+            scrimStartY = scrimStartY,
+            scrimSize = Size(width, height - scrimStartY)
+        )
+    }
+}
 
 /**
  * High-quality, minimalist SVG/Vector-based celestial atmospheric state.
@@ -414,7 +668,6 @@ fun ImmersiveSkyBackground(
     prayerTimes: PrayerTimes,
     location: UserLocation = UserLocation(),
     now: Date = Date(),
-    countdownState: CountdownState? = null,
     isReadingMode: Boolean = false,
     showPrecipitation: Boolean = false,
     precipitationIntensity: Float = 0f,
@@ -530,14 +783,16 @@ fun ImmersiveSkyBackground(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(atmosphericState.skyColors))
+            .background(remember(atmosphericState) { Brush.verticalGradient(atmosphericState.skyColors) })
     ) {
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
         val density = LocalDensity.current
 
         // Keep the landscape expansive while the celestial accent stays above the cards.
-        val horizonY = heightPx * 0.62f
+        // A slightly lower horizon keeps the sun and moon on-screen on short
+        // headers instead of clipping their upper arc.
+        val horizonY = heightPx * 0.75f
         val skyBand = with(density) { (maxHeight * 0.18f).coerceIn(48.dp, 144.dp).toPx() }
         val celestialScale = (widthPx / with(density) { 390.dp.toPx() }).coerceIn(1f, 1.35f)
 
@@ -553,12 +808,12 @@ fun ImmersiveSkyBackground(
         val moon = remember(nowMillis, location.latitude, location.longitude) {
             CelestialMath.moonInfo(nowMillis, location.latitude, location.longitude)
         }
-        val yTop = skyBand * 0.02f
+        val yTop = skyBand * 0.12f
         fun bodyX(hourAngleDeg: Double): Float =
             widthPx * (0.12f + 0.76f * ((hourAngleDeg + 120.0) / 240.0).coerceIn(0.0, 1.0)).toFloat()
         fun bodyY(altitudeDeg: Double): Float =
             (horizonY - (altitudeDeg / maxElevation) * (horizonY - yTop)).toFloat()
-                .coerceIn(0f, horizonY + with(density) { 36.dp.toPx() })
+                .coerceIn(0f, horizonY + with(density) { 48.dp.toPx() })
         // Each body fades smoothly across the horizon line instead of popping.
         val sunAlpha = ((sunPos.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
         val moonAlpha = ((moon.position.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
@@ -568,101 +823,116 @@ fun ImmersiveSkyBackground(
         val glareCenter = if (isDaytime) sunCenter else moonCenter
         val glareAlpha = if (isDaytime) sunAlpha else moonAlpha
 
+        // Slow-moving values that feed the cached scene below.
+        val cloudLuminosity = atmosphericState.skyLuminosity
+        val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
+
+        // Expensive sky geometry (paths, gradient brushes, star tables) is built
+        // here and only rebuilt when a slow colour/size input changes — not once
+        // per animation frame. Per-frame drawing below reuses these instances and
+        // only applies the live drift/twinkle/pulse transforms.
+        val cloudArts = remember(cloudDrift, widthPx, heightPx, atmosphericState, dynamicPrimary, isReadingMode) {
+            buildCloudArts(cloudDrift, widthPx, heightPx, atmosphericState, dynamicPrimary, isReadingMode)
+        }
+        val starfieldArt = remember(widthPx, heightPx, density, atmosphericState.starOpacity, dynamicPrimary) {
+            GoogleWeatherSkyElements.buildStarfieldArt(
+                density = density,
+                width = widthPx,
+                height = heightPx,
+                starOpacity = atmosphericState.starOpacity,
+                dynamicAccent = dynamicPrimary
+            )
+        }
+        val sunArt = remember(density, sunCenter, sunAlpha, duskWarmth, dynamicPrimary, atmosphericState.celestialGlowColor) {
+            GoogleWeatherSkyElements.buildSunArt(
+                density = density,
+                center = sunCenter,
+                bodyAlpha = sunAlpha,
+                duskWarmth = duskWarmth,
+                dynamicAccent = dynamicPrimary,
+                atmosphericGlow = atmosphericState.celestialGlowColor
+            )
+        }
+        val moonArt = remember(density, moonCenter, moon, moonAlpha, dynamicTertiary) {
+            GoogleWeatherSkyElements.buildMoonArt(
+                density = density,
+                center = moonCenter,
+                moon = moon,
+                bodyAlpha = moonAlpha,
+                dynamicAccent = dynamicTertiary
+            )
+        }
+        val glareArt = remember(density, glareCenter, glareAlpha, isDaytime, celestialScale, atmosphericState.celestialGlowColor, dynamicPrimary) {
+            buildGlareArt(
+                density = density,
+                center = glareCenter,
+                glareAlpha = glareAlpha,
+                isDaytime = isDaytime,
+                celestialScale = celestialScale,
+                celestialGlowColor = atmosphericState.celestialGlowColor,
+                dynamicPrimary = dynamicPrimary
+            )
+        }
+        val sceneArt = remember(density, widthPx, heightPx, horizonY, skyBand, atmosphericState, dynamicPrimary, isReadingMode, showSurfaceScrim, surfaceColor) {
+            buildSkySceneArt(
+                density = density,
+                width = widthPx,
+                height = heightPx,
+                horizonY = horizonY,
+                skyBand = skyBand,
+                atmosphericState = atmosphericState,
+                dynamicPrimary = dynamicPrimary,
+                isReadingMode = isReadingMode,
+                showSurfaceScrim = showSurfaceScrim,
+                surfaceColor = surfaceColor
+            )
+        }
+
         // Primary Immersive Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
             // Smooth cloud time: wall base (layout-preserving) + cycle progress.
             val timeSeconds = wallBaseSeconds + (cloudProgress.toDouble() * cloudCycleSeconds)
-            val cloudLuminosity = atmosphericState.skyLuminosity
-            val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
-            val isDarkNight = cloudLuminosity < 0.25f
 
             // -------------------------------------------------------------
             // 1. Immersive Atmospheric Light Wash & Celestial Glare
             // -------------------------------------------------------------
-            val atmosphericGlareRadius = (if (isDaytime) 220.dp.toPx() else 140.dp.toPx()) * coronaPulse * celestialScale
-            val glareGlow = lerpColor(atmosphericState.celestialGlowColor, dynamicPrimary, 0.12f)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        glareGlow.copy(alpha = (if (isDaytime) 0.35f else 0.20f) * glareAlpha),
-                        glareGlow.copy(alpha = 0.12f * glareAlpha),
-                        Color.Transparent
-                    ),
-                    center = glareCenter,
-                    radius = atmosphericGlareRadius
-                ),
-                radius = atmosphericGlareRadius,
-                center = glareCenter
-            )
+            scale(scale = coronaPulse, pivot = glareCenter) {
+                drawCircle(
+                    brush = glareArt.brush,
+                    radius = glareArt.baseRadius,
+                    center = glareCenter
+                )
+            }
 
             // -------------------------------------------------------------
             // 2. Google Weather Starfield & Cosmic Serenity
             // -------------------------------------------------------------
             GoogleWeatherSkyElements.drawStarfield(
                 drawScope = this,
-                width = w,
-                height = h,
+                art = starfieldArt,
                 starOpacity = atmosphericState.starOpacity,
                 starTwinkle = starTwinkle,
-                shootingStarProgress = shootingStarProgress,
-                dynamicAccent = dynamicPrimary
+                shootingStarProgress = shootingStarProgress
             )
 
             // -------------------------------------------------------------
             // 3. Multi-Layered Google Weather Clouds (Procedural drift & gentle floating bob)
             // -------------------------------------------------------------
-            cloudDrift.forEach { cloud ->
+            cloudDrift.forEachIndexed { index, cloud ->
+                val art = cloudArts[index] ?: return@forEachIndexed
                 val drift = (((cloud.baseX + timeSeconds * cloud.speed) % 1.35).let {
                     if (it < 0) it + 1.35 else it
                 } - 0.18).toFloat()
                 val bobOffset = sin(timeSeconds * 0.45 + cloud.bobPhase).toFloat() * 2.8.dp.toPx()
-                val cloudW = w * cloud.wFrac
-                val cloudH = h * cloud.hFrac
                 val cloudX = w * drift
                 val cloudY = h * cloud.yFrac + bobOffset
 
-                // Time-of-day and dynamic accent responsive colors
-                val baseFill = if (isDarkNight) {
-                    Color(0xFF1E283C)
-                } else {
-                    lerpColor(Color(0xFFEBF3FC), Color.White, cloudLuminosity)
-                }
-                val highlightColor = when {
-                    isDarkNight -> Color(0xFFADC6E5)
-                    duskWarmth > 0.05f -> lerpColor(Color.White, Color(0xFFFFE082), duskWarmth * 0.85f)
-                    else -> Color.White
-                }
-                val shadowColor = when {
-                    isDarkNight -> Color(0xFF101724)
-                    duskWarmth > 0.05f -> lerpColor(Color(0xFFD3E3F5), atmosphericState.horizonGlowColor.copy(alpha = 1f), duskWarmth * 0.65f)
-                    else -> lerpColor(Color(0xFFD3E3F5), dynamicPrimary.copy(alpha = 0.12f), 0.20f)
-                }
-                val fillColor = if (duskWarmth > 0.05f && !isDarkNight) {
-                    lerpColor(baseFill, Color(0xFFFFCC80), duskWarmth * 0.70f)
-                } else {
-                    baseFill
-                }
-
-                // Layer-based depth opacity
-                val layerMultiplier = when (cloud.layer) {
-                    0 -> 0.75f // distant
-                    1 -> 1.0f  // midground
-                    else -> 0.65f // foreground wisp
-                }
-                val baseAlpha = (0.12f + 0.15f * cloudLuminosity) * layerMultiplier
-                val finalAlpha = if (isReadingMode) baseAlpha * 0.70f else baseAlpha
-
                 GoogleWeatherSkyElements.drawCloud(
                     drawScope = this,
-                    topLeft = Offset(cloudX, cloudY),
-                    size = Size(cloudW, cloudH),
-                    fillColor = fillColor,
-                    highlightColor = highlightColor,
-                    shadowColor = shadowColor,
-                    alpha = finalAlpha,
-                    isDarkNight = isDarkNight
+                    art = art,
+                    topLeft = Offset(cloudX, cloudY)
                 )
             }
 
@@ -674,24 +944,19 @@ fun ImmersiveSkyBackground(
             if (sunAlpha > 0.005f) {
                 GoogleWeatherSkyElements.drawSun(
                     drawScope = this,
+                    art = sunArt,
                     center = sunCenter,
-                    bodyAlpha = sunAlpha,
                     coronaPulse = coronaPulse,
-                    sunRayRotation = sunRayRotation,
-                    dynamicAccent = dynamicPrimary,
-                    duskWarmth = duskWarmth,
-                    atmosphericGlow = atmosphericState.celestialGlowColor
+                    sunRayRotation = sunRayRotation
                 )
             }
             if (moonAlpha > 0.005f) {
                 GoogleWeatherSkyElements.drawMoon(
                     drawScope = this,
+                    art = moonArt,
                     center = moonCenter,
-                    moon = moon,
-                    bodyAlpha = moonAlpha,
                     coronaPulse = coronaPulse,
-                    starTwinkle = starTwinkle,
-                    dynamicAccent = dynamicTertiary
+                    starTwinkle = starTwinkle
                 )
             }
 
@@ -717,140 +982,32 @@ fun ImmersiveSkyBackground(
             // -------------------------------------------------------------
             // 6. Immersive Horizon Bloom (Atmospheric Light Scattering)
             // -------------------------------------------------------------
-            val horizonBloomColor = lerpColor(atmosphericState.horizonGlowColor, dynamicPrimary, 0.10f)
             drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        horizonBloomColor.copy(alpha = 0.25f),
-                        horizonBloomColor.copy(alpha = 0.55f)
-                    ),
-                    startY = horizonY - 60.dp.toPx(),
-                    endY = horizonY + 5.dp.toPx()
-                ),
-                topLeft = Offset(0f, horizonY - 60.dp.toPx()),
-                size = Size(w, 65.dp.toPx())
+                brush = sceneArt.horizonBloomBrush,
+                topLeft = sceneArt.horizonBloomTopLeft,
+                size = sceneArt.horizonBloomSize
             )
 
             // Delicate atmospheric horizon line
             drawLine(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        horizonBloomColor.copy(alpha = 0.50f),
-                        Color.White.copy(alpha = 0.40f),
-                        horizonBloomColor.copy(alpha = 0.50f),
-                        Color.Transparent
-                    ),
-                    startX = 0f,
-                    endX = w
-                ),
+                brush = sceneArt.horizonLineBrush,
                 start = Offset(0f, horizonY),
                 end = Offset(w, horizonY),
-                strokeWidth = 1.0.dp.toPx()
+                strokeWidth = sceneArt.horizonLineWidth
             )
 
             // -------------------------------------------------------------
             // 7. Minimalist Layered Desert Dunes
             // -------------------------------------------------------------
-            val dune1Path = Path().apply {
-                moveTo(0f, horizonY + 7.dp.toPx())
-                cubicTo(
-                    w * 0.28f, horizonY + 2.dp.toPx(),
-                    w * 0.48f, horizonY + 13.dp.toPx(),
-                    w * 0.70f, horizonY + 6.dp.toPx()
-                )
-                cubicTo(
-                    w * 0.85f, horizonY + 2.dp.toPx(),
-                    w * 0.95f, horizonY + 9.dp.toPx(),
-                    w, horizonY + 5.dp.toPx()
-                )
-                lineTo(w, h)
-                lineTo(0f, h)
-                close()
-            }
-            drawPath(
-                path = dune1Path,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        atmosphericState.duneColor1.copy(alpha = 0.35f),
-                        atmosphericState.duneColor1.copy(alpha = 0.60f)
-                    ),
-                    startY = horizonY,
-                    endY = horizonY + 45.dp.toPx()
-                )
-            )
+            drawPath(path = sceneArt.dune1Path, brush = sceneArt.dune1Brush)
+            drawPath(path = sceneArt.dune2Path, brush = sceneArt.dune2Brush)
+            drawPath(path = sceneArt.dune3Path, brush = sceneArt.dune3Brush)
 
-            val dune2Path = Path().apply {
-                moveTo(0f, horizonY + 17.dp.toPx())
-                cubicTo(
-                    w * 0.22f, horizonY + 21.dp.toPx(),
-                    w * 0.40f, horizonY + 12.dp.toPx(),
-                    w * 0.62f, horizonY + 10.dp.toPx()
-                )
-                cubicTo(
-                    w * 0.80f, horizonY + 19.dp.toPx(),
-                    w * 0.92f, horizonY + 23.dp.toPx(),
-                    w, horizonY + 18.dp.toPx()
-                )
-                lineTo(w, h)
-                lineTo(0f, h)
-                close()
-            }
-            drawPath(
-                path = dune2Path,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        atmosphericState.duneColor2.copy(alpha = 0.45f),
-                        atmosphericState.duneColor2.copy(alpha = 0.75f)
-                    ),
-                    startY = horizonY + 10.dp.toPx(),
-                    endY = horizonY + 70.dp.toPx()
-                )
-            )
-
-            val dune3Path = Path().apply {
-                moveTo(0f, horizonY + 28.dp.toPx())
-                cubicTo(
-                    w * 0.32f, horizonY + 34.dp.toPx(),
-                    w * 0.65f, horizonY + 24.dp.toPx(),
-                    w, horizonY + 30.dp.toPx()
-                )
-                lineTo(w, h)
-                lineTo(0f, h)
-                close()
-            }
-            drawPath(
-                path = dune3Path,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        atmosphericState.duneColor2.copy(alpha = 0.35f),
-                        atmosphericState.duneColor2.copy(alpha = 0.85f)
-                    ),
-                    startY = horizonY + 20.dp.toPx(),
-                    endY = horizonY + 90.dp.toPx()
-                )
-            )
-
-            if (showSurfaceScrim) {
-                val scrimStartY = if (isReadingMode) 0f else skyBand * 0.65f
-                val alpha1 = if (isReadingMode) 0.35f else 0.18f
-                val alpha2 = if (isReadingMode) 0.60f else 0.40f
-                val alpha3 = if (isReadingMode) 0.84f else 0.72f
-
+            if (sceneArt.scrimBrush != null) {
                 drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            if (isReadingMode) surfaceColor.copy(alpha = 0.10f) else Color.Transparent,
-                            surfaceColor.copy(alpha = alpha1),
-                            surfaceColor.copy(alpha = alpha2),
-                            surfaceColor.copy(alpha = alpha3)
-                        ),
-                        startY = scrimStartY,
-                        endY = h
-                    ),
-                    topLeft = Offset(0f, scrimStartY),
-                    size = Size(w, h - scrimStartY)
+                    brush = sceneArt.scrimBrush,
+                    topLeft = Offset(0f, sceneArt.scrimStartY),
+                    size = sceneArt.scrimSize
                 )
             }
         }

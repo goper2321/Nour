@@ -1,9 +1,22 @@
 package com.example
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Density
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import com.example.features.prayer.calculation.PrayerCalculationEngine
@@ -15,6 +28,11 @@ import com.example.features.prayer.ui.DaySwitcherBar
 import com.example.features.prayer.ui.SeamlessPrayerHeader
 import com.example.features.prayer.ui.SimplifiedPrayerTimesCard
 import com.example.features.settings.NourPreferences
+import com.example.ui.components.NourFloatingNavigationBar
+import com.example.ui.components.NourNavItem
+import com.example.ui.components.NourSearchField
+import com.example.ui.components.NourSegmentOption
+import com.example.ui.components.NourSegmentedControl
 import com.example.ui.theme.MyApplicationTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -108,5 +126,72 @@ class NourDesignSystemTest {
         compose.onNodeWithTag("simplified_prayer_row_ISHA").assertIsDisplayed()
         // Sunrise is intentionally outside the five-prayer summary.
         compose.onNodeWithTag("simplified_prayer_row_SUNRISE").assertDoesNotExist()
+    }
+
+    @Test
+    fun searchFieldTagTargetsEditableTextNode() {
+        val query = mutableStateOf("")
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourSearchField(
+                    value = query.value,
+                    onValueChange = { query.value = it },
+                    placeholder = "Search",
+                    fieldModifier = Modifier.testTag("test_search_field")
+                )
+            }
+        }
+        compose.onNodeWithTag("test_search_field").performTextInput("Allah")
+        compose.runOnIdle {
+            assertEquals("Allah", query.value)
+        }
+    }
+
+    @Test
+    fun floatingNavigationBarGrowsForTwoLabelLinesAtLargeFont() {
+        val selected = mutableStateOf(0)
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+                MyApplicationTheme(dynamicColor = false) {
+                    NourFloatingNavigationBar(
+                        items = listOf(
+                            NourNavItem(
+                                label = "Gebetszeiten",
+                                selectedIcon = Icons.Rounded.Schedule,
+                                unselectedIcon = Icons.Outlined.Schedule,
+                                testTag = "nav_test"
+                            )
+                        ),
+                        selectedIndex = selected.value,
+                        onSelected = { selected.value = it }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("nav_test").assertIsDisplayed()
+        compose.onNodeWithTag("nour_navigation_bar").assertHeightIsAtLeast(90.dp)
+    }
+
+    @Test
+    fun segmentedControlReportsSelection() {
+        val selected = mutableStateOf("system")
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourSegmentedControl(
+                    options = listOf(
+                        NourSegmentOption("system", "System", testTag = "segment_system"),
+                        NourSegmentOption("light", "Light", testTag = "segment_light"),
+                        NourSegmentOption("dark", "Dark", testTag = "segment_dark")
+                    ),
+                    selected = selected.value,
+                    onSelected = { selected.value = it }
+                )
+            }
+        }
+        compose.onNodeWithTag("segment_system").assertIsSelected()
+        compose.onNodeWithTag("segment_system").assertHeightIsAtLeast(48.dp)
+        compose.onNodeWithTag("segment_dark").performClick()
+        compose.onNodeWithTag("segment_dark").assertIsSelected()
+        compose.runOnIdle { assertEquals("dark", selected.value) }
     }
 }

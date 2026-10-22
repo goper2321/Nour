@@ -26,6 +26,7 @@ import com.example.localization.AppLanguage
 import com.example.localization.LocalAppLanguage
 import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
+import com.example.ui.components.nourCardSurfaceColor
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.ListRowShape
 import com.example.ui.theme.NourSize
@@ -42,19 +43,19 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
     }
     val arabicUi = LocalAppLanguage.current == AppLanguage.ARABIC
     Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = ListRowShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))) {
-        Row(Modifier.padding(horizontal = NourSpace.md, vertical = NourSpace.md),
+        Row(Modifier.padding(horizontal = NourSpace.lg, vertical = NourSpace.md),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NourSpace.md)) {
             Surface(shape = CardSubtleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.size(NourSize.badge)) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         formatNumerals(surah.number.toString()),
                         style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
                     )

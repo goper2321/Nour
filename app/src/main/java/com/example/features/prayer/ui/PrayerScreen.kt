@@ -8,16 +8,27 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,7 +58,11 @@ import com.example.localization.LocalAppStrings
 import com.example.localization.LocalUse24HourFormat
 import com.example.localization.formatNumerals
 import com.example.ui.components.NourContentFrame
+import com.example.ui.components.LocalFloatingBottomExtra
+import com.example.ui.components.nourCardSurfaceColor
 import com.example.ui.theme.CardExpressiveShape
+import com.example.ui.theme.CardSubtleShape
+import com.example.ui.theme.PillShape
 import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
@@ -151,7 +166,7 @@ fun PrayerScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("prayer_screen_list"),
-                contentPadding = PaddingValues(bottom = NourSpace.lg),
+                contentPadding = PaddingValues(bottom = LocalFloatingBottomExtra.current),
                 verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
             ) {
                 // Immersive sky header: the sky bleeds up behind the system
@@ -168,6 +183,8 @@ fun PrayerScreen(
 
                 // Day navigation sits between the sky and the prayer-times card.
                 // Tapping the bar returns to today (no separate "Today" button).
+                // Shares the NourSpace.lg side measure with the cards below;
+                // only the sky hero above is full-bleed.
                 item {
                     DaySwitcherBar(
                         selectedDate = displayedDate,
@@ -175,19 +192,18 @@ fun PrayerScreen(
                         onPreviousDay = { selectedDayOffset-- },
                         onNextDay = { selectedDayOffset++ },
                         onResetToToday = { selectedDayOffset = 0 },
-                        modifier = Modifier
+                        modifier = Modifier.padding(horizontal = NourSpace.lg)
                     )
                 }
 
                 // Simplified, read-only daily prayer times (Fajr -> Isha).
-                // No own side padding: like the sky card and the day
-                // switcher, it takes exactly the global frame gutter.
+                // Same shared side measure as the day switcher.
                 item {
                     SimplifiedPrayerTimesCard(
                         prayerTimes = displayedPrayerTimes,
                         use24Hour = use24Hour,
                         nextPrayer = if (selectedDayOffset == 0) countdownState.nextPrayer else null,
-                        modifier = Modifier
+                        modifier = Modifier.padding(horizontal = NourSpace.lg)
                     )
                 }
             }
@@ -222,7 +238,7 @@ fun SimplifiedPrayerTimesCard(
         modifier = modifier.fillMaxWidth().testTag("simplified_prayer_card"),
         shape = CardExpressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = nourCardSurfaceColor(),
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
@@ -236,34 +252,107 @@ fun SimplifiedPrayerTimesCard(
                     )
                 }
                 val isNext = prayer == nextPrayer
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = NourSpace.lg, vertical = NourSpace.md)
-                        // The next prayer must not be colour/weight-only:
-                        // expose it as state for screen readers.
-                        .semantics { if (isNext) stateDescription = strings.nextBadge }
-                        .testTag("simplified_prayer_row_${prayer.name}"),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = prayerNameLabel(prayer, strings),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Text(
-                        text = formatNumerals(prayerTimes.formattedTime(prayer, use24Hour)),
-                        style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
-                        color = if (isNext) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (isNext) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1,
-                        softWrap = false
-                    )
+                if (!isNext) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = NourSpace.lg, vertical = NourSpace.md)
+                            .testTag("simplified_prayer_row_${prayer.name}"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = prayerNameLabel(prayer, strings),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = formatNumerals(prayerTimes.formattedTime(prayer, use24Hour)),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                } else {
+                    // The coming prayer gets a real container — tint, leading
+                    // accent bar and a day/night icon — so it reads as more
+                    // than colour alone, in any theme and for screen readers.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = NourSpace.md, vertical = NourSpace.xs)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Merged so the highlighted row is announced as one
+                                // item ("Asr, 15:26, Next") instead of three.
+                                .semantics(mergeDescendants = true) { stateDescription = strings.nextBadge }
+                                .testTag("simplified_prayer_row_${prayer.name}"),
+                            shape = CardSubtleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(IntrinsicSize.Min)
+                                    // Outer md + inner (lg - md) = lg total, so the
+                                    // highlighted row's time ends on exactly the
+                                    // same x as the plain rows' times (a plain
+                                    // row's inset is lg on both sides).
+                                    .padding(
+                                        horizontal = NourSpace.lg - NourSpace.md,
+                                        vertical = NourSpace.lg
+                                    ),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(NourSpace.xs)
+                                        .fillMaxHeight()
+                                        .background(
+                                            MaterialTheme.colorScheme.primary,
+                                            shape = PillShape
+                                        )
+                                )
+                                Spacer(Modifier.width(NourSpace.sm))
+                                Icon(
+                                    imageVector = nextPrayerIcon(prayer),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(NourSize.smallIcon)
+                                )
+                                Spacer(Modifier.width(NourSpace.sm))
+                                Text(
+                                    text = prayerNameLabel(prayer, strings),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    // Fills the remaining width so the time is pinned
+                                    // to the trailing edge instead of butting against
+                                    // the prayer name.
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = formatNumerals(prayerTimes.formattedTime(prayer, use24Hour)),
+                                    style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = "tnum"),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -277,4 +366,14 @@ private fun prayerNameLabel(prayer: PrayerName, strings: AppStrings): String = w
     PrayerName.ASR -> strings.asr
     PrayerName.MAGHRIB -> strings.maghrib
     PrayerName.ISHA -> strings.isha
+}
+
+/** Day/night cue for the highlighted coming-prayer row: sun while the sun is up, moon at night. */
+private fun nextPrayerIcon(prayer: PrayerName) = when (prayer) {
+    PrayerName.FAJR -> Icons.Rounded.DarkMode
+    PrayerName.SUNRISE -> Icons.Rounded.LightMode
+    PrayerName.DHUHR -> Icons.Rounded.LightMode
+    PrayerName.ASR -> Icons.Rounded.LightMode
+    PrayerName.MAGHRIB -> Icons.Rounded.DarkMode
+    PrayerName.ISHA -> Icons.Rounded.DarkMode
 }

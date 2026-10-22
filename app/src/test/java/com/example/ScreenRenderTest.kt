@@ -1,13 +1,34 @@
 package com.example
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import com.example.features.onboarding.ui.SetupWizard
 import com.example.features.prayer.calculation.CelestialMath
 import com.example.features.prayer.calculation.PrayerCalculationEngine
@@ -24,8 +45,13 @@ import com.example.features.quran.ui.QuranScreen
 import com.example.features.settings.ui.SettingsScreen
 import com.example.localization.AppLanguage
 import com.example.ui.components.NourContentFrame
+import com.example.ui.components.NourFloatingNavigationBar
+import com.example.ui.components.NourFloatingNavigationRail
+import com.example.ui.components.NourNavItem
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.NourSize
 import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
@@ -65,6 +91,13 @@ class ScreenRenderTest {
 
     private val location = UserLocation(21.4225, 39.8262, "Makkah", "Saudi Arabia", 3.0, false)
 
+    private val navigationItems = listOf(
+        NourNavItem("Salah", Icons.Rounded.Schedule, Icons.Outlined.Schedule, "nav_salah"),
+        NourNavItem("Qibla", Icons.Rounded.Explore, Icons.Outlined.Explore, "nav_qibla"),
+        NourNavItem("Quran", Icons.Rounded.AutoStories, Icons.Outlined.AutoStories, "nav_quran"),
+        NourNavItem("Settings", Icons.Rounded.Settings, Icons.Outlined.Settings, "nav_settings")
+    )
+
     private fun capture(name: String) {
         // Roborazzi renders the Robolectric view hierarchy directly, so it does
         // not wait on Compose frames the way captureToImage() does.
@@ -75,23 +108,29 @@ class ScreenRenderTest {
     fun prayerScreenRenders() {
         compose.setContent {
             MyApplicationTheme(dynamicColor = false) {
-                NourContentFrame {
+                // Mirrors MainActivity: Salah opts out of the frame gutter
+                // so the sky hero bleeds edge-to-edge.
+                NourContentFrame(contentPadding = PaddingValues(0.dp)) {
                     PrayerScreen(
                         location = location,
                         calculationMethod = CalculationMethod.UMM_AL_QURA,
                         madhab = Madhab.SHAFI_MALIKI_HANBALI,
                         highLatRule = HighLatitudeRule.MIDDLE_OF_NIGHT,
-                        adjustments = PrayerAdjustments()
+                        adjustments = PrayerAdjustments(),
+                        // Wired, as in MainActivity: the "Default location"
+                        // control only renders its disabled (transparent)
+                        // style when this callback is absent.
+                        onRequestLocationUpdate = {}
                     )
                 }
             }
         }
         compose.onNodeWithTag("prayer_screen_list").assertIsDisplayed()
         // Salah review fixes, locked in: the countdown still renders without
-        // its per-second animation wrapper, and a non-GPS location is
-        // labelled honestly instead of showing a bare city name.
+        // its per-second animation wrapper. The location control now shows the
+        // place name only, keeping the sky hero uncluttered.
         compose.onNodeWithTag("countdown_timer_text").assertIsDisplayed()
-        compose.onNodeWithTag("prayer_location_button").assertTextContains("Default location", substring = true)
+        compose.onNodeWithTag("prayer_location_button").assertTextContains("Makkah", substring = true)
         capture("01_prayer")
     }
 
@@ -107,6 +146,17 @@ class ScreenRenderTest {
     }
 
     @Test
+    fun qiblaScreenDarkRenders() {
+        compose.setContent {
+            MyApplicationTheme(darkTheme = true, dynamicColor = false) {
+                NourContentFrame { QiblaScreen(location = location) }
+            }
+        }
+        compose.onNodeWithTag("qibla_mode_status").assertIsDisplayed()
+        capture("11_qibla_dark")
+    }
+
+    @Test
     fun quranScreenRenders() {
         compose.setContent {
             MyApplicationTheme(dynamicColor = false) {
@@ -115,6 +165,117 @@ class ScreenRenderTest {
         }
         compose.onNodeWithTag("quran_screen").assertIsDisplayed()
         capture("03_quran")
+    }
+
+    /**
+     * Chrome capture: the floating bottom bar is rendered by a real Scaffold
+     * over the Quran screen, at the same compact breakpoint MainActivity uses.
+     * This is the only capture that shows the navigation surface itself; the
+     * per-screen captures intentionally render their screen in isolation.
+     */
+    @Test
+    fun navigationChromeRenders() {
+        var lastSelected = -1
+        compose.setContent {
+            val selection = androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableIntStateOf(2)
+            }
+            MyApplicationTheme(dynamicColor = false) {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = {
+                        NourFloatingNavigationBar(
+                            items = navigationItems,
+                            selectedIndex = selection.intValue,
+                            onSelected = {
+                                selection.intValue = it
+                                lastSelected = it
+                            },
+                            modifier = Modifier.testTag("nour_bottom_navigation")
+                        )
+                    }
+                ) { innerPadding ->
+                    NourContentFrame(
+                        modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())
+                    ) { QuranScreen() }
+                }
+            }
+        }
+        compose.onNodeWithTag("nour_bottom_navigation").assertIsDisplayed()
+        compose.onNodeWithTag("nav_quran").assertIsSelected()
+        capture("08_navigation_chrome")
+        compose.onNodeWithTag("nav_salah").performClick()
+        compose.mainClock.advanceTimeBy(200)
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(0, lastSelected) }
+        compose.onNodeWithTag("nav_salah").assertIsSelected()
+    }
+
+    /** Same chrome, dark theme: opaque charcoal surfaces must not turn glassy. */
+    @Test
+    fun navigationChromeDarkRenders() {
+        compose.setContent {
+            val selection = androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableIntStateOf(2)
+            }
+            MyApplicationTheme(darkTheme = true, dynamicColor = false) {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = {
+                        NourFloatingNavigationBar(
+                            items = navigationItems,
+                            selectedIndex = selection.intValue,
+                            onSelected = { selection.intValue = it },
+                            modifier = Modifier.testTag("nour_bottom_navigation_dark")
+                        )
+                    }
+                ) { innerPadding ->
+                    NourContentFrame(
+                        modifier = Modifier.fillMaxSize().padding(bottom = innerPadding.calculateBottomPadding())
+                    ) { QuranScreen() }
+                }
+            }
+        }
+        compose.onNodeWithTag("nour_bottom_navigation_dark").assertIsDisplayed()
+        compose.onNodeWithTag("nav_quran").assertIsSelected()
+        capture("09_navigation_chrome_dark")
+    }
+
+    /** Expanded layout: the floating rail reserves its own gutter, labels stay visible. */
+    @Test
+    @Config(sdk = [36], qualifiers = "w900dp-h1000dp-xhdpi")
+    fun navigationRailRenders() {
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                ) {
+                    Row(Modifier.fillMaxSize()) {
+                        NourFloatingNavigationRail(
+                            items = navigationItems,
+                            selectedIndex = 1,
+                            onSelected = {},
+                            modifier = Modifier
+                                .width(NourSize.navRailReserve)
+                                .fillMaxHeight()
+                                .testTag("nour_navigation_rail")
+                        )
+                        NourContentFrame(
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        ) { QuranScreen() }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("nour_navigation_rail").assertIsDisplayed()
+        compose.onNodeWithTag("nav_qibla").assertIsSelected()
+        capture("10_navigation_rail")
     }
 
     @Test
@@ -139,6 +300,30 @@ class ScreenRenderTest {
         }
         compose.onNodeWithTag("settings_screen_list").assertIsDisplayed()
         capture("04_settings")
+    }
+
+    @Test
+    fun settingsScreenDarkRenders() {
+        compose.setContent {
+            MyApplicationTheme(darkTheme = true, dynamicColor = false) {
+                NourContentFrame {
+                    SettingsScreen(
+                        location = location,
+                        calculationMethod = CalculationMethod.UMM_AL_QURA,
+                        madhab = Madhab.SHAFI_MALIKI_HANBALI,
+                        highLatRule = HighLatitudeRule.MIDDLE_OF_NIGHT,
+                        adjustments = PrayerAdjustments(),
+                        onLocationChange = {},
+                        onMethodChange = {},
+                        onMadhabChange = {},
+                        onHighLatRuleChange = {},
+                        onAdjustmentsChange = {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("settings_screen_list").assertIsDisplayed()
+        capture("12_settings_dark")
     }
 
     @Test
@@ -213,5 +398,40 @@ class ScreenRenderTest {
             }
         }
         capture("06_sky_sun_and_moon")
+    }
+
+    /**
+     * The starfield only draws once the sky is dark, so the day-time two-body
+     * capture above never exercises its sparkle/twinkle path. This renders a
+     * deterministic night instant (fixed date, Makkah) so the night sky drawing
+     * is covered on the JVM too.
+     */
+    @Test
+    fun skyRendersNightStarfield() {
+        val night = Calendar.getInstance().apply {
+            clear()
+            set(2026, Calendar.JANUARY, 1, 21, 0, 0)
+        }.time
+        val times = PrayerCalculationEngine.calculate(
+            date = night,
+            location = location,
+            method = CalculationMethod.UMM_AL_QURA,
+            madhab = Madhab.SHAFI_MALIKI_HANBALI,
+            highLatRule = HighLatitudeRule.MIDDLE_OF_NIGHT,
+            adjustments = PrayerAdjustments()
+        )
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                Box(Modifier.fillMaxSize()) {
+                    ImmersiveSkyBackground(
+                        prayerTimes = times,
+                        location = location,
+                        now = night,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+        }
+        capture("07_sky_night")
     }
 }

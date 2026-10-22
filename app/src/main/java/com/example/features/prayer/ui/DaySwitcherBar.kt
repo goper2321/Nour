@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,8 +29,9 @@ import com.example.localization.LocalAppStrings
 import com.example.features.prayer.calculation.HijriDateHelper
 import com.example.localization.formatNumerals
 import androidx.compose.ui.unit.dp
+import com.example.ui.components.NourCircularIconButton
+import com.example.ui.components.nourFloatingSurfaceColor
 import com.example.ui.theme.CardSubtleShape
-import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourSize
 import com.example.ui.theme.NourSpace
 import java.text.SimpleDateFormat
@@ -60,16 +60,23 @@ fun DaySwitcherBar(
         }
     }
     Surface(
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .testTag("day_switcher_bar"),
         shape = CardSubtleShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
+        color = nourFloatingSurfaceColor(),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(Modifier.fillMaxWidth().padding(NourSpace.sm), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onPreviousDay,
-                modifier = Modifier.size(NourSize.touchTarget).testTag("day_switcher_prev")) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, strings.previousBtn)
+            NourCircularIconButton(
+                onClick = onPreviousDay,
+                contentDescription = strings.previousBtn,
+                modifier = Modifier.testTag("day_switcher_prev")
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = null,
+                    modifier = Modifier.size(NourSize.smallIcon)
+                )
             }
             // Tapping the date area returns to today. It is a real button
             // only while browsing another day; on today itself it is inert
@@ -103,9 +110,16 @@ fun DaySwitcherBar(
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
-            IconButton(onClick = onNextDay,
-                modifier = Modifier.size(NourSize.touchTarget).testTag("day_switcher_next")) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, strings.nextBtn)
+            NourCircularIconButton(
+                onClick = onNextDay,
+                contentDescription = strings.nextBtn,
+                modifier = Modifier.testTag("day_switcher_next")
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(NourSize.smallIcon)
+                )
             }
         }
     }

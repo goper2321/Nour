@@ -10,9 +10,9 @@ import java.util.Locale
 
 object QuranRepository {
 
-    // Precompiled once: search normalizes all 6,236 verses per keystroke, so
-    // compiling these patterns per ayah caused visible input lag on low-end
-    // devices. Hoisting is behavior-preserving (same patterns, same order).
+    // Precompiled once. Search normalizes the complete corpus into
+    // normalizedAyahTexts, so compiling these patterns per verse would add
+    // avoidable startup and first-search cost.
     private val HarakatRegex = Regex("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED]")
     private val AlifRegex = Regex("[\\u0622\\u0623\\u0625\\u0671]")
 
@@ -159,8 +159,16 @@ object QuranRepository {
         Surah(114, "الناس", "An-Nas", "Mankind", RevelationType.MECCAN, 6, 604, 30)
     )
 
+    // O(1) lookups over the immutable corpus, built once. `ayahsBySurahNumber`
+    // preserves QuranCorpus.ayahs order, so callers receive the same verse order
+    // they got from a full scan.
+    private val surahsByNumber: Map<Int, Surah> by lazy { ALL_SURAHS.associateBy { it.number } }
+    private val ayahsBySurahNumber: Map<Int, List<Ayah>> by lazy {
+        QuranCorpus.ayahs.groupBy { it.surahNumber }
+    }
+
     fun getSurah(number: Int): Surah {
-        return ALL_SURAHS.firstOrNull { it.number == number } ?: ALL_SURAHS.first()
+        return surahsByNumber[number] ?: ALL_SURAHS.first()
     }
 
     /**
@@ -176,7 +184,7 @@ object QuranRepository {
      * Retrieves all Ayahs for a given Surah from the verified corpus.
      */
     fun getAyahsForSurah(surahNumber: Int): List<Ayah> {
-        return QuranCorpus.ayahs.filter { it.surahNumber == surahNumber }
+        return ayahsBySurahNumber[surahNumber].orEmpty()
     }
 
     /**
@@ -187,9 +195,7 @@ object QuranRepository {
         val surah = getSurah(surahNumber)
         if (surah.number != surahNumber) return null
         if (ayahNumber < 1 || ayahNumber > surah.ayahCount) return null
-        return QuranCorpus.ayahs.firstOrNull {
-            it.surahNumber == surahNumber && it.ayahNumber == ayahNumber
-        }
+        return ayahsBySurahNumber[surahNumber]?.firstOrNull { it.ayahNumber == ayahNumber }
     }
 
     /**
@@ -229,6 +235,24 @@ object QuranRepository {
     }
 
     /**
+     * Normalized form of every verse, computed once. Re-normalizing all 6,236
+     * verses per keystroke was the main source of search typing lag; the
+     * normalization itself is a pure function of the immutable corpus text, so
+     * the hit list is unchanged.
+     */
+    private val normalizedAyahTexts: List<String> by lazy {
+        QuranCorpus.ayahs.map { normalizeArabic(it.arabicText).lowercase(Locale.ROOT) }
+    }
+
+    /**
+     * Forces the one-time normalization pass without doing the work in a user
+     * keystroke. Call from a background dispatcher during application startup.
+     */
+    fun warmSearchIndex() {
+        normalizedAyahTexts.size
+    }
+
+    /**
      * Offline search across Surahs and Arabic text of the verified corpus.
      */
     fun search(query: String): List<Ayah> {
@@ -237,11 +261,20 @@ object QuranRepository {
 
         val normalizedQuery = normalizeArabic(trimmed).lowercase(Locale.ROOT)
 
-        return QuranCorpus.ayahs.filter { ayah ->
-            val matchesArabic = normalizeArabic(ayah.arabicText).lowercase(Locale.ROOT).contains(normalizedQuery)
-            val matchesSurah = getSurah(ayah.surahNumber).nameEnglish.contains(trimmed, ignoreCase = true) ||
-                               getSurah(ayah.surahNumber).nameArabic.contains(trimmed)
-            matchesArabic || matchesSurah
+        val ayahs = QuranCorpus.ayahs
+        val normalizedTexts = normalizedAyahTexts
+        val matches = ArrayList<Ayah>()
+        for (index in ayahs.indices) {
+            val ayah = ayahs[index]
+            if (normalizedTexts[index].contains(normalizedQuery)) {
+                matches.add(ayah)
+                continue
+            }
+            val surah = getSurah(ayah.surahNumber)
+            val matchesSurah = surah.nameEnglish.contains(trimmed, ignoreCase = true) ||
+                               surah.nameArabic.contains(trimmed)
+            if (matchesSurah) matches.add(ayah)
         }
+        return matches
     }
 }

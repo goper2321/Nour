@@ -15,7 +15,11 @@ import com.example.ui.theme.NourSize
 import com.example.ui.theme.DialogExpressiveShape
 import com.example.ui.theme.SheetExpressiveShape
 import com.example.ui.components.NourEmptyState
+import com.example.ui.components.LocalFloatingBottomExtra
 import com.example.ui.components.NourSectionHeader
+import com.example.ui.components.NourSegmentOption
+import com.example.ui.components.NourSegmentedControl
+import com.example.ui.components.nourCardSurfaceColor
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
@@ -32,6 +36,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,7 +49,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -107,11 +112,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.database.AdhanSettingsEntity
 import com.example.database.NourDatabase
 import com.example.features.adhan.player.AdhanPlayer
@@ -160,6 +167,7 @@ private fun hsvOf(argb: Int): FloatArray =
  * whole interface re-themes in real time. Visual language matches the
  * surrounding settings cards; only this card's content is new.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SeedColorCard(
     seedColorArgb: Int?,
@@ -186,7 +194,7 @@ private fun SeedColorCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = CardExpressiveShape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
         border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
     ) {
         Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -203,28 +211,63 @@ private fun SeedColorCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(NourSpace.md))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(NourSpace.sm),
+            FlowRow(
+                // Each option is a 48 dp touch target with the visible circle
+                // drawn inside it, so the swatch rhythm is unchanged but the
+                // hit area meets the 48 dp minimum. Four per row keeps every
+                // preset visible without a clipped, scroll-only last swatch.
+                maxItemsInEachRow = 4,
+                horizontalArrangement = Arrangement.spacedBy(NourSpace.xs),
+                verticalArrangement = Arrangement.spacedBy(NourSpace.xs),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .selectableGroup()
                     .testTag("seed_presets")
             ) {
-                items(SeedColorSchemes.PRESET_SEEDS_ARGB.size) { index ->
-                    val preset = SeedColorSchemes.PRESET_SEEDS_ARGB[index]
+                SeedColorSchemes.PRESET_SEEDS_ARGB.forEachIndexed { index, preset ->
                     val isSelected = currentSeed == preset
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(preset),
-                        border = BorderStroke(
-                            NourSize.border,
-                            if (isSelected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant
-                        ),
+                    val swatch = Color(preset)
+                    // The tick is drawn in whichever of black/white stays
+                    // legible on the swatch, and the row is a radio group, so
+                    // the active colour is never signalled by the border tint
+                    // alone.
+                    val tickColor = if (swatch.luminance() > 0.5f) Color.Black else Color.White
+                    Box(
                         modifier = Modifier
-                            .size(NourSize.badge)
-                            .clickable { onSeedChange(preset) }
-                            .testTag("seed_preset_$index")
-                    ) {}
+                            .size(NourSize.touchTarget)
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSeedChange(preset) }
+                            )
+                            .semantics {
+                                contentDescription = strings.seedPresetLabel.format(seedHex(preset))
+                            }
+                            .testTag("seed_preset_$index"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = swatch,
+                            border = BorderStroke(
+                                if (isSelected) NourSize.selectedBorder else NourSize.border,
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier.size(NourSize.badge)
+                        ) {
+                            if (isSelected) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = tickColor,
+                                        modifier = Modifier.size(NourSize.smallIcon)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(NourSpace.md))
@@ -421,11 +464,13 @@ fun SettingsScreen(
             .statusBarsPadding()
             // Keep the inline seed-colour hex field scrollable above the soft
             // keyboard. The root frame opts out of window insets (the compact
-            // NavigationBar handles the system bars), so screens own IME insets.
+            // floating navigation bar handles the system bars), so screens own
+            // IME insets.
             .imePadding()
             .testTag("settings_screen_list"),
         // Horizontal margin comes from the global NourContentFrame gutter.
-        contentPadding = PaddingValues(vertical = NourSpace.lg),
+        // Bottom follows the floating clearance rule ([NourSize.floatingClearance]).
+        contentPadding = PaddingValues(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
         item {
@@ -434,19 +479,25 @@ fun SettingsScreen(
         item {
             Card(
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
-                Column(Modifier.padding(NourSpace.lg)) {
+                Column(
+                    Modifier.padding(NourSpace.lg),
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.md)
+                ) {
                     Text(strings.themeTitle, style = MaterialTheme.typography.titleMedium)
-                    listOf("system" to strings.themeSystem, "light" to strings.themeLight, "dark" to strings.themeDark).forEach { (value, label) ->
-                        Row(Modifier.fillMaxWidth().selectable(selected = themeMode == value,
-                            role = Role.RadioButton, onClick = { onThemeModeChange(value) })
-                            .padding(vertical = NourSpace.xs), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary, unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant), selected = themeMode == value, onClick = null)
-                            Text(label, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
+                    NourSegmentedControl(
+                        options = listOf(
+                            NourSegmentOption("system", strings.themeSystem),
+                            NourSegmentOption("light", strings.themeLight),
+                            NourSegmentOption("dark", strings.themeDark)
+                        ),
+                        selected = themeMode,
+                        onSelected = onThemeModeChange,
+                        modifier = Modifier.testTag("settings_theme_control"),
+                        role = Role.RadioButton
+                    )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -457,7 +508,6 @@ fun SettingsScreen(
                         Switch(colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),checked = dynamicColors, onCheckedChange = onDynamicColorsChange,
                             enabled = android.os.Build.VERSION.SDK_INT >= 31)
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
                 }
             }
         }
@@ -476,7 +526,7 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_language_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -526,17 +576,18 @@ fun SettingsScreen(
                             }
                         }
                         Spacer(modifier = Modifier.width(NourSpace.sm))
-                        Button(
+                        TextButton(
                             onClick = { showLanguageDialog = true },
-                            shape = PillShape,
                             modifier = Modifier
                                 .testTag("btn_change_language")
-                                .heightIn(min = NourSize.touchTarget)
+                                .heightIn(min = NourSize.touchTarget),
+                            contentPadding = PaddingValues(horizontal = NourSpace.sm)
                         ) {
                             Text(
                                 strings.changeLocation,
                                 maxLines = 1,
-                                softWrap = false
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -551,7 +602,7 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_numerals_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -606,7 +657,7 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_timeformat_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -662,7 +713,7 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -671,7 +722,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = strings.activeLocation,
                                 style = MaterialTheme.typography.titleMedium,
@@ -691,12 +742,12 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Button(
+                        TextButton(
                             onClick = { showLocationDialog = true },
-                            shape = PillShape,
-                            modifier = Modifier.heightIn(min = NourSize.touchTarget)
+                            modifier = Modifier.heightIn(min = NourSize.touchTarget),
+                            contentPadding = PaddingValues(horizontal = NourSpace.sm)
                         ) {
-                            Text(strings.changeLocation, maxLines = 1, softWrap = false)
+                            Text(strings.changeLocation, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }
@@ -709,7 +760,7 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -726,7 +777,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = CardSubtleShape
                     ) {
-                        Text(text = calculationMethod.title, maxLines = 1)
+                        Text(text = calculationMethod.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     }
 
                     DropdownMenu(
@@ -752,7 +803,7 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -790,7 +841,7 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -834,7 +885,7 @@ fun SettingsScreen(
                 onClick = { showAdjustmentsDialog = true },
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Row(
@@ -885,7 +936,7 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -921,7 +972,7 @@ fun SettingsScreen(
                             shape = PillShape,
                             modifier = Modifier.heightIn(min = NourSize.touchTarget)
                         ) {
-                            Text(if (isTestingAdhan) strings.stopAudio else strings.testAudio, maxLines = 1, softWrap = false)
+                            Text(if (isTestingAdhan) strings.stopAudio else strings.testAudio, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
 
@@ -1229,8 +1280,7 @@ fun SettingsScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = prayerTitle,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 14.sp,
+                                        style = MaterialTheme.typography.labelLarge,
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
@@ -1310,7 +1360,8 @@ fun SettingsScreen(
                                         text = formatNumerals("$reminderMinutes ${strings.minutesShort}"),
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1,
-                                        softWrap = false
+                                        softWrap = false,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                 }
                                 DropdownMenu(
@@ -1360,8 +1411,11 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Column(modifier = Modifier.padding(NourSpace.lg)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1371,15 +1425,14 @@ fun SettingsScreen(
                             text = strings.privacyPledgeTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "• ${strings.privacyPledgeBullet1}\n• ${strings.privacyPledgeBullet2}\n• ${strings.privacyPledgeBullet3}\n• ${strings.privacyPledgeBullet4}\n• ${strings.privacyPledgeBullet5}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        lineHeight = 18.sp
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
@@ -1393,7 +1446,7 @@ fun SettingsScreen(
                     .fillMaxWidth()
                     .testTag("settings_rerun_setup_card"),
                 shape = CardExpressiveShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
                 border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
             ) {
                 Row(

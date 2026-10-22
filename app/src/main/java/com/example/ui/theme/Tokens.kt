@@ -11,13 +11,17 @@ object NourSpace {
     val xs = 4.dp
     val sm = 8.dp
     val md = 12.dp
-    val lg = 18.dp
+    /** Standard content rhythm (Apple 16 pt). */
+    val lg = 16.dp
+    /** Section rhythm (Apple 24 pt). */
     val xl = 24.dp
     val xxl = 32.dp
 }
 
 object NourSize {
     val touchTarget = 48.dp
+    /** Visual circle for compact icon actions; the touch target stays 48 dp. */
+    val circularControl = 44.dp
     val icon = 24.dp
     val smallIcon = 20.dp
     /** Leading icon inside a settings/list row (22 dp): between [smallIcon] and [icon]. */
@@ -34,12 +38,43 @@ object NourSize {
     val selectedBorder = 2.dp
     val flat = 0.dp
     val raised = 2.dp
+
+    // Navigation geometry. The floating bar sits above the system inset and
+    // never touches the screen edge; the rail keeps the same 24 dp shape.
+    val navBarHeight = 68.dp
+    val navRailWidth = 72.dp
+    /** Horizontal space reserved for the floating rail in the expanded layout. */
+    val navRailReserve = 88.dp
+    val toolbarHeight = 52.dp
+    /**
+     * Floating chrome clearance rule: how much empty scrollable space a pill
+     * band gets at the scroll extremes. Every scroll surface reserves
+     * (the pill's real measured band + [floatingClearance]) plus such an
+     * empty slot sized to the pill's opaque footprint (its width plus side
+     * padding), so nothing — not even a card edge — sits behind a pill when
+     * content rests at either scroll end, and the pill never kisses a row.
+     * Measuring the pill (not assuming a height token) keeps the slot exact
+     * at every font scale, including Android's non-linear scaling.
+     */
+    val floatingClearance = 8.dp
+}
+
+object NourElevation {
+    /** Cards stay flat; separation comes from the surface ladder and hairlines. */
+    val card = 0.dp
+    /** Contextual floating toolbar. */
+    val toolbar = 6.dp
+    /** Bottom navigation / leading rail. */
+    val floating = 10.dp
+    /** Resting segmented-control thumb. */
+    val control = 1.dp
 }
 
 object NourMotion {
-    const val short = 150
-    const val medium = 250
-    const val long = 300
+    // iOS 27 motion: springs for gestures, M3 easings for cross-fades.
+    const val short = 200
+    const val medium = 300
+    const val long = 500
     val easing = FastOutSlowInEasing
 
     /**
@@ -63,8 +98,8 @@ object NourMotion {
      * overridden, so call sites only state what they need.
      */
     fun <T> spring(
-        stiffness: Float = Spring.StiffnessMediumLow,
-        dampingRatio: Float = Spring.DampingRatioNoBouncy
+        stiffness: Float = Spring.StiffnessMedium,
+        dampingRatio: Float = 0.75f
     ): FiniteAnimationSpec<T> =
         if (reduced) snap()
         else androidx.compose.animation.core.spring(stiffness = stiffness, dampingRatio = dampingRatio)
@@ -80,8 +115,12 @@ object NourMotion {
  */
 object NourAlpha {
     const val BadgeTint = 0.15f
-    const val Hairline = 0.35f
+    // Opaque doctrine (iOS 27): hairlines are solid outline-variant, never alpha.
+    const val Hairline = 1.0f
 
-    /** Canonical outline opacity for resting card/panel borders (M3E hairline). */
-    const val CardBorder = 0.40f
+    /** Canonical outline opacity for resting card/panel borders (opaque hairline). */
+    const val CardBorder = 1.0f
+
+    /** Remaining-track veil for sky-adaptive progress bars. */
+    const val TrackVeil = 0.30f
 }

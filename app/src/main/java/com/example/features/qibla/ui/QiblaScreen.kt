@@ -27,6 +27,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -80,8 +81,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -101,6 +103,52 @@ import com.example.localization.formatNumerals
 import com.example.features.location.LocationPermissionCard
 import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.ScreenRotation
+import com.example.ui.components.NourButtonVariant
+import com.example.ui.components.LocalFloatingBottomExtra
+import com.example.ui.components.NourCapsuleButton
+import com.example.ui.components.NourCircularIconButton
+import com.example.ui.components.nourCardSurfaceColor
+
+/** Pre-measured cardinal label: angle on the dial plus its cached text layout. */
+private data class CardinalLabel(val angleDeg: Double, val layout: TextLayoutResult)
+
+@Composable
+private fun ManualBearingCopy(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ManualBearingToggle(
+    manualMode: Boolean,
+    hasMagnetometer: Boolean,
+    useSensorsLabel: String,
+    manualLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    NourCapsuleButton(
+        onClick = onClick,
+        text = if (manualMode) useSensorsLabel else manualLabel,
+        enabled = !manualMode || hasMagnetometer,
+        variant = if (manualMode) NourButtonVariant.Tonal else NourButtonVariant.Outlined,
+        modifier = modifier.testTag("toggle_manual_bearing")
+    )
+}
 
 @Composable
 fun QiblaScreen(
@@ -151,7 +199,10 @@ fun QiblaScreen(
             .statusBarsPadding()
             .verticalScroll(scrollState)
             // Horizontal margin comes from the global NourContentFrame gutter.
-            .padding(vertical = NourSpace.lg),
+            // Bottom follows the floating clearance rule
+            // ([NourSize.floatingClearance]): the last row leaves the bar its
+            // full measured band plus the clearance slot.
+            .padding(top = NourSpace.lg, bottom = LocalFloatingBottomExtra.current),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
     ) {
@@ -175,7 +226,7 @@ fun QiblaScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
             border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Row(
@@ -185,66 +236,99 @@ fun QiblaScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text(
                         text = strings.qiblaTitle,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.testTag("qibla_header_title")
                     )
                     Text(
                         text = "${location.cityName} ${strings.kaabaSuffix}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
 
-                // Sensor Accuracy Chip
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val (accuracyText, accuracyColor) = when {
-                        manualMode -> strings.accuracyManual to MaterialTheme.colorScheme.onSurfaceVariant
-                        !qiblaState.hasHeading -> strings.accuracyWaiting to MaterialTheme.colorScheme.onSurfaceVariant
-                        qiblaState.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> strings.accuracyHigh to MaterialTheme.colorScheme.primary
-                        qiblaState.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> strings.accuracyMedium to MaterialTheme.colorScheme.secondary
-                        else -> strings.accuracyCalibrate to MaterialTheme.colorScheme.onSurfaceVariant
+                Spacer(modifier = Modifier.width(NourSpace.sm))
+
+                // Sensor Accuracy Chip. Weighting the chip as well as the
+                // title keeps the title from collapsing to zero width at
+                // 200% font or in long translations. The chip stacks to a
+                // second line before it ellipsizes.
+                Row(
+                    modifier = Modifier.weight(1.3f, fill = false),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    val isHighAccuracy = qiblaState.hasHeading &&
+                        qiblaState.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_HIGH
+                    val accuracyText = when {
+                        manualMode -> strings.accuracyManual
+                        !qiblaState.hasHeading -> strings.accuracyWaiting
+                        isHighAccuracy -> strings.accuracyHigh
+                        qiblaState.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> strings.accuracyMedium
+                        else -> strings.accuracyCalibrate
+                    }
+                    val accuracyContainer = if (isHighAccuracy) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
+                    }
+                    val accuracyContent = if (isHighAccuracy) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val dotColor = if (isHighAccuracy) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     }
 
-            Surface(
-                color = accuracyColor.copy(alpha = NourAlpha.BadgeTint),
-                shape = PillShape,
-                border = null,
-                modifier = Modifier.testTag("qibla_accuracy_indicator")
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(NourSpace.sm / 2)
-                            .background(accuracyColor, CircleShape)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        color = accuracyContainer,
+                        shape = PillShape,
+                        border = null,
+                        modifier = Modifier.testTag("qibla_accuracy_indicator")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = NourSpace.md, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(NourSpace.sm / 2)
+                                    .background(dotColor, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = accuracyText,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
-                                color = accuracyColor,
-                                maxLines = 1,
-                                softWrap = false,
+                                color = accuracyContent,
+                                maxLines = 2,
+                                textAlign = TextAlign.Center,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                     }
+                }
 
-                    IconButton(onClick = { showCalibrationDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Info,
-                            contentDescription = strings.calibrationGuide,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                Spacer(modifier = Modifier.width(NourSpace.sm))
+
+                NourCircularIconButton(
+                    onClick = { showCalibrationDialog = true },
+                    contentDescription = strings.calibrationGuide
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(NourSize.smallIcon)
+                    )
                 }
             }
         }
@@ -257,7 +341,8 @@ fun QiblaScreen(
             )
         }
 
-        // Combined sensor + declination status line (one row instead of two)
+        // Combined sensor + declination status surface; it wraps to two lines
+        // at large font scales instead of losing the honest hardware status.
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = PillShape,
@@ -278,16 +363,25 @@ fun QiblaScreen(
                 Spacer(modifier = Modifier.width(NourSpace.xs))
                 Text(
                     text = formatNumerals(
-                        (if (qiblaState.hasMagnetometer && qiblaState.hasAccelerometer)
-                            strings.sensorFusion else strings.singleSensor) +
+                        // Three hardware states, so a phone without a compass is
+                        // not labelled "single sensor". The heading maths above
+                        // already refuses to claim alignment without a real
+                        // magnetometer reading.
+                        (when {
+                            qiblaState.hasMagnetometer && qiblaState.hasAccelerometer ->
+                                strings.sensorFusion
+                            qiblaState.hasMagnetometer || qiblaState.hasAccelerometer ->
+                                strings.singleSensor
+                            else -> strings.sensorNone
+                        }) +
                         " • ${strings.trueNorthPrefix}: " +
                         String.format(Locale.US, "%+.1f°", qiblaState.declination)
                     ),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    softWrap = false,
+                    maxLines = 2,
+                    textAlign = TextAlign.Center,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
             }
@@ -296,7 +390,7 @@ fun QiblaScreen(
         // Tilt Alert if phone is held at steep angle (>35°)
         AnimatedVisibility(visible = !qiblaState.isDeviceFlat && !manualMode) {
             Surface(
-                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.tertiaryContainer,
                 shape = CardExpressiveShape,
                 border = null,
                 modifier = Modifier.fillMaxWidth()
@@ -324,7 +418,7 @@ fun QiblaScreen(
         // Facing Qibla Banner
         AnimatedVisibility(visible = isFacingQibla) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = CardExpressiveShape,
                 border = BorderStroke(NourSize.selectedBorder, MaterialTheme.colorScheme.primary),
                 modifier = Modifier
@@ -344,7 +438,7 @@ fun QiblaScreen(
                     Spacer(modifier = Modifier.width(NourSpace.sm))
                     Text(
                         text = strings.estimatedAlignment,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.Medium,
                         style = MaterialTheme.typography.titleSmall
                     )
@@ -363,7 +457,10 @@ fun QiblaScreen(
             val dialBorderColor = MaterialTheme.colorScheme.outlineVariant
             val tickColor = MaterialTheme.colorScheme.outline
             val northColor = MaterialTheme.colorScheme.primary
-            val southColor = MaterialTheme.colorScheme.outline
+            // Cardinal text is information, not decoration: use onSurfaceVariant,
+            // not the lighter outline role (which can fall below 4.5:1 on the
+            // grouped light background).
+            val southColor = MaterialTheme.colorScheme.onSurfaceVariant
             val needleColor = MaterialTheme.colorScheme.primary
             val sunIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant
             val hubColor = if (isFacingQibla) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
@@ -372,6 +469,50 @@ fun QiblaScreen(
             val kaabaGoldColor = MaterialTheme.colorScheme.primary
             val kaabaCenterColor = MaterialTheme.colorScheme.onPrimary
             val textMeasurer = rememberTextMeasurer()
+
+            // The compass redraws on every sensor frame (50 Hz). Text layouts for
+            // N/E/S/W are measured once per theme/density change and reused; only
+            // their position on the dial is recomputed while drawing.
+            // Cardinal labels come from the shared type scale (labelLarge /
+            // labelMedium); only the direction colour varies, so the dial reads
+            // like the rest of the app instead of carrying its own text styles.
+            val cardinalMajorStyle = MaterialTheme.typography.labelLarge
+            val cardinalMinorStyle = MaterialTheme.typography.labelMedium
+            val cardinalLabels = remember(textMeasurer, northColor, southColor, cardinalMajorStyle, cardinalMinorStyle) {
+                // Compass cardinals stay Latin by convention (as on physical
+                // compasses); this is a direction instrument, not a
+                // translatable body label.
+                listOf(
+                    CardinalLabel(
+                        angleDeg = 0.0,
+                        layout = textMeasurer.measure(
+                            text = "N",
+                            style = cardinalMajorStyle.copy(color = northColor)
+                        )
+                    ),
+                    CardinalLabel(
+                        angleDeg = 90.0,
+                        layout = textMeasurer.measure(
+                            text = "E",
+                            style = cardinalMinorStyle.copy(color = southColor)
+                        )
+                    ),
+                    CardinalLabel(
+                        angleDeg = 180.0,
+                        layout = textMeasurer.measure(
+                            text = "S",
+                            style = cardinalMinorStyle.copy(color = southColor)
+                        )
+                    ),
+                    CardinalLabel(
+                        angleDeg = 270.0,
+                        layout = textMeasurer.measure(
+                            text = "W",
+                            style = cardinalMinorStyle.copy(color = southColor)
+                        )
+                    )
+                )
+            }
 
             // Rotating Compass Rose Canvas
             Canvas(
@@ -413,26 +554,12 @@ fun QiblaScreen(
                 }
 
                 // Draw N, S, E, W Typography on the dial ring
-                val cardinalLabels = listOf(
-                    Triple("N", 0.0, northColor),
-                    Triple("E", 90.0, southColor),
-                    Triple("S", 180.0, southColor),
-                    Triple("W", 270.0, southColor)
-                )
                 val labelDistance = radius - 34.dp.toPx()
-                cardinalLabels.forEach { (label, angleDeg, color) ->
+                cardinalLabels.forEach { (angleDeg, layout) ->
                     val rad = Math.toRadians(angleDeg)
-                    val textLayout = textMeasurer.measure(
-                        text = label,
-                        style = TextStyle(
-                            fontSize = if (label == "N") 14.sp else 12.sp,
-                            fontWeight = if (label == "N") FontWeight.SemiBold else FontWeight.Medium,
-                            color = color
-                        )
-                    )
-                    val posX = center.x + labelDistance * sin(rad).toFloat() - (textLayout.size.width / 2f)
-                    val posY = center.y - labelDistance * cos(rad).toFloat() - (textLayout.size.height / 2f)
-                    drawText(textLayout, topLeft = Offset(posX, posY))
+                    val posX = center.x + labelDistance * sin(rad).toFloat() - (layout.size.width / 2f)
+                    val posY = center.y - labelDistance * cos(rad).toFloat() - (layout.size.height / 2f)
+                    drawText(layout, topLeft = Offset(posX, posY))
                 }
 
                 // Kaaba Qibla Pointer Needle from Center outward
@@ -518,7 +645,7 @@ fun QiblaScreen(
             modifier = Modifier.fillMaxWidth().testTag("qibla_metrics_card"),
             shape = CardExpressiveShape,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                containerColor = nourCardSurfaceColor(),
                 contentColor = MaterialTheme.colorScheme.onSurface
             ),
             border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
@@ -536,28 +663,26 @@ fun QiblaScreen(
                     verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
                 ) {
                     Text(
-                        text = strings.qiblaHeading.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
+                        text = strings.qiblaHeading,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = formatNumerals(String.format(Locale.getDefault(), "%.1f°", qiblaState.qiblaBearing)),
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 1.2f,
-                            fontFeatureSettings = "tnum"
-                        ),
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.primary,
                         maxLines = 1,
                         softWrap = false
                     )
                     Text(
-                        text = strings.fromTrueNorth.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
+                        text = strings.fromTrueNorth,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
@@ -575,28 +700,26 @@ fun QiblaScreen(
                     verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
                 ) {
                     Text(
-                        text = strings.distanceToKaaba.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
+                        text = strings.distanceToKaaba,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         text = formatNumerals(String.format(Locale.getDefault(), "%,.0f km", qiblaState.distanceKm)),
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = MaterialTheme.typography.headlineMedium.fontSize * 1.2f,
-                            fontFeatureSettings = "tnum"
-                        ),
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         softWrap = false
                     )
                     Text(
-                        text = strings.makkahLabel.uppercase(),
-                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.8.sp),
+                        text = strings.makkahLabel,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
@@ -607,7 +730,7 @@ fun QiblaScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
             border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Row(
@@ -617,7 +740,7 @@ fun QiblaScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = PillShape,
                     modifier = Modifier.size(44.dp)
                 ) {
@@ -625,13 +748,13 @@ fun QiblaScreen(
                         Icon(
                         imageVector = Icons.Rounded.WbSunny,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(NourSize.smallIcon)
                     )
                     }
                 }
                 Spacer(modifier = Modifier.width(NourSpace.md))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = strings.sunPosition,
                         style = MaterialTheme.typography.titleSmall,
@@ -653,34 +776,51 @@ fun QiblaScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = CardExpressiveShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+            colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
             border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
         ) {
             Column(modifier = Modifier.padding(NourSpace.lg)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = strings.manualFallbackTitle,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = strings.manualFallbackSubtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = { manualMode = !manualMode },
-                        enabled = !manualMode || qiblaState.hasMagnetometer,
-                        shape = PillShape,
-                        modifier = Modifier.testTag("toggle_manual_bearing")
-                    ) {
-                        Text(if (manualMode) strings.useSensors else strings.manualSliderBtn, maxLines = 1, softWrap = false)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    // A long translation at a large font scale cannot share one
+                    // line with the capsule button. Stack them rather than
+                    // squeezing the explanatory copy into a narrow column.
+                    val stacked = maxWidth < 360.dp || LocalDensity.current.fontScale > 1.3f
+                    if (stacked) {
+                        Column(verticalArrangement = Arrangement.spacedBy(NourSpace.sm)) {
+                            ManualBearingCopy(
+                                title = strings.manualFallbackTitle,
+                                subtitle = strings.manualFallbackSubtitle,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            ManualBearingToggle(
+                                manualMode = manualMode,
+                                hasMagnetometer = qiblaState.hasMagnetometer,
+                                useSensorsLabel = strings.useSensors,
+                                manualLabel = strings.manualSliderBtn,
+                                onClick = { manualMode = !manualMode },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ManualBearingCopy(
+                                title = strings.manualFallbackTitle,
+                                subtitle = strings.manualFallbackSubtitle,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(NourSpace.sm))
+                            ManualBearingToggle(
+                                manualMode = manualMode,
+                                hasMagnetometer = qiblaState.hasMagnetometer,
+                                useSensorsLabel = strings.useSensors,
+                                manualLabel = strings.manualSliderBtn,
+                                onClick = { manualMode = !manualMode }
+                            )
+                        }
                     }
                 }
 
@@ -724,7 +864,7 @@ fun QiblaScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                         shape = CardSubtleShape
                     ) {
                         Column(modifier = Modifier.padding(NourSpace.lg)) {
@@ -738,7 +878,7 @@ fun QiblaScreen(
                             Text(
                                 text = strings.figure8Desc,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                         }
                     }
@@ -750,12 +890,10 @@ fun QiblaScreen(
                 }
             },
             confirmButton = {
-                Button(
+                NourCapsuleButton(
                     onClick = { showCalibrationDialog = false },
-                    shape = PillShape
-                ) {
-                    Text(strings.gotIt)
-                }
+                    text = strings.gotIt
+                )
             }
         )
     }

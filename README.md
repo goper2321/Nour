@@ -53,6 +53,8 @@ Nour calculates prayer times locally with an on-device astronomical engine, sche
 
 Nour follows a restrained Material 3 Expressive language: shared spacing/dimension/motion tokens, semantic color roles (with Android 12+ dynamic color), readable typography, 48 dp touch targets, wrapping rows that adapt to large font scales, bounded content widths on wide screens, and quiet transitions. Arabic scripture direction is independent of the interface language, and RTL layouts are supported.
 
+The current visual layer is an iOS 26/27-inspired, **opaque-only** refinement on top of that foundation: grouped surfaces, floating opaque navigation (bottom bar on compact windows, rail on wide ones), circular compact actions, capsule buttons, and a generated Apple-neutral blue palette. It deliberately avoids liquid glass, blur, and translucent chrome. See [`docs/ios27-design-system.md`](docs/ios27-design-system.md) for the tokens, component rules, screen guidance, and verification status.
+
 ## Accessibility
 
 * **Reduced motion**: when the system animation scale is 0 (*Remove animations* /
@@ -154,14 +156,19 @@ verification — **never ship a debug-signed APK to users.**
 ./gradlew :app:testDebugUnitTest
 ```
 Pure-JVM tests (`QuranCorpusTest`, `CelestialMathTest`, `SeedSchemeTest`,
-`PrayerCalculationTest` — 14 tests) run on any host.
+`PrayerCalculationTest`, `QuranSearchTest`, `AppStringsIntegrityTest` — 23
+tests) run on any host.
 
 The Robolectric-driven tests (`ExampleRobolectricTest`, `NourDesignSystemTest`,
-`SetupWizardTest` — 20 tests) need an **x86_64 Linux or macOS** host: Robolectric
-4.15+ requires its native runtime, which has no ARM64 Linux build. The build
-detects this and skips exactly those classes on ARM64 Linux (e.g. Termux) with a
-loud log line, so the build stays green for the right reason instead of failing
-for a platform one. Run them on CI or an x86_64 machine to exercise them.
+`SetupWizardTest`, `ScreenRenderTest`, `ScreenCaptureMatrixTest` — 52 tests)
+need an **x86_64 Linux or macOS** host: Robolectric 4.15+ requires its native
+runtime, which has no ARM64 Linux build. The build detects this and skips
+exactly those classes on ARM64 Linux (e.g. Termux) with a loud log line, so the
+build stays green for the right reason instead of failing for a platform one.
+Run them on CI or an x86_64 machine to exercise them.
+
+The screenshot tests render the screens on the JVM and, with
+`-Proborazzi.test.record=true`, write 29 PNGs to `app/build/screen-verify/`.
 
 ### Permissions (why each exists)
 Nour is offline-first and declares **no `INTERNET` permission**. Prayer times,

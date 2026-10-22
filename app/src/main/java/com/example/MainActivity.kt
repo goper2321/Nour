@@ -10,6 +10,7 @@ import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourReduceMotion
 import com.example.ui.theme.NourSize
 import com.example.ui.components.NourContentFrame
+import com.example.ui.components.LocalFloatingBottomExtra
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.only
@@ -26,12 +27,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -44,16 +44,8 @@ import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -62,15 +54,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.example.ui.components.NourFloatingNavigationBar
+import com.example.ui.components.NourFloatingNavigationRail
+import com.example.ui.components.NourNavItem
 import com.example.features.adhan.scheduler.PrayerNotificationScheduler
 import com.example.features.location.DeviceLocationHelper
 import com.example.features.location.rememberLocationPermissionState
@@ -117,6 +115,11 @@ enum class NourNavDestination(
     }
 }
 
+private val NourNavDestinationSaver: Saver<NourNavDestination, String> = Saver(
+    save = { it.name },
+    restore = { NourNavDestination.valueOf(it) }
+)
+
 class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocalizationManager.attachBaseContext(newBase))
@@ -146,7 +149,14 @@ class MainActivity : ComponentActivity() {
             ) {
                 NourMainApp(themeMode, dynamicColors,
                     onThemeModeChange = { themeMode = it; appearance.themeMode = it },
-                    onDynamicColorsChange = { dynamicColors = it; appearance.dynamicColors = it },
+                    onDynamicColorsChange = { enabled ->
+                        dynamicColors = enabled
+                        appearance.dynamicColors = enabled
+                        if (enabled) {
+                            seedColorArgb = null
+                            appearance.seedColorArgb = null
+                        }
+                    },
                     seedColorArgb = seedColorArgb,
                     onSeedChange = { argb ->
                         seedColorArgb = argb
@@ -158,9 +168,9 @@ class MainActivity : ComponentActivity() {
                     })
             }
             }
+            }
         }
     }
-}
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -192,7 +202,9 @@ fun NourMainApp(
     LaunchedEffect(use24Hour) { prefs.time24h = use24Hour }
     var alarmsEnabled by remember { mutableStateOf(prefs.alarmsEnabled) }
 
-    var currentDestination by remember { mutableStateOf(NourNavDestination.SALAH) }
+    var currentDestination by rememberSaveable(stateSaver = NourNavDestinationSaver) {
+        mutableStateOf(NourNavDestination.SALAH)
+    }
     var setupDone by remember {
         mutableStateOf(
             prefs.setupCompleted || context
@@ -328,111 +340,55 @@ fun NourMainApp(
             }
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isExpandedScreen = maxWidth >= NourSize.compactBreakpoint
+            // Live bottom-bar height, measured by the bar itself. The screens'
+            // bottom reserve derives from it so the floating clearance rule
+            // ([NourSize.floatingClearance]) stays exact at every font scale.
+            var floatingBarHeight by remember { mutableStateOf(NourSize.navBarHeight) }
+            val navItems = NourNavDestination.values().map { destination ->
+                NourNavItem(
+                    label = destination.getTitle(strings),
+                    selectedIcon = destination.selectedIcon,
+                    unselectedIcon = destination.unselectedIcon,
+                    testTag = destination.testTag
+                )
+            }
 
+            Box(Modifier.fillMaxSize().testTag("nour_main_scaffold")) {
             Scaffold(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .testTag("nour_main_scaffold"),
+                modifier = Modifier.fillMaxSize(),
                 // Match the screens' own surface so the global side gutter
                 // (applied in NourContentFrame) reads as one continuous page.
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                bottomBar = {
-                    if (!isExpandedScreen) {
-                        NavigationBar(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("nour_bottom_navigation"),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            tonalElevation = NourSize.flat
-                        ) {
-                            NourNavDestination.values().forEach { destination ->
-                                val isSelected = currentDestination == destination
-                                val title = destination.getTitle(strings)
-                                NavigationBarItem(
-                                    selected = isSelected,
-                                    onClick = { currentDestination = destination },
-                                    icon = {
-                                        Icon(
-                                            imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                                            contentDescription = title
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                            text = title,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                    },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                                    ),
-                                    modifier = Modifier.testTag(destination.testTag)
-                                )
-                            }
-                        }
-                    }
-                }
+                bottomBar = {}
             ) { innerPadding ->
+                val navBottomInset = with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = innerPadding.calculateBottomPadding())
-                ) {
-                    if (isExpandedScreen) {
-                        NavigationRail(
+                        .padding(bottom = (navBottomInset + NourSpace.lg).coerceAtLeast(0.dp))
+                ) {                    if (isExpandedScreen) {
+                        NourFloatingNavigationRail(
+                            items = navItems,
+                            selectedIndex = currentDestination.ordinal,
+                            onSelected = { index ->
+                                currentDestination = NourNavDestination.values()[index]
+                            },
                             modifier = Modifier
+                                .width(NourSize.navRailReserve)
                                 .fillMaxHeight()
-                                .testTag("nour_navigation_rail"),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            header = {
-                                Spacer(modifier = Modifier.padding(top = NourSpace.xl))
-                            }
-                        ) {
-                            NourNavDestination.values().forEach { destination ->
-                                val isSelected = currentDestination == destination
-                                val title = destination.getTitle(strings)
-                                NavigationRailItem(
-                                    selected = isSelected,
-                                    onClick = { currentDestination = destination },
-                                    icon = {
-                                        Icon(
-                                            imageVector = if (isSelected) destination.selectedIcon else destination.unselectedIcon,
-                                            contentDescription = title
-                                        )
-                                    },
-                                    label = {
-                                        Text(
-                                            text = title,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                        )
-                                    },
-                                    colors = NavigationRailItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer
-                                    ),
-                                    modifier = Modifier.testTag(destination.testTag)
-                                )
-                            }
-                        }
+                                .testTag("nour_navigation_rail")
+                        )
                     }
 
-                    NourContentFrame(
+                    AnimatedContent(
+                        targetState = currentDestination,
                         modifier = Modifier.weight(1f).fillMaxHeight()
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             // On the rail (expanded) layout there is no bottom bar,
                             // so apply the navigation-bar inset here or the last row
                             // can sit under the gesture/navigation bar. On the compact
-                            // layout the NavigationBar already accounts for it.
+                            // layout the floating navigation bar already accounts for it.
                             .then(
                                 if (isExpandedScreen) {
                                     Modifier.windowInsetsPadding(
@@ -440,20 +396,46 @@ fun NourMainApp(
                                     )
                                 } else Modifier
                             ),
-                        maxWidth = when (currentDestination) {
-                            NourNavDestination.SALAH -> androidx.compose.ui.unit.Dp.Infinity
-                            NourNavDestination.QURAN -> NourSize.readingWidth
-                            else -> NourSize.contentWidth
+                        transitionSpec = {
+                            fadeIn(tween(NourMotion.duration(NourMotion.medium), easing = NourMotion.easing))
+                                .togetherWith(fadeOut(tween(NourMotion.duration(NourMotion.short), easing = NourMotion.easing)))
+                        },
+                        label = "m3e_nav_transition"
+                    ) { destination ->
+                        // Keep the frame inside the transition: the outgoing
+                        // screen must not be re-measured with the incoming
+                        // screen's gutter while it fades.
+                        // Floating clearance rule ([NourSize.floatingClearance]):
+                        // screens get the extra bottom padding derived from the
+                        // bar's real measured band plus the clearance slot the
+                        // pill floats in at the scroll end, minus the 16 dp of
+                        // baseline rhythm the host row already reserves. On the
+                        // expanded (rail) layout there is no bottom bar, so
+                        // screens keep the plain 16 dp default.
+                        val floatingBottomExtra = if (isExpandedScreen) {
+                            NourSpace.lg
+                        } else {
+                            (NourSpace.sm + floatingBarHeight + NourSize.floatingClearance - NourSpace.lg)
+                                .coerceAtLeast(NourSpace.lg)
                         }
-                    ) {
-                        AnimatedContent(
-                            targetState = currentDestination,
-                            transitionSpec = {
-                                fadeIn(tween(NourMotion.duration(NourMotion.medium), easing = NourMotion.easing))
-                                    .togetherWith(fadeOut(tween(NourMotion.duration(NourMotion.short), easing = NourMotion.easing)))
-                            },
-                            label = "m3e_nav_transition"
-                        ) { destination ->
+                        CompositionLocalProvider(
+                            LocalFloatingBottomExtra provides floatingBottomExtra
+                        ) {
+                            NourContentFrame(
+                                modifier = Modifier.fillMaxSize(),
+                                maxWidth = when (destination) {
+                                    NourNavDestination.SALAH -> androidx.compose.ui.unit.Dp.Infinity
+                                    NourNavDestination.QURAN -> NourSize.readingWidth
+                                    else -> NourSize.contentWidth
+                                },
+                                // Salah's sky hero bleeds edge-to-edge; the screen
+                                // insets its own content (cards keep the shared
+                                // NourSpace.lg measure). Other screens use the frame.
+                                contentPadding = if (destination == NourNavDestination.SALAH)
+                                    PaddingValues(0.dp)
+                                else
+                                    PaddingValues(horizontal = NourSpace.lg)
+                            ) {
                             when (destination) {
                                 NourNavDestination.SALAH -> {
                                     PrayerScreen(
@@ -551,8 +533,23 @@ fun NourMainApp(
                     }
                 }
             }
+
+            if (!isExpandedScreen) {
+                NourFloatingNavigationBar(
+                    items = navItems,
+                    selectedIndex = currentDestination.ordinal,
+                    onSelected = { index ->
+                        currentDestination = NourNavDestination.values()[index]
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .testTag("nour_bottom_navigation"),
+                    onHeightMeasured = { floatingBarHeight = it }
+                )
+            }
             }
         }
     }
 }
-
+}
+}

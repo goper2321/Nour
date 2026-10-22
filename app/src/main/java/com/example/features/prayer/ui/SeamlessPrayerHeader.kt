@@ -3,17 +3,15 @@ package com.example.features.prayer.ui
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -27,10 +25,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,19 +36,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,7 +61,7 @@ import com.example.features.widgets.getInterpolatedAtmosphericState
 import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
-import com.example.ui.theme.ImmersiveHeaderShape
+import com.example.ui.components.nourFloatingSurfaceColor
 import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
@@ -115,11 +111,16 @@ private data class CountdownSkyProbe(
     val moonX: Float,
     val moonY: Float,
     val moonAlpha: Float,
-    val timeSeconds: Double
+    val timeSeconds: Double,
+    val initialLuminance: CountdownLuminance
 ) {
     fun sample(bounds: Rect): CountdownLuminance {
         if (width <= 0f || height <= 0f || bounds.width <= 0f || bounds.height <= 0f) {
-            return CountdownLuminance()
+            // Nothing is placed yet. Falling back to a fixed mid-grey guess made
+            // the first frame pick the dark text variant — nearly invisible on a
+            // night sky — before the real sample arrived. The sky gradient is
+            // known at this point, so estimate from it instead.
+            return initialLuminance
         }
 
         val padding = 6f * density
@@ -129,7 +130,7 @@ private data class CountdownSkyProbe(
         val bottom = (bounds.bottom + padding).coerceIn(0f, height)
         val sampleWidth = right - left
         val sampleHeight = bottom - top
-        if (sampleWidth <= 0f || sampleHeight <= 0f) return CountdownLuminance()
+        if (sampleWidth <= 0f || sampleHeight <= 0f) return initialLuminance
 
         val columns = 7
         val rows = 5
@@ -252,7 +253,13 @@ private fun createCountdownTextPalette(
     return CountdownTextPalette(
         primaryDark = darker(onSurface, surface),
         primaryLight = lighter(onSurface, surface),
-        mutedDark = darker(onSurfaceVariant, surfaceLowest),
+        // The muted pair still has to clear 4.5:1 on a pale noon sky, and with
+        // no halo behind the glyphs that is a real constraint. onSurface joins
+        // the dark candidates: in light themes it is darker than
+        // onSurfaceVariant (so it wins where contrast is tight), while in dark
+        // themes surfaceContainerLowest stays the darkest option and the pick
+        // is unchanged.
+        mutedDark = darker(darker(onSurfaceVariant, surfaceLowest), onSurface),
         mutedLight = lighter(onSurfaceVariant, surfaceLowest),
         accentDark = darker(primary, primaryContainer),
         accentLight = lighter(primary, primaryContainer)
@@ -301,7 +308,25 @@ private fun createCountdownSkyProbe(
         moonX = xFor(moon.position.hourAngleDeg),
         moonY = yFor(moon.position.altitudeDeg),
         moonAlpha = moonAlpha,
-        timeSeconds = nowMillis / 1000.0
+        timeSeconds = nowMillis / 1000.0,
+        initialLuminance = skyGradientLuminance(atmosphere)
+    )
+}
+
+/**
+ * Luminance estimate for a sky whose gradient is known but whose text bounds are
+ * not yet measured. The hero text sits in the upper half of the gradient, so
+ * that half carries the mean; the extremes keep the worst-case scoring honest.
+ */
+private fun skyGradientLuminance(atmosphere: AtmosphericState): CountdownLuminance {
+    val colors = atmosphere.skyColors
+    if (colors.isEmpty()) return CountdownLuminance()
+    val luminance = colors.map { it.luminance().coerceIn(0f, 1f) }
+    val upperHalf = luminance.take((luminance.size + 1) / 2)
+    return CountdownLuminance(
+        mean = upperHalf.average().toFloat(),
+        low = luminance.min(),
+        high = luminance.max()
     )
 }
 
@@ -319,6 +344,15 @@ private fun contrastRatio(first: Float, second: Float): Float {
     val lighter = max(first, second)
     val darker = min(first, second)
     return (lighter + 0.05f) / (darker + 0.05f)
+}
+
+/** Contrast against the darkest *and* the brightest part of the sampled area. */
+private fun worstCaseContrast(color: Color, sample: CountdownLuminance): Float {
+    val foreground = color.luminance()
+    return min(
+        contrastRatio(foreground, sample.low),
+        contrastRatio(foreground, sample.high)
+    )
 }
 
 private fun adaptiveTextColor(
@@ -339,12 +373,8 @@ private fun adaptiveTextColor(
 
     fun score(color: Color): Float {
         val foreground = color.luminance()
-        val worstCase = min(
-            contrastRatio(foreground, sample.low),
-            contrastRatio(foreground, sample.high)
-        )
         val averageCase = contrastRatio(foreground, sample.mean)
-        return worstCase * 0.68f + averageCase * 0.32f
+        return worstCaseContrast(color, sample) * 0.68f + averageCase * 0.32f
     }
 
     val darkScore = score(dark)
@@ -352,7 +382,13 @@ private fun adaptiveTextColor(
     return when {
         lightScore > darkScore + 0.18f -> light
         darkScore > lightScore + 0.18f -> dark
-        sample.mean >= 0.45f -> dark
+        // The scores are within a coin flip; break the tie by the mean. The
+        // light/dark contrast curves of these palettes cross near luminance
+        // 0.18-0.21, so anything brighter than 0.20 favours the dark variant.
+        // (0.45 used to keep white far past the crossover: on mid-luminance
+        // skies that cost the small time line 1-1.5:1 — measured 3.44:1 in
+        // `m13_hero_noon_settled.png` where dark measures 4.9:1.)
+        sample.mean >= 0.20f -> dark
         else -> light
     }
 }
@@ -384,28 +420,29 @@ private fun AdaptiveCountdownText(
     val targetColor = remember(sample, palette, role) {
         adaptiveTextColor(sample, palette, role)
     }
+    // Before the first measurement `sample` is the sky-gradient estimate, so
+    // `targetColor` is already close to the settled colour. Applying the first
+    // real colour instantly avoids a visible fade at open; later sky-driven
+    // colour changes still cross-fade.
+    var hasMeasured by remember { mutableStateOf(false) }
     val animatedColor by animateColorAsState(
         targetValue = targetColor,
-        animationSpec = tween(durationMillis = NourMotion.duration(900), easing = NourMotion.easing),
+        animationSpec = if (hasMeasured) {
+            tween(durationMillis = NourMotion.duration(900), easing = NourMotion.easing)
+        } else {
+            snap()
+        },
         label = "adaptive_countdown_text"
     )
-    val haloStrength = ((sample.high - sample.low - 0.18f) / 0.32f).coerceIn(0f, 1f)
-    val haloColor = if (animatedColor.luminance() < 0.5f) Color.White else Color.Black
-    val renderedStyle = if (haloStrength > 0f) {
-        style.copy(
-            shadow = Shadow(
-                color = haloColor.copy(alpha = 0.40f * haloStrength),
-                offset = Offset.Zero,
-                blurRadius = 1.35f * probe.density
-            )
-        )
-    } else {
-        style
-    }
+    SideEffect { if (localBounds.width > 0f) hasMeasured = true }
+    // The hero text sits directly on the sky: no scrim, no halo, no shadow
+    // layer between the artwork and the glyphs (they muddy the sky). Contrast
+    // is carried by the sampled colour choice above alone, which is why the
+    // palette candidates are as dark/light as the theme allows.
 
     Text(
         text = text,
-        style = renderedStyle,
+        style = style,
         color = animatedColor,
         maxLines = maxLines,
         overflow = overflow,
@@ -424,7 +461,6 @@ private fun AdaptiveCountdownText(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeamlessPrayerHeader(
     location: UserLocation,
@@ -488,16 +524,13 @@ fun SeamlessPrayerHeader(
             .testTag("prayer_header_card"),
         verticalArrangement = Arrangement.spacedBy(NourSpace.md)
     ) {
-        // Hero countdown card integrating the dynamic celestial sky as an intrinsic part of the card
+        // Hero sky: full-bleed by design (the screen opts out of the frame
+        // gutter), so there is deliberately no card background, border or
+        // rounding here — the rendered sky itself is the backdrop and the
+        // content below floats on it with the shared side measure.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(ImmersiveHeaderShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .border(
-                    BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder)),
-                    shape = ImmersiveHeaderShape
-                )
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()
                     val size = coordinates.size
@@ -515,7 +548,6 @@ fun SeamlessPrayerHeader(
                 prayerTimes = todayPrayerTimes,
                 location = location,
                 now = now,
-                countdownState = countdownState,
                 showSurfaceScrim = false,
                 modifier = Modifier
                     .matchParentSize()
@@ -523,44 +555,32 @@ fun SeamlessPrayerHeader(
             )
 
             // 3. Countdown Card Content
+            //
+            // Grouping, not uniform gaps: the name and its scheduled time read
+            // as one unit (NourSpace.xs), the live countdown sits one step
+            // aside (NourSpace.md), and the progress/status pair closes the
+            // card after the widest gap of all (NourSpace.lg).
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = NourSpace.lg, vertical = NourSpace.lg),
-                verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
+                    .padding(horizontal = NourSpace.lg, vertical = NourSpace.lg)
             ) {
-                // Header row: Next badge & location button
+                // Header row: location button only, parked at the start.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = PillShape,
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                    ) {
-                        Text(
-                            text = strings.nextBadge,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = NourSpace.sm, vertical = 5.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
                     TextButton(
                         onClick = { onRequestLocationUpdate?.invoke() },
                         enabled = onRequestLocationUpdate != null,
                         shape = PillShape,
                         colors = ButtonDefaults.textButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                            containerColor = nourFloatingSurfaceColor(),
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant),
                         contentPadding = PaddingValues(horizontal = NourSpace.md, vertical = 7.dp),
                         modifier = Modifier
                             .testTag("prayer_location_button")
@@ -573,13 +593,10 @@ fun SeamlessPrayerHeader(
                             modifier = Modifier.size(NourSize.smallIcon)
                         )
                         Text(
-                            // Same honest convention as the permission screen:
-                            // a non-GPS location is labelled, never silent.
-                            text = if (location.isAutoDetected)
-                                location.cityName
-                            else
-                                "${strings.defaultLocationPrefix}: ${location.cityName}",
-                            style = MaterialTheme.typography.labelMedium,
+                            // Keep the sky hero uncluttered: only the place name,
+                            // in the smallest legible type, is shown over the sky.
+                            text = location.cityName,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -588,10 +605,14 @@ fun SeamlessPrayerHeader(
                     }
                 }
 
-                // Prayer Name
+                Spacer(Modifier.height(NourSpace.xl))
+
+                // Coming prayer and its scheduled time: one tight pair. The
+                // time hangs directly under the name, so "Maghrib / 17:46"
+                // reads as a single unit instead of two competing headlines.
                 AdaptiveCountdownText(
                     text = prayerLabel(countdownState.nextPrayer),
-                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold),
+                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                     role = CountdownTextRole.Primary,
                     probe = skyProbe,
                     cardBounds = cardBounds,
@@ -601,7 +622,9 @@ fun SeamlessPrayerHeader(
                     modifier = Modifier.semantics { heading() }
                 )
 
-                // Scheduled Time
+                Spacer(Modifier.height(NourSpace.xs))
+
+                // Scheduled time — same pair as the name above.
                 AdaptiveCountdownText(
                     text = formatNumerals(todayPrayerTimes.formattedTime(countdownState.nextPrayer, use24Hour)),
                     style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
@@ -613,13 +636,18 @@ fun SeamlessPrayerHeader(
                     softWrap = false
                 )
 
+                Spacer(Modifier.height(NourSpace.md))
+
                 // Countdown digits: deliberately not animated. The text itself
                 // changes every second, so a slide/fade on top is constant
                 // motion with no information value (and re-announces under
                 // screen readers). Colour still adapts to the sky behind it.
+                // A bare "02:14:36" is ambiguous when read aloud, so the digits
+                // carry the translated "Next Prayer: …" spoken label.
+                val remainingText = formatNumerals(countdownState.formattedRemaining)
                 AdaptiveCountdownText(
-                    text = formatNumerals(countdownState.formattedRemaining),
-                    style = MaterialTheme.typography.displaySmall.copy(
+                    text = remainingText,
+                    style = MaterialTheme.typography.headlineLarge.copy(
                         fontFeatureSettings = "tnum",
                         fontWeight = FontWeight.Bold
                     ),
@@ -629,26 +657,95 @@ fun SeamlessPrayerHeader(
                     palette = adaptiveTextPalette,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier.testTag("countdown_timer_text")
+                    modifier = Modifier
+                        .testTag("countdown_timer_text")
+                        .semantics {
+                            contentDescription = String.format(strings.countdownPattern, remainingText)
+                        }
                 )
 
-                // Progress Bar
+                Spacer(Modifier.height(NourSpace.lg))
+
+                // Progress Bar — with the status line below it, the closing
+                // group separated from the hero by the widest gap.
+                //
+                // Both segments sample the sky exactly like the text above.
+                // The plain theme primary is too dark to read over a night sky
+                // in the light theme (measured 1.5:1), which left the pale
+                // track looking filled while the fill vanished — the
+                // indicator read backwards. The adaptive pair keeps the fill
+                // the strongest element and the track a soft remainder on
+                // every sky, in both themes.
+                var barBounds by remember { mutableStateOf(Rect.Zero) }
+                val barLocalBounds = remember(barBounds, cardBounds) {
+                    Rect(
+                        (barBounds.left - cardBounds.left).coerceIn(0f, cardBounds.width),
+                        (barBounds.top - cardBounds.top).coerceIn(0f, cardBounds.height),
+                        (barBounds.right - cardBounds.left).coerceIn(0f, cardBounds.width),
+                        (barBounds.bottom - cardBounds.top).coerceIn(0f, cardBounds.height)
+                    )
+                }
+                val barSample = remember(skyProbe, barLocalBounds) {
+                    skyProbe.sample(barLocalBounds)
+                }
+                val barFillTarget = remember(barSample, adaptiveTextPalette) {
+                    adaptiveTextColor(barSample, adaptiveTextPalette, CountdownTextRole.Accent)
+                }
+                val barTrackTarget = remember(barSample, adaptiveTextPalette) {
+                    adaptiveTextColor(barSample, adaptiveTextPalette, CountdownTextRole.Muted)
+                }
+                var barMeasured by remember { mutableStateOf(false) }
+                val barFill by animateColorAsState(
+                    targetValue = barFillTarget,
+                    animationSpec = if (barMeasured) {
+                        tween(durationMillis = NourMotion.duration(900), easing = NourMotion.easing)
+                    } else {
+                        snap()
+                    },
+                    label = "seamless_progress_fill"
+                )
+                val barTrack by animateColorAsState(
+                    targetValue = barTrackTarget,
+                    animationSpec = if (barMeasured) {
+                        tween(durationMillis = NourMotion.duration(900), easing = NourMotion.easing)
+                    } else {
+                        snap()
+                    },
+                    label = "seamless_progress_track"
+                )
+                SideEffect { if (barLocalBounds.width > 0f) barMeasured = true }
+
                 LinearProgressIndicator(
                     progress = { dayProgress },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(6.dp)
                         .clip(PillShape)
+                        .onGloballyPositioned { coordinates ->
+                            val position = coordinates.positionInRoot()
+                            val size = coordinates.size
+                            val nextBounds = Rect(
+                                position.x,
+                                position.y,
+                                position.x + size.width,
+                                position.y + size.height
+                            )
+                            if (nextBounds != barBounds) barBounds = nextBounds
+                        }
                         .testTag("countdown_progress_bar"),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+                    color = barFill,
+                    trackColor = barTrack.copy(alpha = NourAlpha.TrackVeil)
                 )
 
-                // Footer Row: current prayer, percentage, next prayer
-                FlowRow(
+                Spacer(Modifier.height(NourSpace.sm))
+
+                // Status line: the period you are in, and how far the day has
+                // run. One fixed row instead of a wrapping flow, and no third
+                // copy of the coming prayer — that is already the headline.
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(NourSpace.lg),
-                    verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     AdaptiveCountdownText(
                         text = "${prayerLabel(countdownState.currentPrayer)} ${formatNumerals(todayPrayerTimes.formattedTime(countdownState.currentPrayer, use24Hour))}",
@@ -658,7 +755,8 @@ fun SeamlessPrayerHeader(
                         cardBounds = cardBounds,
                         palette = adaptiveTextPalette,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                     AdaptiveCountdownText(
                         text = formatNumerals("${(dayProgress * 100).toInt()}%"),
@@ -669,16 +767,6 @@ fun SeamlessPrayerHeader(
                         palette = adaptiveTextPalette,
                         maxLines = 1,
                         softWrap = false
-                    )
-                    AdaptiveCountdownText(
-                        text = "${prayerLabel(countdownState.nextPrayer)} ${formatNumerals(todayPrayerTimes.formattedTime(countdownState.nextPrayer, use24Hour))}",
-                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                        role = CountdownTextRole.Muted,
-                        probe = skyProbe,
-                        cardBounds = cardBounds,
-                        palette = adaptiveTextPalette,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

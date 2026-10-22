@@ -59,6 +59,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -322,6 +324,15 @@ fun LocationPermissionCard(
                 Text(strings.unableToLocate,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error)
+                Button(
+                    onClick = {
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    },
+                    shape = PillShape,
+                    modifier = Modifier.testTag("open_location_settings_button")
+                ) {
+                    Text(strings.openLocationSettings)
+                }
             }
             if (!permissionState.allPermissionsGranted) {
                 Text(

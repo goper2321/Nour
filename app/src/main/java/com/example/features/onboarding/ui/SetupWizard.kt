@@ -146,6 +146,7 @@ import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
 import com.example.ui.theme.ChipExpressiveShape
 import com.example.ui.theme.DialogExpressiveShape
+import com.example.ui.theme.InputExpressiveShape
 import com.example.ui.theme.ListRowShape
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
@@ -990,7 +991,7 @@ private fun SetupLanguageStep(
                 }
             },
             singleLine = true,
-            shape = PillShape,
+            shape = InputExpressiveShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("setup_language_search_input")
@@ -2320,7 +2321,7 @@ private fun WorldCityPickerDialog(
                         }
                     },
                     singleLine = true,
-                    shape = PillShape,
+                    shape = InputExpressiveShape,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("setup_city_search")

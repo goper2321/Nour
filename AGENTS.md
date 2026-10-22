@@ -21,11 +21,12 @@ app/src/main/java/com/example/
 ├── database/         # Room v1: PrayerLog, Bookmark, KhatmahPlan, AdhanSettings
 ├── features/         # adhan, location, prayer, qibla, quran, settings, widgets, onboarding
 ├── localization/     # AppLanguage (14 locales), AppStrings, LocalizationManager
+├── ui/components/    # NourNavigation.kt (floating bar/rail chrome), NourComponents, FloatingChrome
 └── ui/theme/         # design tokens: NourSpace, NourSize, NourMotion, NourReduceMotion, SeedColorSchemes
 ```
 
 - Verified Quran resources: `app/src/main/resources/quran/`.
-- `DESIGN_MIGRATION.md` tracks M3 Expressive implementation status and remaining device-verification work.
+- Visual reference: `docs/ios27-design-system.md` (current iOS 26/27 opaque pass). `docs/android16-m3e/DESIGN_SYSTEM.md` keeps M3 Expressive migration history; its palette/shape values are superseded. Root `DESIGN_SYSTEM.md` is the original hand-written design brief — read the docs instead.
 
 ## 3. Build, run, test, inspect
 
@@ -38,7 +39,9 @@ Prereqs: JDK 17/21 (`JAVA_HOME`) and Android SDK platform 36 + build-tools (`AND
 ```
 
 - **Termux / ARM64 Linux** needs the system aapt2 (Maven's is x86_64-only). Full flag set is in README "Build & Run": `-Pandroid.aapt2FromMavenOverride=$PREFIX/bin/aapt2 --no-daemon -Xmx2g --max-workers=2`.
-- **Release:** env vars `KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_ALIAS` (default `upload`), `KEY_PASSWORD`. Without them `assembleRelease` silently falls back to `debug.keystore` — never ship that.
+- **Don't casually "fix" build memory/speed in `gradle.properties`.** The 2.5 GB heap + 512 MB metaspace, `org.gradle.parallel=false`, and in-process Kotlin daemon are deliberate — a previous 4 GB heap was OOM-killed on 8 GB hosts, and skipping in-process compilation causes "Could not connect to Kotlin compile daemon" errors.
+- **`tools/nightly-*.sh` are agent-session watchdogs, not app build tools.** A systemd user timer runs `nightly-relaunch.sh` every 2 min: if the heartbeat in `docs/android16-m3e/NIGHTLY_STATUS.md` (runtime-created, with `NIGHTLY_RESUME_PROMPT.md`) is >15 min stale and STATUS isn't DONE/BLOCKED, it relaunches a bounded (90 min) non-interactive OpenCode session. A session launched that way must call `tools/nightly-heartbeat.sh "<step>"` after every step.
+- **Release:** env vars `KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_ALIAS` (default `upload`), `KEY_PASSWORD` (documented in `.env.example`; nothing loads `.env` automatically). Without them `assembleRelease` silently falls back to `debug.keystore` — never ship that.
 - **Inspect on device:** install the debug APK; crashes land in `Downloads/NourCrash/` (or app `filesDir` pre-API 29). `androidTest` needs an emulator/device. No CI, lint, detekt, ktlint, or spotless config exists — don't assume those gates.
 
 ## 4. Existing behavior that must not break
@@ -54,28 +57,29 @@ Preserve these; treat changes here as high risk.
 
 ## 5. Design, accessibility, and product constraints
 
-- **Offline-first, no `INTERNET` permission.** Prayer, Qibla, and Quran run 100% on-device. Do not add network clients, analytics, Firebase, or the `INTERNET` permission. `app/build.gradle.kts` lists deps that were deliberately removed; re-add only with a concrete on-device feature that needs them.
+- **Offline-first, no `INTERNET` permission.** Prayer, Qibla, and Quran run 100% on-device (the GPS fix uses Play Services `FusedLocationProviderClient` on-device, so `play.services.location` being present is expected). Do not add network clients, analytics, Firebase, or the `INTERNET` permission. `app/build.gradle.kts` comments list the deps that were deliberately removed; re-add only with a concrete on-device feature that needs them.
 - **Do not fabricate religious content.** Missing translations/tafsir/pages must report "unavailable"; the `corpusErrorMessage` path exists for integrity failures.
-- Restrained **Material 3 Expressive**: use the shared tokens in `ui/theme/` instead of magic numbers. Route **every animation duration** through `NourMotion.duration(...)` so the system "Remove animations" setting is honored (decorative motion stops, nothing disappears).
+- **Opaque-only iOS 26/27 visual layer.** No liquid glass, blur, refraction, or translucent chrome. Floating chrome uses `nourFloatingSurfaceColor()` (solid), cards use `nourCardSurfaceColor()`, hairlines use solid `outlineVariant`. Use semantic shapes (`CardExpressiveShape`, `CardSubtleShape`, `InputExpressiveShape`, `PillShape`) instead of new radii. Route **every animation duration** through `NourMotion.duration(...)` and press feedback through `nourPressScale` so the system "Remove animations" setting is honored (decorative motion stops, nothing disappears).
 - Keep **48 dp minimum touch targets**, content descriptions on icon-only controls, wrapping rows/bounded widths that survive large font scales, and Arabic scripture direction independent of interface language.
 
 ## 6. Safe editing rules
 
 - **User data is the user's.** Room is at schema version 1 with `exportSchema = false` and no migrations: touching entities requires a version bump plus a real migration, or existing logs/bookmarks are lost or the app crashes. Never clear or rewrite the DB or preferences to "fix" a bug.
 - **Dependencies:** change only `gradle/libs.versions.toml` and only when a feature requires it. Keep the app offline.
-- **Don't commit secrets or local files:** `.env`, `debug.keystore`, `.claude/`, `.obsidian/` are gitignored. Back up big changes before large refactors (see the backup paths noted at the end of `DESIGN_MIGRATION.md`).
+- **Don't commit secrets or local files:** `.env`, `debug.keystore`, `.claude/`, `.obsidian/` are gitignored. Back up big changes before large refactors.
 - Prefer the smallest complete change. Don't rewrite working engines or screens to satisfy a small request.
 
 ## 7. Verification and honest reporting
 
-- Run `./gradlew :app:testDebugUnitTest` after code changes and report the actual result. Pure-JVM tests (`QuranCorpusTest`, `CelestialMathTest`, `SeedSchemeTest`, `PrayerCalculationTest`) run on any host.
-- **Robolectric tests** (`ExampleRobolectricTest`, `NourDesignSystemTest`, `SetupWizardTest`) need x86_64 Linux or macOS. `app/build.gradle.kts` excludes those classes on Linux aarch64 with a loud log line — so a green run on ARM does **not** mean they passed.
-- **Screenshot verification:** `ScreenRenderTest` renders each screen on the JVM and, with `-Proborazzi.test.record=true`, writes PNGs to `app/build/screen-verify/` (copied to `~/Downloads/screen-verify/` for the owner). The agent cannot view images: check gutters/edges with pixel metrics, never claim visual approval. Note `assertTextContains` defaults to exact match — pass `substring = true` for partial text.
-- **Any change to `app/src/main/resources/quran/` files requires updating the matching `*_HASH` constant in `QuranCorpus.kt`**, or the app asserts at startup. The Uthmani text must not be modified; provenance is in `quran/SOURCES.md`.
-- **Localization:** user-facing Compose text lives in `localization/AppStrings.kt` (one `AppStrings().apply { … }` block per language), separate from `res/values/strings.xml` (which only holds `app_name`). New fields default to English; translate by adding an override per language block.
+- Run `./gradlew :app:testDebugUnitTest` after code changes and report the actual result. Pure-JVM tests (`QuranCorpusTest`, `CelestialMathTest`, `SeedSchemeTest`, `PrayerCalculationTest`, `QuranSearchTest`, `AppStringsIntegrityTest` — 23 tests) run on any host. Judge runs by `BUILD SUCCESSFUL` — a worker may print a non-fatal KSP/AWT `NullPointerException` in the log.
+- **Robolectric tests** (`ExampleRobolectricTest`, `NourDesignSystemTest`, `SetupWizardTest`, `ScreenRenderTest`, `ScreenCaptureMatrixTest` — 52 tests) need x86_64 Linux or macOS. `app/build.gradle.kts` excludes those classes on Linux aarch64 with a loud log line — so a green run on ARM does **not** mean they passed.
+- **Screenshot verification:** `ScreenRenderTest` and `ScreenCaptureMatrixTest` render screens on the JVM and, with `-Proborazzi.test.record=true`, write PNGs to `app/build/screen-verify/` (29 screens). The agent cannot view images: check gutters/edges with pixel metrics, never claim visual approval. Note `assertTextContains` defaults to exact match — pass `substring = true` for partial text.
+- **Any change to `app/src/main/resources/quran/` files requires updating the matching `*_HASH` constant in `QuranCorpus.kt`** (`TEXT_HASH`, `METADATA_HASH`, `EN_SAHIH_HASH`), or the app asserts at startup. The Uthmani text must not be modified; provenance is in `quran/SOURCES.md`.
+- **Localization:** user-facing Compose text lives in `localization/AppStrings.kt` (one `AppStrings().apply { … }` block per language, 14 total), separate from `res/values/strings.xml` (which only holds `app_name`). New fields default to English; translate by adding an override per language block. All 14 locales deliberately ship in one APK (`bundle.language.enableSplit = false` in `app/build.gradle.kts`): if the bundle split per device language, a user picking an app language not on their device could get a split without the strings the in-app switcher needs. Do not re-enable language splits.
 - State clearly what is **confirmed** (command run, output seen) versus **assumed** or **unverified**. Visual/device checks (themes, RTL, 200% font scale, TalkBack, Qibla sensors, Adhan with screen off) require a physical device — say "not verified" rather than implying success from a compile.
 
 ## Open questions / needs verification
 
 - Whether the `:app` release build has been signed with a real upload keystore on any CI.
-- Full device acceptance (cold-restart persistence, sensor calibration states, Adhan under Doze/battery saver) is still pending per `DESIGN_MIGRATION.md`.
+- Full device acceptance (cold-restart persistence, sensor calibration states, Adhan under Doze/battery saver, RTL, 200% font scale, TalkBack) is still pending per `docs/ios27-design-system.md`.
+- The hand-authored default palette in `Color.kt` and the seed-generated palette in `DynamicColor.kt` still differ (grouped page tone); unifying them is a palette decision left for a separate change.

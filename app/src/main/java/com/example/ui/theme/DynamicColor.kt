@@ -9,7 +9,8 @@ import com.google.android.material.color.utilities.DynamicColor
 import com.google.android.material.color.utilities.DynamicScheme
 import com.google.android.material.color.utilities.Hct
 import com.google.android.material.color.utilities.MaterialDynamicColors
-import com.google.android.material.color.utilities.SchemeTonalSpot
+import com.google.android.material.color.utilities.TonalPalette
+import com.google.android.material.color.utilities.Variant
 
 /**
  * Seed-driven Material 3 color system.
@@ -35,12 +36,12 @@ import com.google.android.material.color.utilities.SchemeTonalSpot
  */
 @SuppressLint("RestrictedApi")
 object SeedColorSchemes {
-    /** Brand seed: reproduces the closest stock look when no custom seed is set. */
-    const val DEFAULT_SEED_ARGB = 0xFF4A4459.toInt()
+    /** Brand seed: Apple blue, matching the iOS 27 Design Kit. */
+    const val DEFAULT_SEED_ARGB = 0xFF0A7AFF.toInt()
 
     /** Curated preset seeds shown in the theme picker. */
     val PRESET_SEEDS_ARGB: List<Int> = listOf(
-        0xFF4A4459.toInt(), // Nour default (lavender)
+        0xFF0A7AFF.toInt(), // Nour default (Apple blue)
         0xFF0B57D0.toInt(), // Blue
         0xFF006D5B.toInt(), // Emerald
         0xFF146C2E.toInt(), // Green
@@ -51,7 +52,20 @@ object SeedColorSchemes {
     )
 
     fun schemeFor(seedArgb: Int, darkTheme: Boolean): ColorScheme {
-        val scheme: DynamicScheme = SchemeTonalSpot(Hct.fromInt(seedArgb), darkTheme, 0.0)
+        // iOS 27 palette spec: Variant.CONTENT accents (vivid) with Apple-neutral
+        // surfaces (neutral chroma 4, neutral-variant chroma 8).
+        val hct = Hct.fromInt(seedArgb)
+        val scheme: DynamicScheme = DynamicScheme(
+            hct,
+            Variant.CONTENT,
+            darkTheme,
+            0.0,
+            TonalPalette.fromHueAndChroma(hct.hue, kotlin.math.min(80.0, hct.chroma.toDouble())),
+            TonalPalette.fromHueAndChroma(hct.hue, 24.0),
+            TonalPalette.fromHueAndChroma(hct.hue + 60.0, 48.0),
+            TonalPalette.fromHueAndChroma(hct.hue, 4.0),
+            TonalPalette.fromHueAndChroma(hct.hue, 8.0)
+        )
         val c = MaterialDynamicColors()
         fun role(color: DynamicColor): Color = Color(color.getArgb(scheme))
 
