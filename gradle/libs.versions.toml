@@ -25,6 +25,8 @@ playServicesLocation = "21.3.0"
 robolectric = "4.16.1"
 roborazzi = "1.59.0"
 material = "1.13.0"
+kover = "0.9.11"
+detekt = "1.23.8"
 
 
 [libraries]
@@ -68,3 +70,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

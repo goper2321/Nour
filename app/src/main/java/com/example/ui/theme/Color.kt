@@ -2,72 +2,80 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Apple HIG / iOS 27 Design Kit palette: Apple-neutral surfaces (chroma 4/8)
-// with a vivid blue accent derived from seed #0A7AFF (M3 CONTENT variant).
-// Light · standard scheme (see iOS 27 Design Kit tokens/tokens.css).
-val M3LightPrimary = Color(0xFF0058BD)
-val M3LightOnPrimary = Color.White
-val M3LightPrimaryContainer = Color(0xFF0070EC)
-val M3LightOnPrimaryContainer = Color(0xFFFEFCFF)
-val M3DarkPrimary = Color(0xFFADC6FF)
-val M3DarkOnPrimary = Color(0xFF002E69)
-val M3DarkPrimaryContainer = Color(0xFF4C8EFF)
-val M3DarkOnPrimaryContainer = Color(0xFF001436)
+// Apple HIG / iOS 27 Design Kit palette. NUR-004 unification: the hand-authored
+// literals are gone; every M3 token below now *delegates* to the seed-generated
+// scheme for the brand seed #0A7AFF (Variant.CONTENT, Apple-neutral surfaces,
+// chroma 4/8) in DynamicColor.kt, so Color.kt and DynamicColor.kt can no longer
+// disagree on any shared role ("grouped page tone" and the dark surfaceVariant
+// row were the last contradictions). Variable names and the public API are
+// unchanged for feature code.
+private val GeneratedLight = SeedColorSchemes.defaultScheme(darkTheme = false)
+private val GeneratedDark = SeedColorSchemes.defaultScheme(darkTheme = true)
 
-val M3LightSecondary = Color(0xFF505E7D)
-val M3LightOnSecondary = Color.White
-val M3LightSecondaryContainer = Color(0xFFCCDAFE)
-val M3LightOnSecondaryContainer = Color(0xFF515F7E)
-val M3DarkSecondary = Color(0xFFB8C6EA)
-val M3DarkOnSecondary = Color(0xFF22304C)
-val M3DarkSecondaryContainer = Color(0xFF3B4967)
-val M3DarkOnSecondaryContainer = Color(0xFFAAB8DB)
+// Light · standard scheme role values (generated, single source of truth).
+val M3LightPrimary = GeneratedLight.primary
+val M3LightOnPrimary = GeneratedLight.onPrimary
+val M3LightPrimaryContainer = GeneratedLight.primaryContainer
+val M3LightOnPrimaryContainer = GeneratedLight.onPrimaryContainer
+val M3DarkPrimary = GeneratedDark.primary
+val M3DarkOnPrimary = GeneratedDark.onPrimary
+val M3DarkPrimaryContainer = GeneratedDark.primaryContainer
+val M3DarkOnPrimaryContainer = GeneratedDark.onPrimaryContainer
 
-val M3LightTertiary = Color(0xFF81448C)
-val M3LightOnTertiary = Color.White
-val M3LightTertiaryContainer = Color(0xFF9C5DA6)
-val M3LightOnTertiaryContainer = Color(0xFFFFFBFF)
-val M3DarkTertiary = Color(0xFFF5ADFE)
-val M3DarkOnTertiary = Color(0xFF50155C)
-val M3DarkTertiaryContainer = Color(0xFFBB78C5)
-val M3DarkOnTertiaryContainer = Color(0xFF2B0036)
+val M3LightSecondary = GeneratedLight.secondary
+val M3LightOnSecondary = GeneratedLight.onSecondary
+val M3LightSecondaryContainer = GeneratedLight.secondaryContainer
+val M3LightOnSecondaryContainer = GeneratedLight.onSecondaryContainer
+val M3DarkSecondary = GeneratedDark.secondary
+val M3DarkOnSecondary = GeneratedDark.onSecondary
+val M3DarkSecondaryContainer = GeneratedDark.secondaryContainer
+val M3DarkOnSecondaryContainer = GeneratedDark.onSecondaryContainer
 
-val M3LightBackground = Color(0xFFF4F4F7)
-val M3LightOnBackground = Color(0xFF1B1B1F)
-val M3LightSurface = Color(0xFFF4F4F7)
-val M3LightOnSurface = Color(0xFF1B1B1F)
-val M3LightSurfaceVariant = Color(0xFFE3E2E6)
-val M3LightOnSurfaceVariant = Color(0xFF44474F)
-val M3LightSurfaceContainerLowest = Color(0xFFFFFFFF)
-val M3LightSurfaceContainerLow = Color(0xFFFFFFFF)
-val M3LightSurfaceContainer = Color(0xFFEFEFF4)
-val M3LightSurfaceContainerHigh = Color(0xFFE7E7EC)
-val M3LightSurfaceContainerHighest = Color(0xFFDEDEE4)
-val M3LightOutline = Color(0xFF75777F)
-val M3LightOutlineVariant = Color(0xFFC7C7CC)
+val M3LightTertiary = GeneratedLight.tertiary
+val M3LightOnTertiary = GeneratedLight.onTertiary
+val M3LightTertiaryContainer = GeneratedLight.tertiaryContainer
+val M3LightOnTertiaryContainer = GeneratedLight.onTertiaryContainer
+val M3DarkTertiary = GeneratedDark.tertiary
+val M3DarkOnTertiary = GeneratedDark.onTertiary
+val M3DarkTertiaryContainer = GeneratedDark.tertiaryContainer
+val M3DarkOnTertiaryContainer = GeneratedDark.onTertiaryContainer
 
-val M3DarkBackground = Color(0xFF121316)
-val M3DarkOnBackground = Color(0xFFE3E2E6)
-val M3DarkSurface = Color(0xFF121316)
-val M3DarkOnSurface = Color(0xFFE3E2E6)
-val M3DarkSurfaceVariant = Color(0xFF343538)
-val M3DarkOnSurfaceVariant = Color(0xFFC4C6D0)
-val M3DarkSurfaceContainerLowest = Color(0xFF0D0E11)
-val M3DarkSurfaceContainerLow = Color(0xFF1B1B1F)
-val M3DarkSurfaceContainer = Color(0xFF1F1F23)
-val M3DarkSurfaceContainerHigh = Color(0xFF292A2D)
-val M3DarkSurfaceContainerHighest = Color(0xFF343538)
-val M3DarkOutline = Color(0xFF8E9099)
-val M3DarkOutlineVariant = Color(0xFF44474F)
+val M3LightBackground = GeneratedLight.background
+val M3LightOnBackground = GeneratedLight.onBackground
+val M3LightSurface = GeneratedLight.surface
+val M3LightOnSurface = GeneratedLight.onSurface
+val M3LightSurfaceVariant = GeneratedLight.surfaceVariant
+val M3LightOnSurfaceVariant = GeneratedLight.onSurfaceVariant
+val M3LightSurfaceContainerLowest = GeneratedLight.surfaceContainerLowest
+val M3LightSurfaceContainerLow = GeneratedLight.surfaceContainerLow
+val M3LightSurfaceContainer = GeneratedLight.surfaceContainer
+val M3LightSurfaceContainerHigh = GeneratedLight.surfaceContainerHigh
+val M3LightSurfaceContainerHighest = GeneratedLight.surfaceContainerHighest
+val M3LightOutline = GeneratedLight.outline
+val M3LightOutlineVariant = GeneratedLight.outlineVariant
 
-val M3LightError = Color(0xFFBA1A1A)
-val M3LightOnError = Color.White
-val M3LightErrorContainer = Color(0xFFFFDAD6)
-val M3LightOnErrorContainer = Color(0xFF93000A)
-val M3DarkError = Color(0xFFFFB4AB)
-val M3DarkOnError = Color(0xFF690005)
-val M3DarkErrorContainer = Color(0xFF93000A)
-val M3DarkOnErrorContainer = Color(0xFFFFDAD6)
+val M3DarkBackground = GeneratedDark.background
+val M3DarkOnBackground = GeneratedDark.onBackground
+val M3DarkSurface = GeneratedDark.surface
+val M3DarkOnSurface = GeneratedDark.onSurface
+val M3DarkSurfaceVariant = GeneratedDark.surfaceVariant
+val M3DarkOnSurfaceVariant = GeneratedDark.onSurfaceVariant
+val M3DarkSurfaceContainerLowest = GeneratedDark.surfaceContainerLowest
+val M3DarkSurfaceContainerLow = GeneratedDark.surfaceContainerLow
+val M3DarkSurfaceContainer = GeneratedDark.surfaceContainer
+val M3DarkSurfaceContainerHigh = GeneratedDark.surfaceContainerHigh
+val M3DarkSurfaceContainerHighest = GeneratedDark.surfaceContainerHighest
+val M3DarkOutline = GeneratedDark.outline
+val M3DarkOutlineVariant = GeneratedDark.outlineVariant
+
+val M3LightError = GeneratedLight.error
+val M3LightOnError = GeneratedLight.onError
+val M3LightErrorContainer = GeneratedLight.errorContainer
+val M3LightOnErrorContainer = GeneratedLight.onErrorContainer
+val M3DarkError = GeneratedDark.error
+val M3DarkOnError = GeneratedDark.onError
+val M3DarkErrorContainer = GeneratedDark.errorContainer
+val M3DarkOnErrorContainer = GeneratedDark.onErrorContainer
 
 // Legacy aliases retained for existing feature code.
 val MonoPitchBlack = Color.Black

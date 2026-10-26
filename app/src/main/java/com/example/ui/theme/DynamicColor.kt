@@ -15,7 +15,7 @@ import com.google.android.material.color.utilities.Variant
 /**
  * Seed-driven Material 3 color system.
  *
- * One ARGB seed color is expanded by [SchemeTonalSpot] into coordinated tonal
+ * One ARGB seed color is expanded into coordinated tonal
  * palettes (the neutral palettes keep a subtle tint of the seed instead of
  * going fully gray), then mapped onto every semantic M3 color role below.
  * Contrast for each on-* color follows the M3 spec inside the library.
@@ -38,7 +38,6 @@ import com.google.android.material.color.utilities.Variant
 object SeedColorSchemes {
     /** Brand seed: Apple blue, matching the iOS 27 Design Kit. */
     const val DEFAULT_SEED_ARGB = 0xFF0A7AFF.toInt()
-
     /** Curated preset seeds shown in the theme picker. */
     val PRESET_SEEDS_ARGB: List<Int> = listOf(
         0xFF0A7AFF.toInt(), // Nour default (Apple blue)
@@ -51,7 +50,18 @@ object SeedColorSchemes {
         0xFF006874.toInt(), // Teal
     )
 
-    fun schemeFor(seedArgb: Int, darkTheme: Boolean): ColorScheme {
+    // NUR-004: [Color.kt] no longer carries hand-authored literals — the default
+    // palette *is* the seed-generated one for the default `DEFAULT_SEED_ARGB`,
+    // so the two files cannot drift apart again (the "grouped page tone" and
+    // dark `surfaceVariant` rows were the last contradictory literals).
+    // NUR-008: `contrastLevel` is the M3 Expressive user-contrast knob
+    // (0.0 standard, 1.0 high contrast) — the high-contrast theme is the same
+    // engine run at contrast level 1.0, not a separate hand-maintained palette.
+    // The pre-2025 light-branch remappings (background = surfaceDim, container
+    // ladder shifted a notch) came from the superseded M3E pass; every role is
+    // now the raw generated value in both modes, so a seed user and a
+    // default-palette user see the same ladder for the same seed.
+    fun schemeFor(seedArgb: Int, darkTheme: Boolean, contrastLevel: Double = 0.0): ColorScheme {
         // iOS 27 palette spec: Variant.CONTENT accents (vivid) with Apple-neutral
         // surfaces (neutral chroma 4, neutral-variant chroma 8).
         val hct = Hct.fromInt(seedArgb)
@@ -59,7 +69,7 @@ object SeedColorSchemes {
             hct,
             Variant.CONTENT,
             darkTheme,
-            0.0,
+            contrastLevel,
             TonalPalette.fromHueAndChroma(hct.hue, kotlin.math.min(80.0, hct.chroma.toDouble())),
             TonalPalette.fromHueAndChroma(hct.hue, 24.0),
             TonalPalette.fromHueAndChroma(hct.hue + 60.0, 48.0),
@@ -106,6 +116,7 @@ object SeedColorSchemes {
         val inversePrimary = role(c.inversePrimary())
         val scrim = role(c.scrim())
 
+        // Identical raw mapping in both modes; only the constructor differs.
         return if (darkTheme) {
             darkColorScheme(
                 primary = primary, onPrimary = onPrimary,
@@ -139,14 +150,14 @@ object SeedColorSchemes {
                 tertiaryContainer = tertiaryContainer, onTertiaryContainer = onTertiaryContainer,
                 error = error, onError = onError,
                 errorContainer = errorContainer, onErrorContainer = onErrorContainer,
-                background = surfaceDim, onBackground = onBackground,
-                surface = surfaceDim, onSurface = onSurface,
+                background = background, onBackground = onBackground,
+                surface = surface, onSurface = onSurface,
                 surfaceVariant = surfaceVariant, onSurfaceVariant = onSurfaceVariant,
                 surfaceContainerLowest = surfaceContainerLowest,
-                surfaceContainerLow = surfaceContainerLowest,
-                surfaceContainer = surfaceContainerLow,
-                surfaceContainerHigh = surfaceContainer,
-                surfaceContainerHighest = surfaceContainerHigh,
+                surfaceContainerLow = surfaceContainerLow,
+                surfaceContainer = surfaceContainer,
+                surfaceContainerHigh = surfaceContainerHigh,
+                surfaceContainerHighest = surfaceContainerHighest,
                 surfaceDim = surfaceDim, surfaceBright = surfaceBright, surfaceTint = surfaceTint,
                 outline = outline, outlineVariant = outlineVariant,
                 inverseSurface = inverseSurface, inverseOnSurface = inverseOnSurface,
@@ -154,4 +165,8 @@ object SeedColorSchemes {
             )
         }
     }
+
+    /** The shipped default palette (Color.kt tokens delegate to these roles). */
+    fun defaultScheme(darkTheme: Boolean, highContrast: Boolean = false): ColorScheme =
+        schemeFor(DEFAULT_SEED_ARGB, darkTheme, if (highContrast) 1.0 else 0.0)
 }

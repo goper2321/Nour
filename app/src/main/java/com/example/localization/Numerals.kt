@@ -60,6 +60,24 @@ object Numerals {
 
     fun convert(input: String, useEastern: Boolean): String =
         if (useEastern) toEastern(input) else toWestern(input)
+
+    /**
+     * Parses a whole number typed in ANY Unicode decimal system (Western
+     * `255`, Arabic-Indic `٢٥٥`, Extended Arabic-Indic `۲۵۵`, …).
+     *
+     * One parser for every numeric field: the keyboard often follows the
+     * system language, not the app language, so a user who reads the app in
+     * Arabic may still type Western digits and vice versa. Returns null for
+     * blank, signed, fractional, or otherwise non-numeric input instead of
+     * guessing, and null on overflow (a 12-digit paste is not a page number).
+     */
+    fun parseLocalizedNumber(input: String): Int? {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return null
+        val western = toWestern(trimmed)
+        if (western.isEmpty() || western.any { it !in '0'..'9' }) return null
+        return western.toIntOrNull()
+    }
 }
 
 /**

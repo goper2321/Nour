@@ -380,7 +380,10 @@ fun NourSearchField(
                                 text = placeholder,
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                // NUR-015: ellipsize rather than clip a long
+                                // placeholder at small field widths.
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                         innerTextField()

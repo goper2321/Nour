@@ -1,21 +1,26 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Nour (NUR-031) — minimal keep rules for the minified release build.
+# Do NOT add blanket -keep ** rules; each line below protects a specific
+# entry point that R8 cannot infer.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Compose / Material 3 (entry points are referenced by name at runtime).
+-keep class androidx.compose.** { *; }
+-keep class com.google.android.material.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Room: keep the generated database implementation and DAO interfaces.
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Dao interface * { *; }
+-keep class androidx.room.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Adhan scheduling: receivers / services are manifest entry points.
+-keep class com.example.features.adhan.** { *; }
+-keep class com.example.NourApp { *; }
+
+# Widgets: app-widget provider (manifest entry point).
+-keep class com.example.features.widgets.** { *; }
+
+# Quran corpus: parseIntable regexes / reflection-free but keep the data classes.
+-keep class com.example.features.quran.** { *; }
+
+# Keep line numbers for crash reports (CrashReporter writes stack traces).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

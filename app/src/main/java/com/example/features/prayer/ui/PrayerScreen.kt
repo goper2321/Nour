@@ -7,6 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,10 +17,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.LightMode
@@ -38,11 +41,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.features.adhan.player.AdhanPlayer
 import com.example.features.prayer.calculation.PrayerCalculationEngine
@@ -162,48 +168,89 @@ fun PrayerScreen(
         // The outer (MainActivity) frame already applies the global side
         // gutter; this nested frame only caps the reading width.
         NourContentFrame(contentPadding = PaddingValues(0.dp)) {
-            LazyColumn(
-                modifier = Modifier
+            // Sky-stretch page: when the content is shorter than the viewport,
+            // the sky hero grows by the leftover slack so the day switcher and
+            // the prayer-times card end one breath above the floating bar's
+            // band — lined up with the chrome, no dead surface below them. The
+            // freed gap is filled by the lower part of the sky itself. When a
+            // large font scale overflows the viewport, the hero stays at its
+            // natural height and the page scrolls, exactly as before. Heights
+            // are learned on the first real layout pass (the reader toolbar
+            // reserve pattern: natural first, corrected once), so the hero
+            // renders content-sized until then.
+            BoxWithConstraints(
+                Modifier
                     .fillMaxSize()
-                    .testTag("prayer_screen_list"),
-                contentPadding = PaddingValues(bottom = LocalFloatingBottomExtra.current),
-                verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
+                    .testTag("prayer_screen_list")
             ) {
-                // Immersive sky header: the sky bleeds up behind the system
-                // status bar; content stays clear of it.
-                item {
+                val viewportHeight = maxHeight
+                val density = LocalDensity.current
+                val reserve = LocalFloatingBottomExtra.current
+                var heroStackHeight by remember { mutableStateOf(0.dp) }
+                var switcherHeight by remember { mutableStateOf(0.dp) }
+                var cardHeight by remember { mutableStateOf(0.dp) }
+                // Hero budget = the scroll viewport (viewport − reserve) minus
+                // the two spacedBy gaps and the two lower blocks. The hero is
+                // never smaller than its text stack, so the stack never clips.
+                val heroHeight: Dp? = if (
+                    heroStackHeight > 0.dp && switcherHeight > 0.dp && cardHeight > 0.dp
+                ) {
+                    heroStackHeight.coerceAtLeast(
+                        viewportHeight - reserve - (NourSpace.lg * 2) - switcherHeight - cardHeight
+                    )
+                } else null
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = reserve)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.lg)
+                ) {
+                    // Immersive sky header: the sky bleeds up behind the system
+                    // status bar; content stays clear of it. Stretched by the
+                    // page slack when there is room (heroHeight above).
                     SeamlessPrayerHeader(
                         location = location,
                         countdownState = countdownState,
                         todayPrayerTimes = todayPrayerTimes,
                         now = currentTime,
-                        onRequestLocationUpdate = onRequestLocationUpdate
+                        onRequestLocationUpdate = onRequestLocationUpdate,
+                        heroHeight = heroHeight,
+                        onHeroStackHeight = { heroStackHeight = it }
                     )
-                }
 
-                // Day navigation sits between the sky and the prayer-times card.
-                // Tapping the bar returns to today (no separate "Today" button).
-                // Shares the NourSpace.lg side measure with the cards below;
-                // only the sky hero above is full-bleed.
-                item {
+                    // Day navigation sits between the sky and the prayer-times
+                    // card. Tapping the bar returns to today (no separate
+                    // "Today" button). Shares the NourSpace.lg side measure
+                    // with the cards below; only the sky hero above is
+                    // full-bleed.
                     DaySwitcherBar(
                         selectedDate = displayedDate,
                         dayOffset = selectedDayOffset,
                         onPreviousDay = { selectedDayOffset-- },
                         onNextDay = { selectedDayOffset++ },
                         onResetToToday = { selectedDayOffset = 0 },
-                        modifier = Modifier.padding(horizontal = NourSpace.lg)
+                        modifier = Modifier
+                            .padding(horizontal = NourSpace.lg)
+                            .onGloballyPositioned { coordinates ->
+                                switcherHeight = with(density) { coordinates.size.height.toDp() }
+                            }
                     )
-                }
 
-                // Simplified, read-only daily prayer times (Fajr -> Isha).
-                // Same shared side measure as the day switcher.
-                item {
+                    // Simplified, read-only daily prayer times (Fajr -> Isha).
+                    // Same shared side measure as the day switcher; when the
+                    // page stretches, this card's bottom rests exactly on the
+                    // reserve line above the floating bar.
                     SimplifiedPrayerTimesCard(
                         prayerTimes = displayedPrayerTimes,
                         use24Hour = use24Hour,
                         nextPrayer = if (selectedDayOffset == 0) countdownState.nextPrayer else null,
-                        modifier = Modifier.padding(horizontal = NourSpace.lg)
+                        modifier = Modifier
+                            .padding(horizontal = NourSpace.lg)
+                            .onGloballyPositioned { coordinates ->
+                                cardHeight = with(density) { coordinates.size.height.toDp() }
+                            }
                     )
                 }
             }
@@ -253,11 +300,16 @@ fun SimplifiedPrayerTimesCard(
                 }
                 val isNext = prayer == nextPrayer
                 if (!isNext) {
+                    // Even-column contract: every band floors at the 48 dp touch
+                    // target, and tags ride OUTSIDE the padding so measured
+                    // heights include it (ScreenRenderTest compares these
+                    // tagged bands as wholes).
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = NourSpace.lg, vertical = NourSpace.md)
-                            .testTag("simplified_prayer_row_${prayer.name}"),
+                            .heightIn(min = NourSize.touchTarget)
+                            .testTag("simplified_prayer_row_${prayer.name}")
+                            .padding(horizontal = NourSpace.lg, vertical = NourSpace.md),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -286,6 +338,12 @@ fun SimplifiedPrayerTimesCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = NourSize.touchTarget)
+                            // Tag rides outside the padding exactly as on plain
+                            // rows, so its measured height includes the margins
+                            // and is directly comparable with them — the even
+                            // height contract in ScreenRenderTest depends on it.
+                            .testTag("simplified_prayer_row_${prayer.name}")
                             .padding(horizontal = NourSpace.md, vertical = NourSpace.xs)
                     ) {
                         Surface(
@@ -293,8 +351,7 @@ fun SimplifiedPrayerTimesCard(
                                 .fillMaxWidth()
                                 // Merged so the highlighted row is announced as one
                                 // item ("Asr, 15:26, Next") instead of three.
-                                .semantics(mergeDescendants = true) { stateDescription = strings.nextBadge }
-                                .testTag("simplified_prayer_row_${prayer.name}"),
+                                .semantics(mergeDescendants = true) { stateDescription = strings.nextBadge },
                             shape = CardSubtleShape,
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -306,10 +363,17 @@ fun SimplifiedPrayerTimesCard(
                                     // Outer md + inner (lg - md) = lg total, so the
                                     // highlighted row's time ends on exactly the
                                     // same x as the plain rows' times (a plain
-                                    // row's inset is lg on both sides).
+                                    // row's inset is lg on both sides). Outer xs
+                                    // margins + inner sm padding are also text +
+                                    // 24 dp in total, so with the shared 48 dp
+                                    // band floor on the tagged containers the
+                                    // highlighted row grows on the same stride as
+                                    // the plain ones: rows sit even across the
+                                    // card at any font scale (and under font
+                                    // metric quirks of test renderers).
                                     .padding(
                                         horizontal = NourSpace.lg - NourSpace.md,
-                                        vertical = NourSpace.lg
+                                        vertical = NourSpace.sm
                                     ),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically

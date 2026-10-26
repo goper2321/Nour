@@ -9,6 +9,16 @@ import com.example.features.prayer.models.PrayerAdjustments
 import com.example.features.prayer.models.UserLocation
 
 /**
+ * Reader-only presentation theme. SYSTEM keeps the app's scheme (the default,
+ * pixel-identical to previous builds); PAPER and NIGHT recolor the reader/page
+ * subtree only. Stored by name, unknown values fall back to SYSTEM.
+ */
+enum class QuranReadingTheme { SYSTEM, PAPER, NIGHT }
+
+/** Scripture typeface choice; SYSTEM keeps the platform font. */
+enum class QuranTypeface { SYSTEM, AMIRI }
+
+/**
  * Typed access to the existing `nour_app_prefs` file. Keeps MainActivity's
  * remembered state durable across process restarts without changing the Room
  * schema. All reads validate stored values and fall back to defaults.
@@ -24,6 +34,16 @@ class NourPreferences(context: Context) {
     var dynamicColors: Boolean
         get() = prefs.getBoolean("dynamic_colors", false)
         set(value) = prefs.edit().putBoolean("dynamic_colors", value).apply()
+
+    /**
+     * NUR-008: high-contrast theme toggle (M3 Expressive user-contrast level
+     * 1.0). Lives in the same `nour_app_prefs` family as `theme_mode` and
+     * `dynamic_colors`; MainActivity threads it into MyApplicationTheme the
+     * same way. Default off, so nothing changes for existing installs.
+     */
+    var highContrast: Boolean
+        get() = prefs.getBoolean("theme_high_contrast", false)
+        set(value) = prefs.edit().putBoolean("theme_high_contrast", value).apply()
 
     var numeralEastern: Boolean
         get() = prefs.getBoolean(KEY_NUMERAL_EASTERN, false)
@@ -123,22 +143,93 @@ class NourPreferences(context: Context) {
             .putInt(KEY_ADJ_MAGHRIB, value.maghrib).putInt(KEY_ADJ_ISHA, value.isha)
             .apply()
 
+    // NUR-033: epoch millis of the last successful device-GPS fix, recorded by
+    // LocationPermissionCard's detect flow so the Settings diagnostics card
+    // can show "time since last successful location fix". New key on the
+    // existing nour_app_prefs store — no existing key or value is touched.
+    var lastLocationFixMillis: Long?
+        get() {
+            if (!prefs.contains(KEY_LAST_FIX_MILLIS)) return null
+            val value = prefs.getLong(KEY_LAST_FIX_MILLIS, 0L)
+            return value.takeIf { it > 0L }
+        }
+        set(value) {
+            if (value == null) {
+                prefs.edit().remove(KEY_LAST_FIX_MILLIS).apply()
+            } else {
+                prefs.edit().putLong(KEY_LAST_FIX_MILLIS, value).apply()
+            }
+        }
+
+    /**
+     * NUR-033: the main (non-pre-reminder) Adhan triggers we still believe are
+     * scheduled, keyed by prayer name. Written by PrayerNotificationScheduler
+     * when an exact alarm is set and cleared when its prayer is cancelled.
+     */
+    fun nextAdhanRecords(): Map<String, Long> {
+        val out = LinkedHashMap<String, Long>()
+        com.example.features.prayer.models.PrayerName.values().forEach { prayer ->
+            val millis = prefs.getLong(KEY_ADHAN_NEXT_PREFIX + prayer.name, 0L)
+            if (millis > 0L) out[prayer.name] = millis
+        }
+        return out
+    }
+
+    /** Last recorded exactness of the app's own Adhan scheduling attempts. */
+    fun adhanExactOk(): Boolean = prefs.getBoolean(KEY_ADHAN_EXACT_OK, true)
+
     // ---- Quran reading continuity ----
     var readingMode: String?
         get() = prefs.getString(KEY_QURAN_MODE, null)
         set(value) = prefs.edit().putString(KEY_QURAN_MODE, value).apply()
-
     var arabicFontSize: Float
         get() = prefs.getFloat(KEY_QURAN_FONT, 24f).coerceIn(16f, 40f)
         set(value) = prefs.edit().putFloat(KEY_QURAN_FONT, value.coerceIn(16f, 40f)).apply()
 
+    var quranReadingTheme: QuranReadingTheme
+        get() = enumValue(
+            QuranReadingTheme.values(),
+            prefs.getString(KEY_QURAN_READING_THEME, null),
+            QuranReadingTheme.SYSTEM
+        )
+        set(value) = prefs.edit().putString(KEY_QURAN_READING_THEME, value.name).apply()
+
+    var quranTypeface: QuranTypeface
+        get() = enumValue(
+            QuranTypeface.values(),
+            prefs.getString(KEY_QURAN_TYPEFACE, null),
+            QuranTypeface.SYSTEM
+        )
+        set(value) = prefs.edit().putString(KEY_QURAN_TYPEFACE, value.name).apply()
+
     var lastReadSurah: Int
         get() = prefs.getInt(KEY_LAST_SURAH, 1).coerceIn(1, 114)
-        set(value) = prefs.edit().putInt(KEY_LAST_SURAH, value.coerceIn(1, 114)).apply()
+        // NUR-017: the last-read position must survive an immediate force-kill,
+        // so these two writes commit synchronously to disk instead of relying
+        // on apply()'s scheduled background flush. The store is a tiny
+        // preferences file and the value a single int; the writer runs in a
+        // LaunchedEffect coroutine on QuranScreen, not inside a frame.
+        set(value) {
+            prefs.edit().putInt(KEY_LAST_SURAH, value.coerceIn(1, 114)).commit()
+        }
 
     var lastReadAyah: Int
         get() = prefs.getInt(KEY_LAST_AYAH, 1).coerceAtLeast(1)
-        set(value) = prefs.edit().putInt(KEY_LAST_AYAH, value.coerceAtLeast(1)).apply()
+        set(value) {
+            prefs.edit().putInt(KEY_LAST_AYAH, value.coerceAtLeast(1)).commit()
+        }
+
+    // Legacy Mushaf page. The Mushaf UI (and its only writer) was removed on
+    // 2026-10-26; the accessor and raw key are kept so upgrades never lose or
+    // rename the stored value. No production reader/writer remains.
+    var lastReadPage: Int
+        get() = prefs.getInt(KEY_LAST_PAGE, 1).coerceIn(1, 604)
+        set(value) {
+            prefs.edit().putInt(KEY_LAST_PAGE, value.coerceIn(1, 604)).commit()
+        }
+
+    val hasReadPage: Boolean
+        get() = prefs.contains(KEY_LAST_PAGE)
 
     private fun <T : Enum<T>> enumValue(values: Array<T>, stored: String?, default: T): T =
         values.firstOrNull { it.name == stored } ?: default
@@ -168,7 +259,15 @@ class NourPreferences(context: Context) {
         const val KEY_ADJ_ISHA = "adjustment_isha"
         const val KEY_QURAN_MODE = "quran_reading_mode"
         const val KEY_QURAN_FONT = "quran_arabic_font_size"
+        const val KEY_QURAN_READING_THEME = "quran_reading_theme"
+        const val KEY_QURAN_TYPEFACE = "quran_typeface"
         const val KEY_LAST_SURAH = "quran_last_read_surah"
         const val KEY_LAST_AYAH = "quran_last_read_ayah"
+        const val KEY_LAST_PAGE = "quran_last_read_page"
+        // NUR-033: diagnostics-only additions (never written for anything the
+        // user toggles; purely reflective state).
+        const val KEY_LAST_FIX_MILLIS = "location_last_fix_millis"
+        const val KEY_ADHAN_NEXT_PREFIX = "adhan_next_"
+        const val KEY_ADHAN_EXACT_OK = "adhan_exact_ok"
     }
 }

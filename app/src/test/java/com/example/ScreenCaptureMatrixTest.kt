@@ -10,13 +10,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import androidx.test.core.app.ApplicationProvider
 import com.example.features.prayer.calculation.PrayerCalculationEngine
 import com.example.features.prayer.models.CalculationMethod
@@ -31,6 +36,8 @@ import com.example.features.prayer.ui.SimplifiedPrayerTimesCard
 import com.example.features.qibla.ui.QiblaScreen
 import com.example.features.quran.ui.QuranScreen
 import com.example.features.settings.NourPreferences
+import com.example.features.settings.QuranReadingTheme
+import com.example.features.settings.QuranTypeface
 import com.example.features.settings.ui.SettingsScreen
 import com.example.localization.AppLanguage
 import com.example.localization.AppStrings
@@ -40,6 +47,7 @@ import com.example.localization.LocalUse24HourFormat
 import com.example.ui.components.NourContentFrame
 import com.example.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -81,6 +89,20 @@ class ScreenCaptureMatrixTest {
     /** Let pending effects/layout settle without letting timers fire. */
     private fun settle(frames: Int = 4) {
         repeat(frames) { compose.mainClock.advanceTimeByFrame() }
+    }
+
+    /**
+     * B7: measure, don't eyeball. `NourContentFrame` owns the 16 dp side
+     * gutter, so the tagged page root must sit inside it on every variant.
+     */
+    private fun assertPageHasFrameGutter(pageTag: String) {
+        val window = compose.onRoot().getBoundsInRoot()
+        val page = compose.onNodeWithTag(pageTag).getBoundsInRoot()
+        assertTrue("page left=${page.left} (gutter < 16.dp)", page.left >= 16.dp - 0.5.dp)
+        assertTrue(
+            "page right=${page.right}, window right=${window.right} (gutter < 16.dp)",
+            page.right <= window.right - 16.dp + 0.5.dp
+        )
     }
 
     @Composable
@@ -486,4 +508,160 @@ class ScreenCaptureMatrixTest {
         settle(120)
         capture("m13_hero_noon_settled")
     }
+
+    // NUR-008: the high-contrast toggle must visibly compose with BOTH themes.
+    // Same Salah layout as m01/prayerDark, rendered through the M3 contrast
+    // level 1.0 scheme, so the owner can see light+HC and dark+HC side by side
+    // in the final capture pass. Named m18/m19 to mirror the matrix's scheme
+    // (the checklist's placeholder "m04_*" collides with m04_reader_cards).
+    @Test
+    fun prayerHighContrast() {
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false, highContrast = true) {
+                NourContentFrame(contentPadding = PaddingValues(0.dp)) {
+                    PrayerScreen(
+                        location = location,
+                        calculationMethod = CalculationMethod.UMM_AL_QURA,
+                        madhab = Madhab.SHAFI_MALIKI_HANBALI,
+                        highLatRule = HighLatitudeRule.MIDDLE_OF_NIGHT,
+                        adjustments = PrayerAdjustments(),
+                        onRequestLocationUpdate = {}
+                    )
+                }
+            }
+        }
+        settle()
+        capture("m18_prayer_high_contrast")
+    }
+
+    @Test
+    fun prayerDarkHighContrast() {
+        compose.setContent {
+            MyApplicationTheme(darkTheme = true, highContrast = true) {
+                NourContentFrame(contentPadding = PaddingValues(0.dp)) {
+                    PrayerScreen(
+                        location = location,
+                        calculationMethod = CalculationMethod.UMM_AL_QURA,
+                        madhab = Madhab.SHAFI_MALIKI_HANBALI,
+                        highLatRule = HighLatitudeRule.MIDDLE_OF_NIGHT,
+                        adjustments = PrayerAdjustments(),
+                        onRequestLocationUpdate = {}
+                    )
+                }
+            }
+        }
+        settle()
+        capture("m19_prayer_dark_high_contrast")
+    }
+
+    @Test
+    fun quranReaderSwipeMovesToNextSurah() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        NourPreferences(context).readingMode = "CARDS"
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourContentFrame {
+                    QuranScreen(
+                        openSurahRequest = com.example.features.quran.data.QuranRepository.getSurah(1),
+                        onOpenSurahConsumed = {}
+                    )
+                }
+            }
+        }
+        settle(8)
+        compose.onNodeWithTag("quran_screen").assertExists()
+        compose.onNodeWithTag("surah_page_1").assertIsDisplayed()
+        compose.onNodeWithTag("surah_pager").performTouchInput { swipeLeft() }
+        settle(40)
+        compose.onNodeWithTag("surah_page_2").assertIsDisplayed()
+        assertPageHasFrameGutter("surah_page_2")
+        capture("m20_reader_swipe_surah_2")
+    }
+
+    @Test
+    @Config(qualifiers = "w320dp-h640dp-xhdpi")
+    fun quranTabsFont200Narrow() {
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                ScaledDensity(2f) {
+                    NourContentFrame { QuranScreen() }
+                }
+            }
+        }
+        val english = AppStrings()
+        listOf(english.tabSurah, english.tabBookmark, english.tabSearch).forEach { label ->
+            val bounds = compose.onNodeWithText(label).getBoundsInRoot()
+            assertTrue("$label width=${bounds.width}", bounds.width > 0.dp)
+            assertTrue("$label height=${bounds.height}", bounds.height > 0.dp)
+        }
+        capture("m23_quran_tabs_font200_narrow")
+    }
+
+    // ---- C3 reading themes / C4 typeface --------------------------------
+
+    @Test
+    fun quranReaderPaperTheme() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        NourPreferences(context).also {
+            it.readingMode = "CARDS"
+            it.quranReadingTheme = QuranReadingTheme.PAPER
+        }
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourContentFrame {
+                    QuranScreen(
+                        openSurahRequest = com.example.features.quran.data.QuranRepository.getSurah(1),
+                        onOpenSurahConsumed = {}
+                    )
+                }
+            }
+        }
+        settle(8)
+        capture("m26_reader_paper")
+    }
+
+    @Test
+    fun quranReaderNightTheme() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        NourPreferences(context).also {
+            it.readingMode = "CARDS"
+            it.quranReadingTheme = QuranReadingTheme.NIGHT
+        }
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourContentFrame {
+                    QuranScreen(
+                        openSurahRequest = com.example.features.quran.data.QuranRepository.getSurah(1),
+                        onOpenSurahConsumed = {}
+                    )
+                }
+            }
+        }
+        settle(8)
+        compose.onNodeWithTag("ayah_card_1").assertExists()
+        capture("m27_reader_night")
+    }
+
+    @Test
+    fun quranReaderAmiriTypeface() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        NourPreferences(context).also {
+            it.readingMode = "CARDS"
+            it.quranTypeface = QuranTypeface.AMIRI
+        }
+        compose.setContent {
+            MyApplicationTheme(dynamicColor = false) {
+                NourContentFrame {
+                    QuranScreen(
+                        openSurahRequest = com.example.features.quran.data.QuranRepository.getSurah(1),
+                        onOpenSurahConsumed = {}
+                    )
+                }
+            }
+        }
+        settle(8)
+        compose.onNodeWithTag("ayah_card_1").assertExists()
+        capture("m24_reader_amiri")
+    }
+
 }

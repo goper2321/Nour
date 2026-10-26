@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.example.ui.theme.NourReduceMotion
+import com.example.ui.theme.NourMotion
 import com.example.features.prayer.models.PrayerTimes
 import com.example.features.prayer.models.UserLocation
 import com.example.features.prayer.calculation.CelestialMath
@@ -699,7 +700,12 @@ fun ImmersiveSkyBackground(
 
     // Restrained, subtle ambient animations.
     // Rain is gated: no caller enables precipitation today, so avoid a free 60fps loop.
-    // Reduced-motion (animator duration scale = 0) freezes ambient loops.
+    // Reduced-motion (animator duration scale = 0) freezes ambient loops: every
+    // duration below flows through NourMotion.duration(...), which collapses to
+    // 0 ms under the "Remove animations" setting. Infinite animations cannot
+    // legally run at 0 ms (zero-duration infiniteRepeatable spins every frame),
+    // so the pinned floor is 1 ms — paired with the frozen default/target pairs
+    // above, no visible motion remains while the value stays a legal tween.
     val rainEnabled = precipitationIntensity > 0f || showPrecipitation
     val reducedMotion = NourReduceMotion.isEnabled(context)
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
@@ -711,7 +717,7 @@ fun ImmersiveSkyBackground(
         targetValue = if (reducedMotion) 0f else 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = if (reducedMotion) 1 else 600_000,
+                durationMillis = NourMotion.duration(600_000).coerceAtLeast(1),
                 easing = LinearEasing
             ),
             repeatMode = RepeatMode.Restart
@@ -726,7 +732,7 @@ fun ImmersiveSkyBackground(
         initialValue = if (reducedMotion) 0.65f else 0.35f,
         targetValue = if (reducedMotion) 0.65f else 0.95f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (reducedMotion) 1 else 3200, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = NourMotion.duration(3200).coerceAtLeast(1), easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "star_twinkle"
@@ -737,7 +743,7 @@ fun ImmersiveSkyBackground(
         initialValue = if (reducedMotion) 1f else 0.95f,
         targetValue = if (reducedMotion) 1f else 1.08f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (reducedMotion) 1 else 3600, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = NourMotion.duration(3600).coerceAtLeast(1), easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "corona_pulse"
@@ -748,7 +754,7 @@ fun ImmersiveSkyBackground(
         initialValue = 0f,
         targetValue = if (reducedMotion) 0f else 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (reducedMotion) 1 else 50000, easing = LinearEasing),
+            animation = tween(durationMillis = NourMotion.duration(50000).coerceAtLeast(1), easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "sun_ray_rotation"
@@ -759,7 +765,7 @@ fun ImmersiveSkyBackground(
         initialValue = 0f,
         targetValue = if (reducedMotion) 0f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = if (reducedMotion) 1 else 15000, easing = LinearEasing),
+            animation = tween(durationMillis = NourMotion.duration(15000).coerceAtLeast(1), easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "shooting_star"
@@ -771,7 +777,7 @@ fun ImmersiveSkyBackground(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1600, easing = LinearEasing),
+                animation = tween(durationMillis = NourMotion.duration(1600).coerceAtLeast(1), easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
             label = "google_weather_rain"

@@ -40,8 +40,12 @@ Nour calculates prayer times locally with an on-device astronomical engine, sche
 
 ### 5. Quran Reader (verified Tanzil Uthmani text)
 * **Complete Verified Corpus**: The full Uthmani text (Tanzil 1.1, 114 Surahs, 6,236 verses) is bundled verbatim and SHA-256-verified at load, with real page/juz metadata. See `app/src/main/resources/quran/SOURCES.md` for license and attribution.
+* **Surah Pager**: Swipe left/right between all 114 surahs with one fixed toolbar; each surah remembers its own scroll position, so returning restores the verse you were reading.
 * **Dual Reading Modes**: Verse cards or continuous text, with adjustable Arabic typography.
-* **Reading Continuity**: Reading mode, font size, and last read Surah/verse persist across restarts; bookmarks resolve against the bundled text.
+* **Go to Verse**: Jump to any surah/ayah from the reader; typed numbers accept Western and Arabic-Indic digits, and the landed verse is highlighted until the next tap.
+* **Reading Continuity**: Last read surah/verse, reading mode, font size, reading theme, and typeface persist across restarts; a transient "last read" marker shows where you resumed. Bookmarks resolve against the bundled text.
+* **Reading Themes**: System, warm Paper, or low-glare Night — Paper/Night tint only the cards while the page and the gaps between cards keep the app theme; fully opaque and WCAG AA-checked.
+* **Optional Amiri Quran**: An opt-in Quranic Naskh face for Arabic scripture only, bundled with its full SIL OFL 1.1 license; labels, numbers and translations keep the app typeface.
 * **Honest Availability**: Translations and tafsir are not bundled; the reader says so instead of substituting unverified prose. Search covers the Arabic corpus and Surah names.
 
 ### 6. Daily Salah Tracker
@@ -99,6 +103,7 @@ app/src/main/java/com/example/
 * **Room Database** with KSP: prayer logs, bookmarks, khatmah plans, Adhan settings.
 * **Coroutines & StateFlow** for reactive state.
 * **Quran text**: [Tanzil](https://tanzil.net/) Uthmani 1.1, used verbatim under CC BY 3.0 with the required notice preserved.
+* **Amiri Quran**: optional scripture typeface by The Amiri Project Authors, bundled under the SIL Open Font License 1.1 (full text in `app/src/main/res/raw/amiri_quran_ofl.txt`).
 
 ---
 
@@ -109,11 +114,37 @@ Nour keeps your data on your device:
 * **Prayer calculations and Qibla bearings run 100% on-device.** (Reverse geocoding of a detected GPS fix may use the platform Geocoder; no Nour-operated servers exist.)
 * **Quran text is bundled offline** — no network calls to read.
 * **Zero Advertisements.**
+* **No cloud backup / no sync**: `android:allowBackup="false"`. Bookmarks,
+  prayer log, khatmah plans and preferences stay on this device only —
+  uninstalling loses them. (A future in-app export feature could cover
+  backups; not built yet.)
 * **Transparent Permissions**:
   * `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`: On-device computation of prayer times and Qibla bearing. A preset city can be chosen manually without granting location.
   * `SCHEDULE_EXACT_ALARM`: Punctual Adhan notifications at the computed minute.
   * `POST_NOTIFICATIONS`: Delivers Adhan notifications.
   * `RECEIVE_BOOT_COMPLETED`: Re-registers scheduled prayer alarms after reboot.
+
+### Location source strategy (de-Googled ROMs)
+
+Location affects only prayer times and the Qibla bearing, so Nour never needs
+a server and never requests the INTERNET permission. The source chain is:
+
+1. **Fused provider (Google Play Services)** — used only when play services
+   report a healthy connection.
+2. **Android platform `LocationManager.GPS_PROVIDER`** — the fallback for
+   phones running GrapheneOS/CalyxOS or any ROM without GMS, and whenever the
+   fused call errors, times out, or returns no fix.
+3. **Android platform `LocationManager.NETWORK_PROVIDER`** — when GPS is
+   disabled or has no fix.
+4. **Manual entry** — supported today: Settings → "Select City" (and the same
+   city picker in the onboarding wizard) choose from holy cities plus the full
+   world/preset list with IANA-timezone UTC offsets, fully offline.
+
+While a platform provider supplies the fix, the location card shows an honest
+"Using pure device GPS" state instead of implying fused accuracy. Decision
+logic is unit-tested in `LocationSourceResolverTest`; storage docs live in
+`docs/reading-continuity.md` for Quran position persistence and this file's
+Privacy section above for the permission rationale.
 
 ---
 
@@ -147,28 +178,62 @@ Release signing reads (in order of preference):
 KEYSTORE_PATH=/path/to/my-upload-key.jks STORE_PASSWORD='…' KEY_PASSWORD='…' \
   ./gradlew :app:assembleRelease
 ```
-If no upload keystore is configured, the release build logs a warning and signs
-with the local `debug.keystore` so `assembleRelease` still succeeds for
-verification — **never ship a debug-signed APK to users.**
+If no upload keystore is configured, `assembleRelease` fails immediately with
+an error naming the signing variables — the old silent `debug.keystore`
+fallback was removed on purpose. Debug builds are unaffected.
 
 ### Running Unit Tests
 ```bash
 ./gradlew :app:testDebugUnitTest
 ```
-Pure-JVM tests (`QuranCorpusTest`, `CelestialMathTest`, `SeedSchemeTest`,
-`PrayerCalculationTest`, `QuranSearchTest`, `AppStringsIntegrityTest` — 23
-tests) run on any host.
+Pure-JVM tests run on any host: 108 `@Test`s across 21 classes, one of which
+(`MigrationTest`) is `@Ignore`d pending the real Room migration (so the suite
+shows 1 skipped).
 
-The Robolectric-driven tests (`ExampleRobolectricTest`, `NourDesignSystemTest`,
-`SetupWizardTest`, `ScreenRenderTest`, `ScreenCaptureMatrixTest` — 52 tests)
-need an **x86_64 Linux or macOS** host: Robolectric 4.15+ requires its native
-runtime, which has no ARM64 Linux build. The build detects this and skips
-exactly those classes on ARM64 Linux (e.g. Termux) with a loud log line, so the
-build stays green for the right reason instead of failing for a platform one.
-Run them on CI or an x86_64 machine to exercise them.
+The Robolectric-driven tests need an **x86_64 Linux or macOS** host: 100 `@Test`s
+across 12 classes (`ExampleRobolectricTest`, `NourDesignSystemTest`,
+`SetupWizardTest`, `ScreenRenderTest`, `ScreenCaptureMatrixTest`,
+`FloatingChromeTest`, `NourPreferencesRoundTripTest`,
+`SettingsDiagnosticsCardsTest`, `ReducedMotionBarEndpointsTest`,
+`QuranScriptureBoxTest`, `DaySwitcherSwipeTest`, `QuranReaderTest`).
+Suite total: **108 + 100 = 208 tests, of which 1 is skipped** (`MigrationTest` —
+207 execute, 0 failures; measured 2026-10-26). Judge results by
+`BUILD SUCCESSFUL`.
 
-The screenshot tests render the screens on the JVM and, with
-`-Proborazzi.test.record=true`, write 29 PNGs to `app/build/screen-verify/`.
+### Testing on different hosts
+
+**ARM64 Linux (Termux):** the Robolectric classes are excluded automatically.
+Robolectric 4.15+ needs its `nativeruntime` shared library, which is published
+only for linux-x86_64 (plus macOS); on Linux aarch64 every Robolectric test
+would abort with
+`The Robolectric native runtime is not supported on Linux (aarch64)`.
+`app/build.gradle.kts` detects the host (Linux + aarch64/arm64), excludes
+exactly the `src/test` classes discovered by source to use
+`RobolectricTestRunner`, and prints a loud line of the form:
+`Nour: Robolectric is not supported on Linux/aarch64 - skipping N Robolectric test class(es): …`
+**A green local run on ARM proves only the 108 pure-JVM tests (107 execute,
+1 skipped) — it does not prove the full suite.** Exercise the 100 Robolectric
+tests on CI or an x86_64/macOS machine.
+
+**x86_64 Linux / macOS:** nothing is excluded; all 208 tests run (207 execute +
+1 skipped).
+
+Screenshot captures are part of those Robolectric tests (`ScreenRenderTest`
+and `ScreenCaptureMatrixTest` render 36 screens on the JVM). After any visual
+change, re-record per the recipe in AGENTS.md §3/§7:
+
+```bash
+./gradlew :app:testDebugUnitTest -Proborazzi.test.record=true --no-build-cache
+```
+
+PNGs land in `app/build/screen-verify/`; treat the absence of a fresh PNG as a
+failed capture, and compare changed screens with pixel metrics — never claim a
+visual pass by eye.
+
+> Do not "fix" build slowness on any host by touching `gradle.properties`
+> memory/speed flags: the 2.5 GB heap, 512 MB metaspace, `parallel=false` and
+> the in-process Kotlin daemon are deliberate (AGENTS.md §3). On Termux, use
+> the documented aapt2-override flags from *Build & Run* above instead.
 
 ### Permissions (why each exists)
 Nour is offline-first and declares **no `INTERNET` permission**. Prayer times,
@@ -195,4 +260,4 @@ SHA-256-verified at load; see `SOURCES.md` there for provenance and licenses.
 
 ## License
 
-This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details. The bundled Quran text and metadata are from the Tanzil Project under Creative Commons Attribution 3.0, verbatim with the required notices — see `app/src/main/resources/quran/SOURCES.md`.
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details. The bundled Quran text and metadata are from the Tanzil Project under Creative Commons Attribution 3.0, verbatim with the required notices — see `app/src/main/resources/quran/SOURCES.md`. The optional Amiri Quran typeface is copyright The Amiri Quran Project Authors and licensed under the SIL Open Font License 1.1; the full license is bundled at `app/src/main/res/raw/amiri_quran_ofl.txt`.

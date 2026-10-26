@@ -57,7 +57,9 @@ fun SurahListItem(surah: Surah, onClick: () -> Unit, modifier: Modifier = Modifi
                         style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
+                        // NUR-015: ellipsize rather than clip (audit parity).
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                 }
             }

@@ -2,9 +2,9 @@ package com.example.features.quran.data
 
 import com.example.features.quran.models.Ayah
 import com.example.features.quran.models.MushafPage
+import com.example.features.quran.models.MushafSegment
 import com.example.features.quran.models.RevelationType
 import com.example.features.quran.models.Surah
-import com.example.features.quran.models.TafsirEdition
 import com.example.features.quran.models.TranslationEdition
 import java.util.Locale
 
@@ -20,7 +20,7 @@ object QuranRepository {
     // render the language endonym (e.g. "sv" -> "svenska") instead of leaking
     // the English words "Swedish"/"Russian" into every interface language.
     val TRANSLATION_EDITIONS = listOf(
-        TranslationEdition("sahih_en", "Sahih International", "en", "Saheeh Int."),
+        TranslationEdition("sahih_en", "Sahih International", "en", "Saheeh Int.", bundled = true),
         TranslationEdition("pickthall_en", "Pickthall", "en", "Marmaduke Pickthall"),
         TranslationEdition("hamidullah_fr", "Muhammad Hamidullah", "fr", "Muhammad Hamidullah"),
         TranslationEdition("bernstrom_sv", "Knut Bernström", "sv", "Knut Bernström"),
@@ -35,11 +35,12 @@ object QuranRepository {
         TranslationEdition("jian_zh", "Ma Jian", "zh", "Ma Jian")
     )
 
-    val TAFSIR_EDITIONS = listOf(
-        TafsirEdition("muyassar", "Tafsir al-Muyassar (الميسر)", "Arabic", "King Fahd Complex"),
-        TafsirEdition("kathir", "Tafsir Ibn Kathir (ابن كثير)", "Arabic / English", "Imam Ibn Kathir"),
-        TafsirEdition("maarif", "Ma'arif-ul-Quran", "English / Urdu", "Mufti Muhammad Shafi")
-    )
+    // TAFSIR_EDITIONS removed in Wave A: no tafsir is bundled. QuranRepository
+    // keeps Ayah.tafsirEntries/getTafsir for a future verified source.
+
+    // Bundled translation editions only (honesty: do not advertise the rest).
+    val bundledTranslationEditions: List<TranslationEdition>
+        get() = TRANSLATION_EDITIONS.filter { it.bundled }
 
     // Complete index of all 114 Surahs
     val ALL_SURAHS: List<Surah> = listOf(
@@ -204,16 +205,40 @@ object QuranRepository {
     fun getMushafPage(pageNumber: Int): MushafPage {
         val page = pageNumber.coerceIn(1, 604)
         val ayahs = QuranCorpus.ayahs.filter { it.pageNumber == page }
+        // Group by surah in encounter order (groupBy preserves insertion order via
+        // LinkedHashMap), so page 106 stays 4:176 -> 5:1 rather than being sorted
+        // by surah number. A segment carries a header only when it contains ayah 1.
+        val segments = ayahs.groupBy { it.surahNumber }.map { (surah, group) ->
+            MushafSegment(
+                surahNumber = surah,
+                showSurahHeader = group.first().ayahNumber == 1,
+                ayahs = group
+            )
+        }
         val first = ayahs.firstOrNull()
-        val surahHeader = ALL_SURAHS.lastOrNull { it.number == first?.surahNumber }
+        val firstSegment = segments.firstOrNull()
+        val surahHeader = if (firstSegment?.showSurahHeader == true) {
+            ALL_SURAHS.lastOrNull { it.number == firstSegment.surahNumber }
+        } else null
         return MushafPage(
             pageNumber = page,
             juzNumber = first?.juzNumber ?: 1,
             hizbQuarter = if (first != null) QuranCorpus.quarterFor(first.surahNumber, first.ayahNumber) else 1,
-            surahHeader = if (first?.ayahNumber == 1) surahHeader else null,
-            ayahs = ayahs
+            surahHeader = surahHeader,
+            ayahs = ayahs,
+            segments = segments
         )
     }
+
+    /**
+     * Returns the Tanzil page number containing the given verse, or null when the
+     * verse does not exist in the bundled corpus. Used by go-to-verse and deep
+     * links in the page reader.
+     */
+    fun getPageForAyah(surahNumber: Int, ayahNumber: Int): Int? =
+        QuranCorpus.ayahs.firstOrNull {
+            it.surahNumber == surahNumber && it.ayahNumber == ayahNumber
+        }?.pageNumber
 
     /**
      * Normalizes Arabic text by removing tashkeel (diacritics), tatweel, and normalizing alif/hamza

@@ -53,6 +53,7 @@ import com.example.ui.theme.NourSize
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -125,12 +126,43 @@ class ScreenRenderTest {
                 }
             }
         }
+        // The prayer page learns its sky stretch on the first layout pass;
+        // advance frames so the capture shows the settled (stretched) state,
+        // not the first-pass natural layout. Same idea as the capture
+        // matrix's settle() helper, which also renders this screen.
+        repeat(4) { compose.mainClock.advanceTimeByFrame() }
         compose.onNodeWithTag("prayer_screen_list").assertIsDisplayed()
         // Salah review fixes, locked in: the countdown still renders without
         // its per-second animation wrapper. The location control now shows the
         // place name only, keeping the sky hero uncluttered.
         compose.onNodeWithTag("countdown_timer_text").assertIsDisplayed()
         compose.onNodeWithTag("prayer_location_button").assertTextContains("Makkah", substring = true)
+
+        // Countdown-dock contract (2026-10-22): a stretched hero parks the
+        // digits in the lower half of the sky card, right above the switcher.
+        // This also fails if the layout settle above is removed, since a
+        // first-pass (unstretched) layout keeps the digits high.
+        val header = compose.onNodeWithTag("prayer_header_card").fetchSemanticsNode()
+        val digits = compose.onNodeWithTag("countdown_timer_text").fetchSemanticsNode()
+        val digitsTopInHeader = digits.positionInRoot.y - header.positionInRoot.y
+        assertTrue(
+            "countdown digits must sit in the lower half of the stretched sky card",
+            digitsTopInHeader > header.size.height / 2
+        )
+
+        // Row-evening contract (2026-10-22): every row measures the same band
+        // height — the 48 dp touch-target floor, text + 24 dp as the font
+        // grows — highlighted coming-prayer row included, whatever the wall
+        // clock makes 'next'. Heights print on failure so an uneven row can
+        // be located without a debugger.
+        val rowHeights = listOf("FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA").associateWith { name ->
+            compose.onNodeWithTag("simplified_prayer_row_$name").fetchSemanticsNode().size.height
+        }
+        assertEquals(
+            "prayer rows must sit even (highlighted row included): $rowHeights",
+            1,
+            rowHeights.values.distinct().size
+        )
         capture("01_prayer")
     }
 
@@ -142,6 +174,16 @@ class ScreenRenderTest {
             }
         }
         compose.onNodeWithTag("qibla_mode_status").assertIsDisplayed()
+        // NUR-009 (layered 2026-10-24): the heading readout is now the LAST
+        // card of the lower stack; with the dial absorbing the slack it must
+        // dock into the lower reaches of the viewport — its top past 60% of
+        // the root height — instead of sitting right under the dial.
+        val qiblaRoot = compose.onRoot().fetchSemanticsNode()
+        val qiblaMetrics = compose.onNodeWithTag("qibla_metrics_card").fetchSemanticsNode()
+        assertTrue(
+            "qibla metrics card must dock low (top=${qiblaMetrics.positionInRoot.y} vs limit=${qiblaRoot.size.height * 0.6f})",
+            qiblaMetrics.positionInRoot.y > qiblaRoot.size.height * 0.6f
+        )
         capture("02_qibla")
     }
 

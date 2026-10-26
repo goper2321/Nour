@@ -47,5 +47,9 @@ val Typography = Typography(
     bodySmall = textStyle(12, 18, FontWeight.Normal, 0f),
     labelLarge = textStyle(14, 20, FontWeight.SemiBold, 0f),
     labelMedium = textStyle(12, 16, FontWeight.Medium, 0f),
-    labelSmall = textStyle(11, 14, FontWeight.Medium, 0.1f)
+    // NUR-015: labelSmall was the only style failing the lineHeight ≥
+    // fontSize + 4 sp formula (11/14 vs the 11/15 floor) — a tight line box
+    // risks clipping descenders on the last wrapped line at large font
+    // scales. Bumped to 15 sp; same 0.73 line-height ratio as labelMedium.
+    labelSmall = textStyle(11, 15, FontWeight.Medium, 0.1f)
 )

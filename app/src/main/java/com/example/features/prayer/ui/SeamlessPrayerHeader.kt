@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -39,9 +40,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -51,6 +54,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.calculation.CelestialMath
 import com.example.features.prayer.models.CountdownState
@@ -481,6 +485,16 @@ fun SeamlessPrayerHeader(
     todayPrayerTimes: PrayerTimes,
     now: Date,
     onRequestLocationUpdate: (() -> Unit)? = null,
+    /**
+     * When set, the sky hero is fixed to exactly this height: the screen
+     * stretches it by the page's leftover slack so the day switcher and the
+     * prayer card end at the bottom reserve. Null keeps the hero sized by
+     * its text stack — this also avoids clipping while the stack height is
+     * still unmeasured (first layout pass).
+     */
+    heroHeight: Dp? = null,
+    /** Reports the hero text stack's laid-out height for the stretch math. */
+    onHeroStackHeight: ((Dp) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val strings = LocalAppStrings.current
@@ -544,6 +558,7 @@ fun SeamlessPrayerHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(heroHeight?.let { Modifier.height(it) } ?: Modifier)
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()
                     val size = coordinates.size
@@ -573,15 +588,45 @@ fun SeamlessPrayerHeader(
             // time read as one unit (NourSpace.sm), the live countdown sits
             // one step aside (NourSpace.md), and the progress/status pair
             // closes the card after the widest gap of all (NourSpace.lg).
+            // Sky-content column: the location pill stays parked at the top;
+            // in a stretched hero the countdown cluster docks at the bottom
+            // and the whole middle is open sky for the arcs. The column fills
+            // the hero only when it is stretched — a natural (content-sized)
+            // hero keeps the plain stacked flow.
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
                     .padding(horizontal = NourSpace.lg, vertical = NourSpace.lg)
+                    .then(
+                        if (heroHeight != null) {
+                            Modifier.fillMaxHeight()
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
+                // Floor pieces for the screen's stretch math: the pill row
+                // plus the kicker-to-status span is exactly the sky card's
+                // content height; the stretch only flexes the gap between
+                // them. Root coordinates keep the span scroll-invariant.
+                var pillHeight by remember { mutableStateOf(0.dp) }
+                var kickerTopY by remember { mutableStateOf(0f) }
+                var statusBottomY by remember { mutableStateOf(0f) }
+                val reportStackFloor: () -> Unit = {
+                    onHeroStackHeight?.invoke(
+                        pillHeight + with(density) { (statusBottomY - kickerTopY).toDp() }
+                    )
+                }
+
                 // Header row: location button only, parked at the start.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            pillHeight = with(density) { coordinates.size.height.toDp() }
+                            reportStackFloor()
+                        },
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -618,7 +663,15 @@ fun SeamlessPrayerHeader(
                     }
                 }
 
-                Spacer(Modifier.height(NourSpace.xl))
+                // The gap flexes: pure sky in a stretched hero; the fixed xl
+                // step in the natural, content-sized one. A stretched hero
+                // pushes the countdown block down so it sits right above the
+                // card's lower edge.
+                if (heroHeight != null) {
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Spacer(Modifier.height(NourSpace.xl))
+                }
 
                 // Kicker: the coming prayer and its scheduled time as one
                 // small, quiet pair. The countdown below is the hero's single
@@ -628,7 +681,11 @@ fun SeamlessPrayerHeader(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .semantics { heading() },
+                        .semantics { heading() }
+                        .onGloballyPositioned { coordinates ->
+                            kickerTopY = coordinates.positionInRoot().y
+                            reportStackFloor()
+                        },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(NourSpace.sm)
                 ) {
@@ -666,6 +723,28 @@ fun SeamlessPrayerHeader(
                 // A bare "02:14:36" is ambiguous when read aloud, so the digits
                 // carry the translated "Next Prayer: …" spoken label.
                 val remainingText = formatNumerals(countdownState.formattedRemaining)
+                // NUR-014: on-screen countdown haptics. A light tick when the
+                // displayed minute changes, a stronger cue when the prayer
+                // time lands while this header is visible. Both run through
+                // LocalHapticFeedback only — no Vibrator, no permission, and
+                // nothing fires in the background. The first composition
+                // stays silent: opening the app is not a boundary crossing.
+                val hapticFeedback = LocalHapticFeedback.current
+                var lastHapticSnapshot by remember { mutableStateOf<CountdownHapticSnapshot?>(null) }
+                SideEffect {
+                    val snapshot = CountdownHapticSnapshot(
+                        nextPrayer = countdownState.nextPrayer,
+                        shownMinute = CountdownArrivalHaptics.shownMinuteOf(countdownState.remainingMillis)
+                    )
+                    when (CountdownArrivalHaptics.kindFor(previous = lastHapticSnapshot, current = snapshot)) {
+                        CountdownHapticKind.MINUTE_TICK ->
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        CountdownHapticKind.PRAYER_ARRIVAL ->
+                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                        CountdownHapticKind.NONE -> Unit
+                    }
+                    lastHapticSnapshot = snapshot
+                }
                 AdaptiveCountdownText(
                     text = remainingText,
                     style = MaterialTheme.typography.headlineLarge.copy(
@@ -769,7 +848,12 @@ fun SeamlessPrayerHeader(
                 // run. One fixed row instead of a wrapping flow, and no third
                 // copy of the coming prayer — that is already the headline.
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            statusBottomY = coordinates.positionInRoot().y + coordinates.size.height
+                            reportStackFloor()
+                        },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {

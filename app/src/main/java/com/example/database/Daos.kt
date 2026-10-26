@@ -21,6 +21,11 @@ interface PrayerLogDao {
     @Query("SELECT COUNT(*) FROM prayer_logs WHERE status = 'PRAYED' OR status = 'PRAYED_LATE'")
     fun getTotalPrayedCount(): Flow<Int>
 
+    // NUR-033: raw row counts for the Settings diagnostics card. Pure read
+    // queries over existing tables — no entity change, schema stays v1.
+    @Query("SELECT COUNT(*) FROM prayer_logs")
+    suspend fun countAll(): Int
+
     @Query("DELETE FROM prayer_logs WHERE id = :id")
     suspend fun deleteLog(id: Long)
 }
@@ -41,6 +46,10 @@ interface BookmarkDao {
 
     @Query("DELETE FROM bookmarks WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    // NUR-033: diagnostics card count (read-only, no schema change).
+    @Query("SELECT COUNT(*) FROM bookmarks")
+    suspend fun countAll(): Int
 }
 
 @Dao
@@ -62,6 +71,10 @@ interface KhatmahDao {
 
     @Query("DELETE FROM khatmah_plans WHERE id = :id")
     suspend fun deletePlan(id: Long)
+
+    // NUR-033: diagnostics card count (read-only, no schema change).
+    @Query("SELECT COUNT(*) FROM khatmah_plans")
+    suspend fun countAll(): Int
 }
 
 @Dao
@@ -77,4 +90,8 @@ interface AdhanSettingsDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(settings: List<AdhanSettingsEntity>)
+
+    // NUR-033: diagnostics card count (read-only, no schema change).
+    @Query("SELECT COUNT(*) FROM adhan_settings")
+    suspend fun countAll(): Int
 }

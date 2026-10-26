@@ -41,16 +41,21 @@ neutral surfaces are intentionally low-chroma so they read Apple-neutral.
 
 ### Light
 
+Values below are the seed-generated neutrals (post-NUR-004 unification, 2026-10-24).
+Pin: `app/src/test/java/com/example/PaletteAgreementTest.kt` — it fixes the
+changed rows and pins every shared role to the generated scheme.
+
 | Role | Value | Use |
 | --- | --- | --- |
-| background / surface | `#F4F4F7` | grouped page |
-| surfaceContainerLowest / Low | `#FFFFFF` | cards, inputs, floating chrome |
-| surfaceContainer | `#EFEFF4` | subtle panels, reader header |
-| surfaceContainerHigh | `#E7E7EC` | pressed tracks, chips |
-| surfaceContainerHighest | `#DEDEE4` | segmented track / strongest neutral |
+| background / surface | `#FAF8FD` | grouped page |
+| surfaceContainerLowest | `#FFFFFF` | floating chrome |
+| surfaceContainerLow | `#F5F3F7` | cards, inputs |
+| surfaceContainer | `#EFEDF1` | subtle panels, reader header |
+| surfaceContainerHigh | `#E9E7EC` | pressed tracks, chips |
+| surfaceContainerHighest | `#E3E2E6` | segmented track / strongest neutral |
 | onSurface | `#1B1B1F` | primary text |
 | onSurfaceVariant | `#44474F` | secondary text, labels |
-| outlineVariant | `#C7C7CC` | hairlines and borders |
+| outlineVariant | `#C4C6D0` | hairlines and borders |
 | primary | `#0058BD` | actions, selection, key number |
 | secondaryContainer | `#CCDAFE` | pale accent surfaces |
 | onSecondaryContainer | `#515F7E` | text on pale accent |
@@ -240,27 +245,84 @@ with `Role.RadioButton`). Do not use it as a row of unrelated buttons.
 
 ### Qibla
 
-- Location/accuracy and compass are grouped cards. The info action is a 44 dp
-  circle with an 8 dp gap from the accuracy chip.
-- The Qibla banner uses `secondaryContainer` + accent border and appears only
-  from real calibrated sensor readings. The manual slider stays a reference
-  heading and must never produce the "facing the Kaaba" claim.
-- Metrics are two stacked/label-value areas with sentence-case labels; the
-  bearing number is the accent focal point.
-- Manual/sensor toggle is a capsule, not a pill switch with ambiguous state.
+- The header is one unframed row: title + city on the left, the accuracy chip
+  and the 44 dp calibration-info circle (8 dp gap) on the right. No header card.
+- The compass is the page's single focal instrument. Its dial drawing,
+  sensor math and honesty rules are unchanged.
+- The banner uses `secondaryContainer` + accent border and appears only from
+  real calibrated sensor readings. The manual slider stays a reference heading
+  and must never produce the "facing the Kaaba" claim.
+- Metrics are an unframed two-column label/value footer with sentence-case
+  labels; the bearing number is the accent focal point.
+- The manual fallback is a low-emphasis text action while sensors are active.
+  Manual mode reveals only the live reference value, the slider and a "Use
+  sensors" text action — no explanatory card. A device without a magnetometer
+  still starts in manual mode.
+- Honest state lives in one status line plus the accuracy chip (manual,
+  no/refused sensor, waiting, calibration, hold-flat, estimated). The separate
+  sensor/declination pill and the tilt card were removed as duplication; the
+  sun marker stays on the dial as a visual cross-check, and the calibration
+  dialog keeps the figure-8 guidance.
 
 ### Quran
 
-- Library uses a 3-way segmented control (Surah / Bookmark / Search), a 56 dp
-  opaque search field, a single pale continue-reading card, and white surah
-  rows. Page/verse numbering is Arabic-Indic when the language requires it.
+- Library uses a 3-way segmented control (Surah / Bookmark / Search),
+  a 56 dp opaque search field, a single pale continue-reading card, and white
+  surah rows. Page/verse numbering is Arabic-Indic when the language requires it.
 - The segmented control grows for two-line labels at large font scales; every
   library list reserves `nourSegmentedControlHeight()` plus the bar's own
   padding, so content never starts underneath a taller bar.
+- **Surah pager reader.** The reader puts the 114 surahs in one
+  `HorizontalPager`, one surah per page: swiping left/right moves surah-to-surah
+  (the gesture the removed Mushaf pager used to own), while one fixed toolbar
+  sits above the pager instead of scrolling or changing per page. A tap on the
+  surah-name pill opens the surah dropdown; the end-of-surah card offers
+  previous/next. There is no Mushaf tab, 604-page pager, page-jump dialog or
+  page footer; the library has three tabs, not four.
 - Reader toolbar is a floating opaque surface with circular actions. Cards use
   24 dp; ayah number pills use `secondaryContainer`, not vivid primary.
-- Reading position, bookmarks, mode and font size persist; the reader must not
-  reset to surah 1 on process death.
+- Each pager page keeps its own `LazyListState`, so swiping away and back
+  restores the verse the user was reading instead of jumping to the surah
+  header. Explicit navigation (dropdown, end-of-surah card) restores a
+  previously visited surah's saved position too; only a first visit starts at
+  the top. In continuous mode the surah text is one scrolling item, so it
+  resumes by surah rather than by verse.
+- **Go to verse (Wave C).** One circular toolbar action opens a two-field
+  dialog (surah + ayah, localized digits accepted). The jump forces verse cards
+  for the landing and highlights/restores the target; the reader is the only
+  jump destination. A landed verse is highlighted with
+  `secondaryContainer` until the next tap — a transient reading aid, not a
+  stored selection.
+- **Deep-link scoping.** An `openAyahRequest`, go-to-verse or bookmark jump is
+  scoped to its `deepLinkSurahNumber`: landing marks the verse, but swiping to
+  another surah consumes the link, so returning later restores the saved
+  position instead of re-landing on that verse. Back also clears it. The
+  persisted reading mode is never mutated by a deep link.
+- **"Last read" marker (Wave C).** The restored verse reference pill reads
+  `2:255 · Last read`, so the acknowledgement adds no extra row and leaves no
+  hairline gaps at the card edges. It must stay inside the card: a separate
+  list row would shift the `firstVisibleItemIndex → ayah` continuity mapping.
+  It clears on tap or mode change and is never persisted.
+- **Reading themes (Wave C).** `QuranSettingsBottomSheet` offers SYSTEM / PAPER
+  / NIGHT. SYSTEM composes the app scheme untouched. PAPER and NIGHT tint
+  **only the cards and their action roles** — verse cards, the surah header,
+  the reference pill, the highlight — while `background`, `surface`,
+  `surfaceVariant` and `onBackground` stay inherited from the app scheme. The
+  page behind the cards and the gaps between them therefore keep the host's
+  grouped background: Paper on a dark app shows paper cards over dark gaps, and
+  Night on a light app shows dark cards over light gaps. Both palettes are
+  fully opaque and independent of app light/dark mode (every text/card pair
+  ≥ 4.5:1, pinned by `QuranReadingColorsTest`). No full-page reader surface is
+  painted; dialogs, the sheet and the floating chrome stay app-themed.
+- **Amiri Quran (Wave C, opt-in).** `QuranTypeface` offers SYSTEM / AMIRI. Amiri
+  is a **scripture-only** exception to the platform typeface: verse text in
+  cards, continuous text and the ayah inspector only — never labels, numbers,
+  surah names or translations. Cards keep the 1.8× line box under SYSTEM and
+  use 2.1× under Amiri; no automatic font shrinking. The settings sheet carries
+  the required credit: "Amiri Quran © Khaled Hosny, SIL OFL 1.1." Font
+  provenance and hashes are in `app/src/main/resources/quran/SOURCES.md`.
+- Reading position, bookmarks, mode, font size, theme and typeface persist; the
+  reader must not reset to surah 1 on process death.
 - If a translation/tafsir is not bundled, show the honest unavailable message;
   never fabricate content.
 
@@ -293,28 +355,59 @@ with `Role.RadioButton`). Do not use it as a row of unrelated buttons.
 - Arabic scripture direction is independent of interface language; RTL layouts
   mirror the chrome but not the Quran text.
 - Text uses the platform font and can grow to at least 200%; rows wrap, labels
-  ellipsize or stack rather than clipping. Avoid fixed heights around text.
+  ellipsize or stack rather than clipping. Avoid fixed heights around text. The
+  single exception is the opt-in Amiri Quran face applied to Arabic scripture
+  only (Wave C); every label, number and translation stays in the app typeface.
 - The floating nav/rail and every card must remain opaque when the user picks a
   custom seed or wallpaper colour.
 
 ## 8. Verification status
 
-Final JVM/build run on 2026-10-21:
+Latest full suite on 2026-10-26 (after the Mushaf-removal / surah-pager pass):
 
 ```sh
 JAVA_HOME=/usr/lib/jvm/java-21-temurin-jdk \
 ANDROID_HOME="$HOME/Android/Sdk" \
-GRADLE_OPTS="-Xmx2g -XX:MaxMetaspaceSize=768m" \
-./gradlew :app:testDebugUnitTest :app:assembleDebug \
-  -Proborazzi.test.record=true --offline --no-daemon --max-workers=2
+./gradlew :app:testDebugUnitTest --max-workers=2
 ```
 
-- `BUILD SUCCESSFUL in 3m 13s`; 75 tests, 0 failures, 0 errors, 0 skipped
-  across 11 classes. The KSP/AWT worker printed a non-fatal
-  `NullPointerException`; the build and tests still completed successfully.
-- 29 PNG captures in `app/build/screen-verify/`.
-- Debug APK: 27,154,257 bytes (26 MB);
-  SHA-256 `11e446b808fa82e9b5a5a985fe2a1c3e4ed80b02ee7f63db2f2a08af96393824`.
+- `BUILD SUCCESSFUL in 9m 16s`; **208 tests across 33 classes** (108 pure-JVM,
+  100 Robolectric), **0 failures, 0 errors, 1 skipped** (`MigrationTest`).
+  Log: `/tmp/opencode/nour-surah-pager-final.log`.
+- Mushaf removal + surah pager (2026-10-26): the Mushaf tab, the 604-page pager,
+  the page-jump dialog and the page footer were deleted. The regular reader is
+  now a 114-page `HorizontalPager` with one fixed toolbar and per-surah
+  `LazyListState`; 17 `QuranReaderTest` cases pin swipe navigation, the
+  first-surah boundary, per-surah restore and deep-link consumption.
+  `QuranReadingColorsTest` (5) pins card-only Paper/Night and inherited page
+  backgrounds. `QuranMushafPageTest` was deleted with the UI; `QuranMushafTest`
+  keeps the 604-page division invariants.
+- Owner-review polish (2026-10-26): the C2 "Last read" label now sits inside the
+  verse reference pill (`2:255 · Last read`) so it adds no row height and leaves
+  no hairline gaps; a regression assertion pins the card height. The Qibla page
+  was slimmed to an unframed header, one status line, the untouched compass, a
+  collapsed manual fallback and an unframed metrics footer; the header card,
+  sensor/declination pill, tilt card, sun card, manual card and metrics card
+  were removed as duplication. `QuranReaderTest`, `ScreenRenderTest`,
+  `ScreenCaptureMatrixTest` and the full suite all re-ran green.
+- Captures (2026-10-26): 36 PNGs in `app/build/screen-verify/`, re-recorded for
+  the new reader (`m20_reader_swipe_surah_2`, `m23_quran_tabs_font200_narrow`,
+  `m24_reader_amiri`, `m26_reader_paper`, `m27_reader_night`); the Mushaf PNGs
+  were deleted. Pixel metrics confirm the card-only scope: the page/gap colour
+  `#FAF8FD` occurs exactly 224,080 times in the default (`m04_reader_cards`),
+  Paper and Night captures alike, while the cards change from `#F5F3F7` to
+  `#FFFDF7` (Paper) / `#1C1916` (Night). No visual approval is claimed — the
+  agent cannot view images.
+- Device-only checks still pending: Amiri legibility/line-height at 200%,
+  Paper/Night perception at night, surah-swipe feel and RTL gesture direction,
+  go-to-verse keyboard behaviour, TalkBack order, process-death restore, and
+  re-testing Adhan/Qibla/prayer on hardware.
+- Debug APK: 27,088,217 bytes (26 MB);
+  SHA-256 `36d1820c381ceef9c50202407b6f2155af74b58f04cba1a01569911e0b9da19f`.
+  `aapt2 dump permissions` lists only location, notifications, exact-alarm,
+  foreground-service, vibrate, wake-lock and boot permissions — **no
+  `INTERNET`**. The three Quran data files and `res/font/amiri_quran.ttf` are
+  packaged.
 - Follow-up review fixes applied: `NourSearchField` field semantics/tag, Quran
   search off the main thread plus startup index warm-up, `rememberSaveable`
   navigation state, growing nav bar for two-line labels, and Qibla manual
@@ -328,7 +421,9 @@ PNG captures in `app/build/screen-verify/`:
 - `08_navigation_chrome`, `09_navigation_chrome_dark`, `10_navigation_rail`
 - `11_qibla_dark`, `12_settings_dark`
 - `m*` matrix: dark, 200% font, RTL, 320 dp width, light/dark comparisons,
-  reader cards/continuous modes, plus `m15_prayer_ar_rtl_font200`,
+  reader cards/continuous modes, the surah-swipe capture
+  (`m20_reader_swipe_surah_2`), Paper/Night/Amiri reader captures
+  (`m26`, `m27`, `m24`), plus `m15_prayer_ar_rtl_font200`,
   `m16_qibla_ar_rtl_font200` and `m17_settings_font200` for the combined
   RTL/large-font layouts.
 
@@ -362,10 +457,11 @@ What is **not verified** and needs a physical device:
 
 Known follow-ups, not regressions from this pass:
 
-- The hand-authored default palette in `Color.kt` and the palette generated
+- ~~The hand-authored default palette in `Color.kt` and the palette generated
   from the default `#0A7AFF` seed in `DynamicColor.kt` still differ (most
-  visibly the grouped page tone). Captures use the static default. Unifying them
-  is a palette decision, not a layout fix, and was left for a separate change.
+  visibly the grouped page tone).~~ **Resolved 2026-10-24 (NUR-004):** Color.kt
+  now delegates to the seed-generated values and the unified light neutrals are
+  pinned by `PaletteAgreementTest`. Captures use the static default.
 - Grouped cards intentionally sit close to the page tone; separation rests on
   the hairline border. Revisit only if the product wants stronger card edges.
 

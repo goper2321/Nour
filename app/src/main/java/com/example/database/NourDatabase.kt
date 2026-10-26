@@ -17,7 +17,10 @@ import kotlinx.coroutines.launch
         AdhanSettingsEntity::class
     ],
     version = 1,
-    exportSchema = false
+    // NUR-021: export the schema JSON so every future schema change is diffable
+    // and reviewable. Version stays 1 and the entities are unchanged, so
+    // existing user data is not affected.
+    exportSchema = true
 )
 abstract class NourDatabase : RoomDatabase() {
     abstract fun prayerLogDao(): PrayerLogDao

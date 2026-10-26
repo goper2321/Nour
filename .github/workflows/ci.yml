@@ -1,0 +1,98 @@
+# Nour CI — NUR-003 (JVM test suite) + NUR-025 (golden set on PRs, full nightly).
+#
+# - x86_64 runners: GitHub-hosted ubuntu runners are x86_64, so the FULL suite
+#   (108 pure-JVM + 100 Robolectric = 208 tests) runs here. Robolectric is only
+#   excluded on ARM hosts (e.g. Termux) locally by app/build.gradle.kts; that
+#   host capability gate does not apply on CI.
+# - No secrets, no lint/detekt (NUR-027 stays a separate local item), no
+#   emulator/instrumented jobs, no publishing. Artifacts are the only outputs.
+# - The unit-tests job ends with :app:verifyOfflineManifest (NUR-029), which
+#   fails if the debug APK declares any forbidden network permission and keeps
+#   the offline-first promise (checklist guard G5) enforced in CI.
+
+name: Nour CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly full suite at 03:00 UTC.
+    - cron: "0 3 * * *"
+
+jobs:
+  unit-tests:
+    name: unit tests (full JVM suite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Run JVM unit test suite
+        run: ANDROID_HOME=$ANDROID_SDK_ROOT JAVA_HOME=$JAVA_HOME ./gradlew :app:testDebugUnitTest --stacktrace
+      - name: Nour offline check (debug APK permissions)
+        # Checks the DEBUG APK. The signed release APK is owner-verified with
+        # the same task after a keystore build (see .env.example).
+        run: ANDROID_HOME=$ANDROID_SDK_ROOT JAVA_HOME=$JAVA_HOME ./gradlew :app:verifyOfflineManifest
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          retention-days: 7
+
+  golden-set:
+    name: golden set (rendering regression)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: golden set
+        # The capture/golden rendering set only: precise layouts of the pinned
+        # screens stay stable and fast to check on every push/PR.
+        run: ANDROID_HOME=$ANDROID_SDK_ROOT JAVA_HOME=$JAVA_HOME ./gradlew :app:testDebugUnitTest --tests "com.example.ScreenRenderTest" --tests "com.example.ScreenCaptureMatrixTest" --stacktrace
+
+  nightly-full:
+    name: nightly full suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21 (temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Full JVM unit test suite
+        run: ANDROID_HOME=$ANDROID_SDK_ROOT JAVA_HOME=$JAVA_HOME ./gradlew :app:testDebugUnitTest --stacktrace
+      - name: Upload test reports (always, so failures keep their reports)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          retention-days: 7

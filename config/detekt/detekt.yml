@@ -1,0 +1,49 @@
+# NUR-027 - minimal detekt ruleset for Nour.
+#
+# Scope the analysis surface EXACTLY to what the checklist asks for:
+#   * complexity   - active
+#   * naming       - active
+#   * empty-blocks - active (houses EmptyCatchBlock, the requested "empty
+#     catch" check; the other empty-block rules are trivial and consistent)
+#
+# MagicNumber is disabled for the calculation math (prayer/Quran math
+# deliberately carries named physical constants, not wrapped literals).
+# NOTE: in detekt 1.23.x the MagicNumber rule lives in the STYLE ruleset
+# (it moved out of complexity), so it is configured there.
+#
+# Everything else is explicitly off so detekt stays a light first pass.
+#
+# Existing violations are recorded in config/detekt/baseline.xml via
+# `./gradlew :app:detektBaseline`; only NEW findings fail later runs.
+# Findings must NOT be auto-fixed.
+build:
+  maxIssues: 0
+
+complexity:
+  active: true
+
+naming:
+  active: true
+
+empty-blocks:
+  active: true
+
+comments:
+  active: false
+
+coroutines:
+  active: false
+
+exceptions:
+  active: false
+
+performance:
+  active: false
+
+potential-bugs:
+  active: false
+
+style:
+  active: false
+  MagicNumber:
+    active: false

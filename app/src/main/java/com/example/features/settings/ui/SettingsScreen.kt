@@ -53,6 +53,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import com.example.localization.Numerals
+import com.example.features.settings.CrashLogReader
 import com.example.ui.theme.SeedColorSchemes
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -69,6 +70,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocationOn
@@ -76,6 +78,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Translate
 import com.example.ui.theme.CardExpressiveShape
 import com.example.ui.theme.CardSubtleShape
@@ -142,6 +145,19 @@ import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.text.style.TextAlign
+import com.example.BuildConfig
+import com.example.features.quran.data.QuranCorpus
+import com.example.features.quran.data.QuranSources
+import com.example.features.settings.DiagnosticsMath
+import com.example.features.settings.NourPreferences
+import com.example.localization.AppStrings
 
 /** "#RRGGBB" for an ARGB int (alpha dropped: seeds are opaque). */
 private fun seedHex(argb: Int): String = "#%06X".format(argb and 0xFFFFFF)
@@ -380,7 +396,9 @@ private fun GradientSlider(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
+            // NUR-015: single-line labels must ellipsize, never clip.
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         Box(
             modifier = Modifier
@@ -439,7 +457,10 @@ fun SettingsScreen(
     themeMode: String = "system",
     dynamicColors: Boolean = false,
     onThemeModeChange: (String) -> Unit = {},
-    onDynamicColorsChange: (Boolean) -> Unit = {}
+    onDynamicColorsChange: (Boolean) -> Unit = {},
+    // NUR-008: high-contrast theme toggle (persists via NourPreferences).
+    highContrast: Boolean = false,
+    onHighContrastChange: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -509,7 +530,25 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),checked = dynamicColors, onCheckedChange = onDynamicColorsChange,
-                            enabled = android.os.Build.VERSION.SDK_INT >= 31)
+                            enabled = android.os.Build.VERSION.SDK_INT >= 31,
+                            // NUR-011: this switch had no modifier at all, so
+                            // TalkBack read it as an empty element; the row
+                            // title (already localized) is its label.
+                            modifier = Modifier.semantics { contentDescription = strings.dynamicColorsTitle })
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
+                    // NUR-008: same family as the dynamic-colors toggle — an
+                    // opaque token-layer switch (M3 contrast level 1.0), so it
+                    // composes with light, dark and custom seeds.
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(strings.highContrastTitle, style = MaterialTheme.typography.titleMedium)
+                            Text(strings.highContrastDesc,
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),checked = highContrast, onCheckedChange = onHighContrastChange,
+                            enabled = true,
+                            modifier = Modifier.semantics { contentDescription = strings.highContrastTitle })
                     }
                 }
             }
@@ -1006,7 +1045,10 @@ fun SettingsScreen(
                             colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary, checkedThumbColor = MaterialTheme.colorScheme.onPrimary, uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest, uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant),
                             checked = alarmsEnabled,
                             onCheckedChange = onAlarmsEnabledChange,
-                            modifier = Modifier.testTag("alarms_master_switch")
+                            modifier = Modifier
+                                .testTag("alarms_master_switch")
+                                // NUR-011: switch was unlabeled for TalkBack.
+                                .semantics { contentDescription = strings.alarmsMasterTitle }
                         )
                     }
                     HorizontalDivider(
@@ -1067,7 +1109,10 @@ fun SettingsScreen(
                                     onOpenExactAlarmSettings()
                                 },
                                 enabled = alarmsEnabled,
-                                modifier = Modifier.testTag("exact_alarm_system_switch")
+                                modifier = Modifier
+                                    .testTag("exact_alarm_system_switch")
+                                    // NUR-011: mirrors the exact-alarm permission.
+                                    .semantics { contentDescription = strings.alarmsSystemSettings }
                             )
                         }
                         HorizontalDivider(
@@ -1149,7 +1194,10 @@ fun SettingsScreen(
                                     }
                                 },
                                 enabled = alarmsEnabled,
-                                modifier = Modifier.testTag("notification_permission_switch")
+                                modifier = Modifier
+                                    .testTag("notification_permission_switch")
+                                    // NUR-011: notification row switch spoke empty.
+                                    .semantics { contentDescription = strings.setupNotifTitle }
                             )
                         }
                         HorizontalDivider(
@@ -1306,7 +1354,10 @@ fun SettingsScreen(
                                             onAdhanSettingsChanged()
                                         }
                                     },
-                                    modifier = Modifier.testTag("prayer_notification_switch_${pName.lowercase()}")
+                                    modifier = Modifier
+                                        .testTag("prayer_notification_switch_${pName.lowercase()}")
+                                        // NUR-011: per-prayer switch carries the prayer name.
+                                        .semantics { contentDescription = prayerTitle }
                                 )
                             }
                             OutlinedButton(
@@ -1398,7 +1449,10 @@ fun SettingsScreen(
                                                 onAdhanSettingsChanged()
                                             }
                                         }
-                                    }
+                                    },
+                                    // NUR-011: this switch has no testTag and had
+                                    // no semantics either; label it for TalkBack.
+                                    modifier = Modifier.semantics { contentDescription = strings.preReminderTitle }
                                 )
                             }
                         }
@@ -1502,6 +1556,128 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // NUR-001: Diagnostics — the crash logs CrashReporter stored on this
+        // device, newest first, with per-file Copy and Share actions. The
+        // actions use the system clipboard and the standard share sheet, both
+        // fully offline; Nour has no upload flow and nothing here is automatic.
+        item { NourSectionHeader(strings.diagnosticsTitle) }
+        item {
+            val crashLogs = remember { CrashLogReader.loadCrashLogEntries(context) }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("settings_diagnostics_card"),
+                shape = CardExpressiveShape,
+                colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
+                border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
+            ) {
+                Column(
+                    Modifier.padding(NourSpace.lg),
+                    verticalArrangement = Arrangement.spacedBy(NourSpace.md)
+                ) {
+                    Text(
+                        text = strings.diagnosticsNote,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (crashLogs.isEmpty()) {
+                        Text(
+                            text = strings.diagnosticsEmpty,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        crashLogs.forEachIndexed { index, entry ->
+                            if (index > 0) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(NourSpace.xs)) {
+                                Text(
+                                    text = entry.fileName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                val meta = listOfNotNull(
+                                    entry.headerTime,
+                                    entry.version?.let { "v$it" }
+                                ).joinToString(" • ")
+                                Text(
+                                    text = meta.ifBlank { entry.fileName },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(NourSpace.md)
+                                ) {
+                                    // Copy: the full log onto the system clipboard.
+                                    IconButton(
+                                        onClick = {
+                                            runCatching {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                                clipboard?.setPrimaryClip(
+                                                    android.content.ClipData.newPlainText("Nour crash log", entry.fullText)
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("diagnostics_copy_${entry.fileName}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.ContentCopy,
+                                            contentDescription = strings.diagnosticsCopyDesc
+                                        )
+                                    }
+                                    // Share: the standard offline share sheet; the
+                                    // user chooses how to send it (e.g. email).
+                                    IconButton(
+                                        onClick = {
+                                            runCatching {
+                                                val send = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_TEXT, entry.fullText)
+                                                }
+                                                context.startActivity(Intent.createChooser(send, null))
+                                            }
+                                        },
+                                        modifier = Modifier.testTag("diagnostics_share_${entry.fileName}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Share,
+                                            contentDescription = strings.diagnosticsShareDesc
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // NUR-033: factual on-device diagnostics (support info). Pure
+        // introspection only — no sensors, no network, no export. Rows are
+        // long-press copyable; see DeviceDiagnosticsCard below.
+        item { NourSectionHeader(strings.deviceDiagnosticsTitle) }
+        item {
+            DeviceDiagnosticsCard(
+                calculationMethod = calculationMethod,
+                madhab = madhab,
+                highLatRule = highLatRule,
+                strings = strings
+            )
+        }
+
+        // NUR-035: "About this Quran" — where the scripture text came from,
+        // shown in-app; the text itself is English documentation (see
+        // QuranSources); the honest tafsir line is localized.
+        item { NourSectionHeader(strings.quranSourcesTitle) }
+        item { QuranSourcesCard(strings) }
     }
     }
 
@@ -1817,5 +1993,249 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+// ============================================================
+// NUR-033 — "Device diagnostics" (support info, pure introspection)
+// ============================================================
+
+/** One snapshot of everything the diagnostics card shows; gathered on Dispatchers.IO. */
+private data class DeviceDiagStats(
+    val versionLine: String,
+    val nextPrayerName: String?,
+    val nextTriggerMillis: Long?,
+    val exactOk: Boolean,
+    val lastFixAge: String?,
+    val prayerLogs: Int,
+    val bookmarkRows: Int,
+    val khatmahRows: Int,
+    val adhanSettingRows: Int,
+    val actualTextHash: String?
+)
+
+/**
+ * NUR-033: bundles every factual observation the card shows into one IO
+ * function so the composable stays render-only. Pure introspection only —
+ * no sensors, no network. The caller runs this in runCatching: if any piece
+ * cannot be read, the card simply reveals nothing rather than an invented
+ * number.
+ */
+private suspend fun gatherDeviceDiagStats(context: Context, db: NourDatabase): DeviceDiagStats {
+    val prefs = NourPreferences(context)
+    val packageInfo = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0)
+    }.getOrNull()
+    val buildTime = runCatching { BuildConfig.NOUR_BUILD_TIME }.getOrDefault("")
+    val versionLine = listOfNotNull(
+        packageInfo?.versionName,
+        buildTime.ifBlank { null }
+    ).joinToString(" · ")
+    val next = DiagnosticsMath.nextSchedule(prefs.nextAdhanRecords(), System.currentTimeMillis())
+    val now = System.currentTimeMillis()
+    return DeviceDiagStats(
+        versionLine = versionLine.ifBlank { "—" },
+        nextPrayerName = next?.first,
+        nextTriggerMillis = next?.second,
+        exactOk = prefs.adhanExactOk(),
+        lastFixAge = DiagnosticsMath.formatFixAge(prefs.lastLocationFixMillis, now),
+        prayerLogs = db.prayerLogDao().countAll(),
+        bookmarkRows = db.bookmarkDao().countAll(),
+        khatmahRows = db.khatmahDao().countAll(),
+        adhanSettingRows = db.adhanSettingsDao().countAll(),
+        actualTextHash = QuranCorpus.actualTextHash()
+    )
+}
+
+/**
+ * NUR-033: copies one diagnostics value to the system clipboard (fully
+ * offline, same mechanism the crash-log card uses) and confirms with a
+ * localized Copy toast.
+ */
+private fun copyDiagnosticsValue(context: Context, value: String, strings: AppStrings) {
+    runCatching {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Nour", value))
+    }
+    Toast.makeText(context, strings.copyAction, Toast.LENGTH_SHORT).show()
+}
+
+/**
+ * One factual diagnostics row: label left, value right, both wrapping at
+ * large font scales so nothing is clipped. Long-press copies the value;
+ * TalkBack exposes the same action as a custom accessibility action.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DiagRow(
+    label: String,
+    value: String,
+    tag: String,
+    strings: AppStrings,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = NourSize.touchTarget)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = { copyDiagnosticsValue(context, value, strings) }
+            )
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(strings.copyAction) {
+                        copyDiagnosticsValue(context, value, strings)
+                        true
+                    }
+                )
+            }
+            .testTag(tag)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.9f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1.1f)
+        )
+    }
+}
+
+/**
+ * NUR-033 — the "Device diagnostics" card. Gathered once per entry into the
+ * screen; the next-Adhan row comes from the app's own additive records
+ * (AlarmManager cannot be introspected) and is labelled honestly as exact or
+ * as an inexact fallback. The corpus hash row shows the *actual* digest of
+ * the bundled Uthmani file and whether it matches the pinned constant.
+ */
+@Composable
+internal fun DeviceDiagnosticsCard(
+    calculationMethod: CalculationMethod,
+    madhab: Madhab,
+    highLatRule: HighLatitudeRule,
+    strings: AppStrings,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val db = remember { NourDatabase.getInstance(context) }
+    var stats by remember { mutableStateOf<DeviceDiagStats?>(null) }
+
+    LaunchedEffect(Unit) {
+        stats = runCatching { withContext(Dispatchers.IO) { gatherDeviceDiagStats(context, db) } }
+            .getOrNull()
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("settings_device_diagnostics_card"),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
+    ) {
+        Column(
+            Modifier.padding(NourSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(NourSpace.xs)
+        ) {
+            Text(
+                text = strings.diagCopyHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val s = stats
+            if (s != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
+                DiagRow(strings.diagAppVersion, s.versionLine, "diag_row_version", strings)
+                DiagRow(strings.calculationAuthority, calculationMethod.title, "diag_row_method", strings)
+                DiagRow(strings.madhabTitle, madhab.title, "diag_row_madhab", strings)
+                DiagRow(strings.highLatTitle, highLatRule.title, "diag_row_highlat", strings)
+                DiagRow(strings.diagHijriMethodLabel, strings.diagHijriMethodValue, "diag_row_hijri", strings)
+                DiagRow(
+                    strings.diagLastFixLabel,
+                    s.lastFixAge ?: strings.diagLastFixNever,
+                    "diag_row_lastfix",
+                    strings
+                )
+                val nextAdhanValue = s.nextTriggerMillis?.let { millis ->
+                    val prayerLabel = s.nextPrayerName
+                        ?.let { runCatching { PrayerName.valueOf(it).displayName }.getOrDefault(it) }
+                        .orEmpty()
+                    val exactness = if (s.exactOk) strings.diagAdhanExact else strings.diagAdhanInexact
+                    listOfNotNull(
+                        prayerLabel.ifBlank { null },
+                        DiagnosticsMath.formatScheduleStamp(millis),
+                        exactness
+                    ).joinToString(" · ")
+                } ?: strings.diagAdhanNone
+                DiagRow(strings.diagNextAdhanLabel, nextAdhanValue, "diag_row_nextadhan", strings)
+                DiagRow(strings.diagRowsPrayerLogs, formatNumerals(s.prayerLogs.toString()), "diag_row_logs", strings)
+                DiagRow(strings.diagRowsBookmarks, formatNumerals(s.bookmarkRows.toString()), "diag_row_bookmarks", strings)
+                DiagRow(strings.diagRowsKhatmah, formatNumerals(s.khatmahRows.toString()), "diag_row_khatmah", strings)
+                DiagRow(strings.diagRowsAdhanSettings, formatNumerals(s.adhanSettingRows.toString()), "diag_row_adhansettings", strings)
+                val intact = DiagnosticsMath.isCorpusIntact(s.actualTextHash, QuranCorpus.TEXT_HASH)
+                val corpusValue = DiagnosticsMath.shortHash(s.actualTextHash) + " · " +
+                    if (intact) strings.diagCorpusIntact else strings.diagCorpusFailed
+                DiagRow(strings.diagCorpusHashLabel, corpusValue, "diag_row_corpus", strings)
+            }
+        }
+    }
+}
+
+// ============================================================
+// NUR-035 — "About this Quran" (in-app provenance)
+// ============================================================
+
+/**
+ * NUR-035 — provenance card: where the bundled scripture text came from
+ * (Tanzil Uthmani v1.1), licences, the pin-and-verify integrity note, and
+ * the honest line that other translations and tafsir are not included. The
+ * documentation text itself is English on purpose (it mirrors Tanzil's own
+ * licence wording and lives beside the corpus it describes); the section
+ * title and the tafsir honesty line are localized. URLs are plain text.
+ */
+@Composable
+internal fun QuranSourcesCard(
+    strings: AppStrings,
+    modifier: Modifier = Modifier
+) {
+    val lines = remember {
+        QuranSources.lines(QuranCorpus.TEXT_HASH, QuranCorpus.EN_SAHIH_HASH)
+    }
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("settings_quran_sources_card"),
+        shape = CardExpressiveShape,
+        colors = CardDefaults.cardColors(containerColor = nourCardSurfaceColor()),
+        border = BorderStroke(NourSize.border, MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.CardBorder))
+    ) {
+        Column(
+            Modifier.padding(NourSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(NourSpace.sm)
+        ) {
+            lines.forEach { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = NourAlpha.Hairline))
+            Text(
+                text = strings.quranSourcesNotBundled,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }

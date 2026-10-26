@@ -37,24 +37,28 @@ data class Ayah(
     fun getTafsir(editionId: String): String? = tafsirEntries[editionId]
 }
 
+data class MushafSegment(
+    val surahNumber: Int,
+    val showSurahHeader: Boolean, // true when this segment contains ayah 1 of its surah
+    val ayahs: List<Ayah>
+)
+
 data class MushafPage(
     val pageNumber: Int,
     val juzNumber: Int,
     val hizbQuarter: Int,
-    val surahHeader: Surah?,
-    val ayahs: List<Ayah>
+    val surahHeader: Surah?,      // kept for existing callers/tests: header of the first segment when showSurahHeader, else null
+    val ayahs: List<Ayah>,
+    val segments: List<MushafSegment> = emptyList()
 )
 
 data class TranslationEdition(
     val id: String,
     val name: String,
     val language: String,
-    val author: String
+    val author: String,
+    val bundled: Boolean = false
 )
 
-data class TafsirEdition(
-    val id: String,
-    val name: String,
-    val language: String,
-    val author: String
-)
+// TafsirEdition removed in Wave A: no tafsir is bundled, so advertising
+// editions the app cannot render was dishonest.

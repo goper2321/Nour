@@ -2,6 +2,7 @@ package com.example
 
 import com.example.features.quran.data.QuranCorpus
 import com.example.features.quran.data.QuranRepository
+import com.example.features.quran.data.QuranSources
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -73,5 +74,14 @@ class QuranCorpusTest {
         assertEquals(null, QuranRepository.resolveAyah(2, 287))
         assertEquals(null, QuranRepository.resolveAyah(1, 0))
         assertEquals(null, QuranRepository.resolveAyah(115, 1))
+    }
+
+    @Test
+    fun provenanceNamesBundledAndUnbundledContent() {
+        val lines = QuranSources.lines(QuranCorpus.TEXT_HASH, QuranCorpus.EN_SAHIH_HASH)
+            .joinToString("\n")
+        assertTrue(lines.contains("uthmani.txt"))
+        assertTrue(lines.contains("metadata.xml"))
+        assertTrue(lines.contains("not bundled", ignoreCase = true))
     }
 }

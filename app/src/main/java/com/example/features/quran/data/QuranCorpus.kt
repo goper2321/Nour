@@ -18,11 +18,39 @@ internal object QuranCorpus {
         val bytes = requireNotNull(javaClass.getResourceAsStream("/quran/$name")) {
             "Missing Quran resource: $name"
         }.use { it.readBytes() }
-        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
-            .joinToString("") { "%02x".format(it.toInt() and 255) }
-        require(digest == hash) { "Quran resource integrity check failed: $name" }
+        val message = integrityErrorFor(bytes, name, hash)
+        require(message == null) { message!! }
         return bytes
     }
+
+    /**
+     * Pure SHA-256 integrity check over injected bytes. Returns null when the
+     * bytes match `hash`, otherwise the fixed error message that names the
+     * resource. Kept beside `resource` so the corruption path can be unit
+     * tested with synthetic fixtures (same size, flipped byte) without ever
+     * touching the bundled files (NUR-034).
+     */
+    internal fun integrityErrorFor(bytes: ByteArray, name: String, hash: String): String? {
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+        return if (digest == hash) null else "Quran resource integrity check failed: $name"
+    }
+
+    /**
+     * NUR-033 / NUR-035: computes the real SHA-256 of the bundled
+     * Uthmani text file at runtime — the hash the user sees on the Settings
+     * source documentation / diagnostics cards is the *actual* digest of the
+     * bundled bytes, never a re-typed copy of the constant. Returns null when
+     * the file cannot be read or hashed (the card then reports the corpus as
+     * not verifiable instead of inventing a value).
+     */
+    internal fun actualTextHash(): String? = runCatching {
+        val bytes = javaClass.getResourceAsStream("/quran/uthmani.txt")
+            ?.use { it.readBytes() }
+            ?: return null
+        MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it.toInt() and 255) }
+    }.getOrNull()
 
     private data class Partition(val index: Int, val reference: Int)
     private fun reference(surah: Int, ayah: Int) = surah * 1000 + ayah

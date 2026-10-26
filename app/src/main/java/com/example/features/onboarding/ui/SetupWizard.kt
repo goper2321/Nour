@@ -116,6 +116,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -217,7 +219,8 @@ fun SetupWizard(
         detectingLocation = true
         locationError = false
         scope.launch {
-            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            val attempt = DeviceLocationHelper.getCurrentLocation(context)
+            val loc = attempt.location
             if (loc != null) {
                 onLocationChange(DeviceLocationHelper.resolveUserLocation(context, loc))
                 locationError = false
@@ -1655,6 +1658,8 @@ private fun SetupAlertsStep(
                     modifier = Modifier
                         .testTag("setup_alarms_master_switch")
                         .testTag("setup_alerts_switch")
+                        // NUR-011: switch was unlabeled for TalkBack.
+                        .semantics { contentDescription = strings.alarmsMasterTitle }
                 )
             }
         }
@@ -1714,7 +1719,10 @@ private fun SetupAlertsStep(
                     Switch(
                         checked = notifGranted,
                         onCheckedChange = { onNotifToggle() },
-                        modifier = Modifier.testTag("setup_notif_switch")
+                        modifier = Modifier
+                            .testTag("setup_notif_switch")
+                            // NUR-011: notification switch spoke empty.
+                            .semantics { contentDescription = strings.setupNotifTitle }
                     )
                 }
             }
@@ -1951,7 +1959,10 @@ private fun SetupAlertsStep(
                 Switch(
                     checked = earlyReminderEnabled,
                     onCheckedChange = onEarlyReminderChange,
-                    modifier = Modifier.testTag("setup_early_reminder_switch")
+                    modifier = Modifier
+                        .testTag("setup_early_reminder_switch")
+                        // NUR-011: early-reminder switch was unlabeled.
+                        .semantics { contentDescription = strings.setupPreAdhanTitle }
                 )
             }
         }
@@ -1979,7 +1990,7 @@ private fun AnimatedSoundwaveVisualizer() {
             initialValue = 6f,
             targetValue = 22f,
             animationSpec = infiniteRepeatable(
-                animation = tween(400, easing = LinearEasing),
+                animation = tween(NourMotion.duration(400), easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "bar1"
@@ -1988,7 +1999,7 @@ private fun AnimatedSoundwaveVisualizer() {
             initialValue = 20f,
             targetValue = 8f,
             animationSpec = infiniteRepeatable(
-                animation = tween(320, easing = FastOutSlowInEasing),
+                animation = tween(NourMotion.duration(320), easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "bar2"
@@ -1997,7 +2008,7 @@ private fun AnimatedSoundwaveVisualizer() {
             initialValue = 10f,
             targetValue = 24f,
             animationSpec = infiniteRepeatable(
-                animation = tween(480, easing = FastOutSlowInEasing),
+                animation = tween(NourMotion.duration(480), easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "bar3"

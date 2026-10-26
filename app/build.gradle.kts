@@ -1,8 +1,14 @@
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
+  alias(libs.plugins.kover)
+  alias(libs.plugins.detekt)
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +56,35 @@ tasks.withType<Test>().configureEach {
   }
 }
 
+// ---------------------------------------------------------------------------
+// NUR-041 version scheme — single source of truth is `nour.versionName` in
+// gradle.properties (format X.Y.Z).
+//
+// versionCode = Major*10000 + Minor*100 + Patch, each component <= 99.
+//
+// Ceiling: versionCode is a signed 32-bit int and must stay under
+// 2,147,483,647; with this formula that caps the MAJOR component at 214,748.
+// Named scheme: release v1.0 = versionCode 10000.
+//
+// Sample bumps: patch 1.1.0 -> 1.1.1 changes 10100 -> 10101;
+//               minor 1.1.0 -> 1.2.0 changes 10100 -> 10200;
+//               major 1.1.0 -> 2.0.0 changes 10100 -> 20000.
+// ---------------------------------------------------------------------------
+val nourVersionName = providers.gradleProperty("nour.versionName").get()
+val nourVersionComponents = nourVersionName.split(".").map { part ->
+    part.toIntOrNull()
+        ?: error("nour.versionName must be three integers X.Y.Z (got: \"$nourVersionName\")")
+}
+check(nourVersionComponents.size == 3) {
+    "nour.versionName must be X.Y.Z with exactly three components (got: \"$nourVersionName\")"
+}
+check(nourVersionComponents.all { it in 0..99 }) {
+    "each nour.versionName component must be <= 99 for the versionCode formula (got: \"$nourVersionName\")"
+}
+val nourVersionCode = nourVersionComponents[0] * 10000 +
+    nourVersionComponents[1] * 100 +
+    nourVersionComponents[2]
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -58,17 +93,28 @@ android {
     applicationId = "com.aistudio.nour.islamic"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1"
+    versionCode = nourVersionCode
+    versionName = nourVersionName
+
+    // NUR-033: the Settings diagnostics card shows when this APK was
+    // assembled ("build date hash"). Stamped once at configuration time from
+    // UTC so a clean rebuild of the same source can still be told apart.
+    // (Script-local imports: inside build.gradle.kts the name `java`.
+    //  resolves to the plugin extension accessor, not the package.)
+    val nourBuildTime = LocalDateTime.now(ZoneOffset.UTC)
+        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+    buildConfigField("String", "NOUR_BUILD_TIME", "\"$nourBuildTime\"")
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  // Release signing uses env-provided credentials when available. Without an
-  // upload keystore (no KEYSTORE_PATH file and no STORE_PASSWORD), release
-  // builds fall back to the built-in Android debug keystore so
-  // `assembleRelease` still works for local verification. CI/production must
-  // provide a real keystore:
+  // Release signing needs env-provided credentials; CI/production must supply
+  // a real upload keystore. Without one, `assembleRelease` must FAIL — never
+  // silently fall back to the debug keystore (a debug-signed release APK must
+  // be impossible to produce by accident). The check runs in the task-graph
+  // callback below, not as a bare throw: configuration is evaluated for EVERY
+  // Gradle invocation, so an eager throw would break `assembleDebug` too. The
+  // required variables (all documented in .env.example) are:
   //   KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS (default "upload"), KEY_PASSWORD
   //
   // Both build types use AGP's built-in `debug` signing config, whose keystore
@@ -81,7 +127,18 @@ android {
   val uploadKeystore = System.getenv("KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
   val hasReleaseCreds = uploadKeystore != null && !System.getenv("STORE_PASSWORD").isNullOrEmpty()
   if (!hasReleaseCreds) {
-    logger.warn("Nour: no upload keystore configured; release builds will use the debug keystore (not for production).")
+    // Fires only when a task graph containing a release task is about to run;
+    // `assembleDebug` and every other task configure and run exactly as before.
+    gradle.taskGraph.whenReady {
+      if (allTasks.any { it.name.contains("Release") }) {
+        throw GradleException(
+          "Nour release cannot complete: release signing env vars are missing. " +
+            "Set KEYSTORE_PATH, STORE_PASSWORD, KEY_ALIAS (defaults to \"upload\") and KEY_PASSWORD, " +
+            "then retry. Hint: see .env.example for the documented values."
+        )
+      }
+    }
+    logger.warn("Nour: release signing env vars missing; assembleRelease will fail (see .env.example).")
   }
 
   signingConfigs {
@@ -98,9 +155,12 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      // Real upload keystore when configured, otherwise the debug keystore.
+      // Real upload keystore when configured. The debug fallback below is a
+      // stand-in only — the guard above fails the build before any release
+      // signing could use it.
       signingConfig =
         if (hasReleaseCreds) signingConfigs.getByName("release")
         else signingConfigs.getByName("debug")
@@ -177,3 +237,150 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
 }
+
+// ---------------------------------------------------------------------------
+// NUR-029 - offline-permission guard. Nour is offline-first with no INTERNET
+// permission (AGENTS.md "Offline-first", checklist guard G5). This verification
+// task dumps the permissions of the debug APK with aapt2 and fails the build if
+// a forbidden permission ever sneaks into app/src/main/AndroidManifest.xml.
+// The signed release APK is owner-verified with the same task (aapt2 path) and
+// CI runs this check on the debug APK in the unit-tests job.
+// ---------------------------------------------------------------------------
+tasks.register("verifyOfflineManifest") {
+  group = "verification"
+  description =
+    "Fails if app-debug.apk declares INTERNET / ACCESS_NETWORK_STATE / BILLING (offline-first guard)."
+  // The APK this check reads is the one assembleDebug produces, so it must be built first.
+  dependsOn("assembleDebug")
+
+  // Resolved at configuration time and captured as plain values, so the doLast
+  // block stays configuration-cache compatible (no Gradle script object refs).
+  val appBuildDir = layout.buildDirectory.get().asFile
+  val sdkHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+  val buildToolsRoot = if (sdkHome.isNullOrEmpty()) null else file("$sdkHome/build-tools").takeIf { it.isDirectory }
+
+  val forbiddenPermissions = listOf(
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE",
+    "com.android.vending.BILLING",
+  )
+
+  doLast {
+    val toolsRoot = buildToolsRoot
+      ?: throw GradleException(
+        "Nour offline check: ANDROID_HOME or ANDROID_SDK_ROOT must point at an " +
+          "SDK with a build-tools directory to locate aapt2."
+      )
+    // "36.0.0" -> 36_000_000; plain single-integer keys keep maxByOrNull's
+    // Comparable inference simple (build-tools version numbers are small).
+    fun versionKey(dirName: String): Long =
+      dirName.split('.').fold(0L) { acc, part -> acc * 1_000L + (part.toIntOrNull() ?: 0) }
+    val aapt2 = toolsRoot.listFiles()
+      ?.filter { it.isDirectory && it.resolve("aapt2").isFile }
+      ?.maxByOrNull { versionKey(it.name) }
+      ?.resolve("aapt2")
+      ?: throw GradleException("Nour offline check: no aapt2 found under $toolsRoot.")
+
+    val apkFile = appBuildDir.resolve("outputs/apk/debug/app-debug.apk")
+    if (!apkFile.exists()) {
+      throw GradleException("Nour offline check: $apkFile not found (assembleDebug did not run?).")
+    }
+
+    val process = ProcessBuilder(listOf(aapt2.absolutePath, "dump", "badging", apkFile.absolutePath))
+      .redirectErrorStream(true)
+      .start()
+    val dump = process.inputStream.bufferedReader().readText()
+    if (process.waitFor() != 0) {
+      throw GradleException("Nour offline check: aapt2 dump failed on $apkFile:\n$dump")
+    }
+
+    val usesPermissionLines = dump.lineSequence()
+      .filter { it.startsWith("uses-permission") }
+      .map { it.trim() }
+      .toList()
+    println("Nour offline check: uses-permission lines from aapt2 dump badging $apkFile:")
+    usesPermissionLines.forEach { println("Nour offline check:   $it") }
+
+    // Badging prints `uses-permission: name='...'`; other aapt forms print the
+    // bare name. Strip the wrapper so the forbidden names compare correctly.
+    val declaredNames = usesPermissionLines
+      .map { it.substringAfter(':').trim() }
+      .map {
+        if (it.startsWith("name='")) {
+          it.removePrefix("name='").substringBefore('\'')
+        } else {
+          it.substringBefore(' ')
+        }
+      }
+      .toSet()
+    val hits = forbiddenPermissions.filter { it in declaredNames }
+    if (hits.isNotEmpty()) {
+      throw GradleException(
+        "Nour offline check: FAILED - forbidden permission(s) found in app-debug.apk: " +
+          "${hits.joinToString()}. Nour is offline-first; remove them from " +
+          "app/src/main/AndroidManifest.xml (checklist guard G5)."
+      )
+    }
+    println("Nour offline check: OK")
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NUR-021 - Room schema export. Schema stays at version 1 and the entities are
+// untouched, so existing user data is safe (AGENTS.md §6). Room writes
+// app/schemas/com.example.database.NourDatabase/1.json through KSP, which is
+// what makes every future schema change diffable and the required migration
+// reviewable. app/schemas is not gitignored: the JSON is meant to be tracked.
+// ---------------------------------------------------------------------------
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// ---------------------------------------------------------------------------
+// NUR-023 - coverage gate: >= 60% LINE coverage measured ONLY for the
+// features/ package set (the item explicitly forbids a whole-project gate).
+// Wildcards cross dots, so "com.example.features.*" covers every features
+// subpackage. Robolectric test classes live outside features/ and are never
+// measured, and no @Preview composables exist in features/ (checked by grep),
+// so the item's exclusion requirements are satisfied by this single filter.
+// Host note: on x86_64 (CI + the usual dev host) the suite runs in full and
+// the gate is exact; on ARM hosts that exclude Robolectric the measured
+// number would under-count UI paths, since those tests are not run there.
+// koverVerify automatically runs testDebugUnitTest first when invoked alone.
+// ---------------------------------------------------------------------------
+kover {
+  reports {
+    filters {
+      includes {
+        classes("com.example.features.*")
+      }
+    }
+    verify {
+      rule {
+        minBound(60)
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// NUR-027 - detekt static analysis, MINIMAL surface, local only.
+// - Not wired into any lifecycle task here: `./gradlew :app:detekt` is run on
+//   demand, so normal builds (assemble*/test*) pay nothing for it.
+// - baseline records the violations of existing code; only NEW findings fail
+//   future runs. Never auto-fix: the baseline is the record, not a patch.
+// - ruleset choices live in config/detekt/detekt.yml (complexity + naming +
+//   empty-blocks, magic numbers OFF for the calculation math).
+// ---------------------------------------------------------------------------
+detekt {
+  config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+  buildUponDefaultConfig = true
+  baseline = file("$rootDir/config/detekt/baseline.xml")
+}
+
+// NUR-026 - mutation testing: DEFERRED (reasoned refusal, 2026-10-25).
+// pitest-gradle-plugin 1.15.0 registers its 'pitest' extension only when the
+// Java plugin is applied; :app is an Android application module (AGP 9.1.1),
+// so the extension never registers and the task cannot be configured. Running
+// pitest on the prayer/Qibla math requires extracting those packages into a JVM
+// library module first (NUR-020). See docs/mutation-testing.md.

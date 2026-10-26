@@ -26,7 +26,38 @@
   converts; published by Dar Abul-Qasim. Displayed in-app with the credit line
   "English — Saheeh International". No tafsir text is bundled yet.
 
+## What is bundled / not bundled
+- Bundled: `uthmani.txt` (Tanzil Uthmani 1.1), `metadata.xml` (Tanzil metadata 1.0,
+  includes the 604-page division), `en.sahih.txt`/`en_sahihintl.txt` (Saheeh International).
+- Not bundled: tafsir and the other 12 translation editions advertised by Tanzil
+  (Pickthall, Hamidullah, Bernström, Diyanet, Jalandhry, Bubenheim, Cortés,
+  Indonesian Ministry, Mujibur Rahman, Suhel Farooq Khan, Elmir Kuliev, Ma Jian).
+  The app does not invent them; missing content is reported as "not bundled".
+
+## Page layout limitation
+- The 604-page division is taken from Tanzil metadata and is the real page
+  partition, but Nour does not reproduce the printed Madinah Mushaf's exact line
+  breaks, line art, or script variants. The page reader is "verse flow grouped
+  by page", not a facsimile.
+
 ## Integrity
 `QuranCorpus` verifies each file's SHA-256 at load and asserts 114 suras, 6,236
 verses in canonical order, and 604 page / 30 juz / 240 hizb-quarter partitions before
 the corpus is served.
+
+## Bundled typeface (optional, not Quran text)
+
+- File: `app/src/main/res/font/amiri_quran.ttf` — Amiri Quran Regular (version 1.003),
+  136,920 bytes, downloaded verbatim from
+  `https://raw.githubusercontent.com/google/fonts/main/ofl/amiriquran/AmiriQuran-Regular.ttf`.
+- SHA-256: `e2a47644762d16bdfb6d33e0d8db8c6ff30beae84150ef5a705316bbd829455c`
+- Google Fonts path last changed in commit
+  `2e4388d444fb67f7e20cc75a72d1f3addfd18d31` (2025-07-17). The earlier plan pinned
+  `480bb746e99ea700bb0d6b4dbf96302d58192103`, which does not exist in that repository.
+- Copyright 2010-2022 The Amiri Quran Project Authors
+  (https://github.com/aliftype/amiri), licensed under the SIL Open Font License 1.1.
+  The full license text is bundled at `app/src/main/res/raw/amiri_quran_ofl.txt`
+  (SHA-256 `b32e3b24e2a943b8acbf6ab8d5499bfed737d5176091b7341a8c1e7fbcdeb0fa`).
+- The font ships as an **optional** scripture typeface (`quran_typeface`), applied only to
+  Arabic verse text. It is not a Gradle dependency and never added to the verified
+  corpus directory above.

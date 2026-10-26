@@ -123,6 +123,10 @@ object PrayerNotificationScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // NUR-033: tracks whether the *exact* alarm call actually succeeded,
+        // so the app-record below can honestly say the next Adhan will fire
+        // on time (true) or has fallen back to an inexact window (false).
+        var exactSchedulingSucceeded = false
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setExactAndAllowWhileIdle(
@@ -130,7 +134,9 @@ object PrayerNotificationScheduler {
                     triggerAtMillis,
                     pendingIntent
                 )
+                exactSchedulingSucceeded = true
             } else {
+                exactSchedulingSucceeded = true
                 alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
@@ -139,6 +145,7 @@ object PrayerNotificationScheduler {
             }
         } catch (e: SecurityException) {
             // In Android 12+, if exact alarm permission is restricted, gracefully fallback
+            exactSchedulingSucceeded = false
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
@@ -147,6 +154,27 @@ object PrayerNotificationScheduler {
                 }
             } catch (e2: Exception) {
                 Log.e(TAG, "Failed to schedule alarm", e2)
+            }
+        }
+
+        // NUR-033: record the main (non-pre-reminder) trigger we still believe
+        // is scheduled so the Settings diagnostics card can show the next
+        // Adhan honestly. The system AlarmManager cannot be introspected for
+        // our exact alarms, so the app keeps its own minimal record; alarm
+        // timing itself is untouched (safety-critical scheduling unchanged).
+        if (!isPreReminder) {
+            runCatching {
+                val schedPrefs = context.getSharedPreferences("nour_app_prefs", Context.MODE_PRIVATE)
+                val stored = schedPrefs.getLong("adhan_next_" + prayerName.name, 0L)
+                val replace = com.example.features.settings.DiagnosticsMath.shouldReplaceStoredNext(
+                    stored, triggerAtMillis, System.currentTimeMillis()
+                )
+                schedPrefs.edit()
+                    .putBoolean("adhan_exact_ok", exactSchedulingSucceeded)
+                    .apply {
+                        if (replace) putLong("adhan_next_" + prayerName.name, triggerAtMillis)
+                    }
+                    .apply()
             }
         }
     }
@@ -171,6 +199,17 @@ object PrayerNotificationScheduler {
                 alarmManager.cancel(pendingIntent)
                 pendingIntent.cancel()
             }
+        }
+
+        // NUR-033: this prayer's alarms are gone, so drop the app-record of
+        // its next Adhan — otherwise the Settings diagnostics card would
+        // honestly show a trigger that will never fire. Alarm cancellation
+        // itself (system calls above) is untouched.
+        runCatching {
+            context.getSharedPreferences("nour_app_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .remove("adhan_next_" + prayerName.name)
+                .apply()
         }
     }
 

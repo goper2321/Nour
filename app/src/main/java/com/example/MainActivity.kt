@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
             val appearance = remember { NourPreferences(context) }
             var themeMode by remember { mutableStateOf(appearance.themeMode) }
             var dynamicColors by remember { mutableStateOf(appearance.dynamicColors) }
+            var highContrast by remember { mutableStateOf(appearance.highContrast) }
             var seedColorArgb by remember { mutableStateOf(appearance.seedColorArgb) }
             val reduceMotion = NourReduceMotion.remember()
             // Publish to the animation-spec helpers (no composable context there).
@@ -153,9 +154,15 @@ class MainActivity : ComponentActivity() {
                     else -> androidx.compose.foundation.isSystemInDarkTheme()
                 },
                 dynamicColor = dynamicColors,
-                seedColorArgb = seedColorArgb
+                seedColorArgb = seedColorArgb,
+                highContrast = highContrast
             ) {
                 NourMainApp(themeMode, dynamicColors,
+                    highContrast = highContrast,
+                    onHighContrastChange = { enabled ->
+                        highContrast = enabled
+                        appearance.highContrast = enabled
+                    },
                     onThemeModeChange = { themeMode = it; appearance.themeMode = it },
                     onDynamicColorsChange = { enabled ->
                         dynamicColors = enabled
@@ -185,8 +192,10 @@ class MainActivity : ComponentActivity() {
 fun NourMainApp(
     themeMode: String = "system",
     dynamicColors: Boolean = false,
+    highContrast: Boolean = false,
     onThemeModeChange: (String) -> Unit = {},
     onDynamicColorsChange: (Boolean) -> Unit = {},
+    onHighContrastChange: (Boolean) -> Unit = {},
     seedColorArgb: Int? = null,
     onSeedChange: (Int?) -> Unit = {}
 ) {
@@ -242,7 +251,8 @@ fun NourMainApp(
     // Helper to refresh location via GPS
     val refreshLocation: () -> Unit = {
         coroutineScope.launch {
-            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            val attempt = DeviceLocationHelper.getCurrentLocation(context)
+            val loc = attempt.location
             if (loc != null) {
                 val resolved = DeviceLocationHelper.resolveUserLocation(context, loc)
                 userLocation = resolved
@@ -256,7 +266,8 @@ fun NourMainApp(
     // Automatically retrieve location when permission is granted and location is not yet auto-detected
     LaunchedEffect(locationPermissionState.allPermissionsGranted) {
         if (locationPermissionState.allPermissionsGranted && !userLocation.isAutoDetected) {
-            val loc = DeviceLocationHelper.getCurrentLocation(context)
+            val attempt = DeviceLocationHelper.getCurrentLocation(context)
+            val loc = attempt.location
             if (loc != null) {
                 val resolved = DeviceLocationHelper.resolveUserLocation(context, loc)
                 userLocation = resolved
@@ -392,6 +403,15 @@ fun NourMainApp(
                         )
                     }
 
+                    // NUR-013 — deliberate page transition. A cross-fade keyed by
+                    // NourNavDestination already exists, so every destination is
+                    // transitioned; the chosen motion is fade-only on purpose —
+                    // no directional slide, because with a floating nav pill the
+                    // arrival slide reads as content jitter rather than travel.
+                    // Reduced motion is handled by NourMotion.duration: on the
+                    // "Remove animations" setting both tweens collapse to 0 ms so
+                    // the switch becomes an instant replacement (still a fade
+                    // chain, just with zero length — nothing disappears).
                     AnimatedContent(
                         targetState = currentDestination,
                         modifier = Modifier.weight(1f).fillMaxHeight()
@@ -464,6 +484,8 @@ fun NourMainApp(
                                         dynamicColors = dynamicColors,
                                         onThemeModeChange = onThemeModeChange,
                                         onDynamicColorsChange = onDynamicColorsChange,
+                                        highContrast = highContrast,
+                                        onHighContrastChange = onHighContrastChange,
                                         location = userLocation,
                                         calculationMethod = calculationMethod,
                                         madhab = madhab,

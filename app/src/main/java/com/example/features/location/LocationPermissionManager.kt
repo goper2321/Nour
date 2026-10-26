@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.models.UserLocation
+import com.example.features.settings.NourPreferences
 import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import com.example.ui.theme.CardExpressiveShape
@@ -98,45 +99,93 @@ fun rememberLocationPermissionState(): MultiplePermissionsState {
 }
 
 /**
- * Location Helper that fetches current device GPS location using FusedLocationProviderClient
- * with graceful fallback to Android system LocationManager (e.g. for offline or non-GMS devices).
+ * Location Helper that fetches current device GPS location using
+ * FusedLocationProviderClient with the prescribed graceful fallback to the
+ * Android system LocationManager for de-Googled ROMs and GMS failures
+ * (NUR-030). The decision itself is delegated to [LocationSourceResolver];
+ * callers receive which source produced the fix so the UI can show the
+ * honest "using pure device GPS" state. This never throws.
  */
 object DeviceLocationHelper {
 
+    /** Result of one location attempt: the fix (or null) and its source. */
+    data class Attempt(val location: Location?, val source: LocationSourceKind)
+
     @SuppressLint("MissingPermission")
-    suspend fun getCurrentLocation(context: Context): Location? = withContext(Dispatchers.IO) {
-        try {
-            // First try Google Play Services FusedLocationProviderClient
-            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-            val cts = CancellationTokenSource()
+    suspend fun getCurrentLocation(context: Context): Attempt = withContext(Dispatchers.IO) {
+        // Ask about GMS health BEFORE touching the fused provider, so a
+        // de-Googled ROM never goes near it. Any probe failure still cannot
+        // throw out of here (NUR-028: location failures are honest states).
+        val playServicesAvailable = try {
+            com.google.android.gms.common.GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(context) == com.google.android.gms.common.ConnectionResult.SUCCESS
+        } catch (_: Throwable) {
+            false
+        }
 
-            var fetchedLoc: Location? = null
+        var fusedLocation: Location? = null
+        if (playServicesAvailable) {
             try {
-                val task = fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-                val completed = com.google.android.gms.tasks.Tasks.await(task, 12, java.util.concurrent.TimeUnit.SECONDS)
-                if (completed != null) {
-                    fetchedLoc = completed
-                } else {
-                    // Fallback to last known location
-                    val lastTask = fusedClient.lastLocation
-                    fetchedLoc = com.google.android.gms.tasks.Tasks.await(lastTask, 5, java.util.concurrent.TimeUnit.SECONDS)
-                }
+                val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                val token = CancellationTokenSource().token
+                fusedLocation = com.google.android.gms.tasks.Tasks.await(
+                    fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, token),
+                    12, java.util.concurrent.TimeUnit.SECONDS
+                ) ?: com.google.android.gms.tasks.Tasks.await(
+                    fusedClient.lastLocation,
+                    5, java.util.concurrent.TimeUnit.SECONDS
+                )
             } catch (_: Exception) {
-                // GMS unavailable, timed out, or last-known failed — try platform LocationManager.
+                // GMS error, timeout, or no fix — the resolver will fall through
+                // to the platform providers.
             }
+        }
 
-            if (fetchedLoc != null) return@withContext fetchedLoc
-
-            // Fallback to Android standard LocationManager
-            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            val gpsLoc = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            val netLoc = locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            val passiveLoc = locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-
-            gpsLoc ?: netLoc ?: passiveLoc
-        } catch (_: Exception) {
+        val locationManager = try {
+            context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        } catch (_: Throwable) {
             null
         }
+        val gpsEnabled = try {
+            locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+        } catch (_: Throwable) {
+            false
+        }
+        val networkEnabled = try {
+            locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+        } catch (_: Throwable) {
+            false
+        }
+
+        val source = LocationSourceResolver.select(
+            LocationSourceResolver.Facts(
+                playServicesAvailable = playServicesAvailable,
+                fusedFailed = fusedLocation == null,
+                gpsEnabled = gpsEnabled,
+                networkEnabled = networkEnabled
+            )
+        )
+
+        // Last-known lookups per the prescribed chain. They are cheap, purely
+        // on-device queries, and never throw without permission (which the
+        // permission flow guarantees before any of this runs — unchanged in
+        // NUR-030).
+        val location = when (source) {
+            LocationSourceKind.FUSED -> fusedLocation
+            LocationSourceKind.PLATFORM_GPS ->
+                lastKnownFrom(locationManager, LocationManager.GPS_PROVIDER)
+            LocationSourceKind.PLATFORM_NETWORK ->
+                lastKnownFrom(locationManager, LocationManager.NETWORK_PROVIDER)
+            LocationSourceKind.MANUAL -> null
+        }
+
+        Attempt(location, if (location == null) LocationSourceKind.MANUAL else source)
+    }
+
+    private fun lastKnownFrom(locationManager: LocationManager?, provider: String): Location? = try {
+        locationManager?.getLastKnownLocation(provider)
+    } catch (_: Throwable) {
+        null
     }
 
     /**
@@ -194,17 +243,27 @@ fun LocationPermissionCard(
     val strings = LocalAppStrings.current
     var isDetecting by remember { mutableStateOf(false) }
     var detectionFailed by remember { mutableStateOf(false) }
+    // NUR-028/030 honesty: the source that actually produced the last fix, so
+    // the card can say "using pure device GPS" when the platform fallback was
+    // the real provider instead of implying fused accuracy.
+    var lastSource by remember { mutableStateOf<LocationSourceKind?>(null) }
 
     fun detectGps() {
         if (!isDetecting) {
             isDetecting = true
             detectionFailed = false
             coroutineScope.launch {
-                val loc = DeviceLocationHelper.getCurrentLocation(context)
+                val attempt = DeviceLocationHelper.getCurrentLocation(context)
+                val loc = attempt.location
                 if (loc != null) {
+                    lastSource = attempt.source
                     val userLoc = DeviceLocationHelper.resolveUserLocation(context, loc)
+                    // NUR-033: remember when the last successful fix happened so
+                    // the Settings diagnostics card can show an honest age.
+                    NourPreferences(context).lastLocationFixMillis = System.currentTimeMillis()
                     onLocationDetected(userLoc)
                 } else {
+                    lastSource = null
                     detectionFailed = true
                 }
                 isDetecting = false
@@ -273,10 +332,13 @@ fun LocationPermissionCard(
 
                     Column {
                         Text(
-                            text = if (permissionState.allPermissionsGranted)
-                                strings.gpsActive
-                            else
-                                strings.locationPermissionRequired,
+                            text = when {
+                                !permissionState.allPermissionsGranted -> strings.locationPermissionRequired
+                                // NUR-030 honest fallback state: a fix from a
+                                // platform provider is labelled for what it is.
+                                lastSource != null && lastSource != LocationSourceKind.FUSED -> strings.pureDeviceGps
+                                else -> strings.gpsActive
+                            },
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,

@@ -32,7 +32,12 @@ data class QiblaData(
     val isDeviceFlat: Boolean = true, // Whether device is held sufficiently flat for optimal accuracy (< 35°)
     val sunAzimuth: Float = 0f, // Sun bearing for celestial cross-check
     val hasAccelerometer: Boolean = true,
-    val hasMagnetometer: Boolean = true
+    val hasMagnetometer: Boolean = true,
+    // NUR-028 sensor honesty: true when every heading-capable registration
+    // attempt in startListening() was refused by the system (sensors absent
+    // from the requested set, or disabled / transient refusal). The screen
+    // says "compass unavailable" instead of freezing at "waiting".
+    val registrationFailed: Boolean = false
 )
 
 object QiblaCalculator {
@@ -162,20 +167,27 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
         hasGeoMagnetic = false
         magneticAccuracy = SensorManager.SENSOR_STATUS_UNRELIABLE
         smoothedHeading = Float.NaN
-        _qiblaState.value = _qiblaState.value.copy(hasHeading = false, accuracy = magneticAccuracy)
-        if (useRotationVector) {
-            // High sample rate (20 ms) for a smooth, gyro-stabilized rotation vector.
-            rotationVectorSensor?.let {
-                sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-            }
-            return
+        _qiblaState.value = _qiblaState.value.copy(
+            hasHeading = false, accuracy = magneticAccuracy, registrationFailed = false
+        )
+        // NUR-028 sensor honesty: registerListener's return value is the only
+        // signal the system gives for "refused to accept the listener" (sensor
+        // disabled, transient failure). Previously that failure was swallowed
+        // and the screen froze on "waiting"; now it is recorded so the UI can
+        // offer the honest unavailable state while the manual reference stays
+        // fully usable.
+        val registered = if (useRotationVector) {
+            rotationVectorSensor != null &&
+                sensorManager?.registerListener(this, rotationVectorSensor, SensorManager.SENSOR_DELAY_GAME) == true
+        } else {
+            val accelerometerAccepted = accelerometer != null &&
+                sensorManager?.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI) == true
+            val magnetometerAccepted = magnetometer != null &&
+                sensorManager?.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI) == true
+            accelerometerAccepted && magnetometerAccepted
         }
-        // Fallback path for devices without a gyroscope: fuse raw accel + magnetometer vectors.
-        accelerometer?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        magnetometer?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        if (!registered) {
+            _qiblaState.value = _qiblaState.value.copy(registrationFailed = true)
         }
     }
 
@@ -309,7 +321,8 @@ class QiblaSensorManager(private val context: Context) : SensorEventListener {
             isDeviceFlat = isDeviceFlat,
             sunAzimuth = sunAzimuth,
             hasAccelerometer = accelerometer != null,
-            hasMagnetometer = (accelerometer != null && magnetometer != null) || rotationVectorSensor != null
+            hasMagnetometer = (accelerometer != null && magnetometer != null) || rotationVectorSensor != null,
+            registrationFailed = _qiblaState.value.registrationFailed
         )
     }
 }
