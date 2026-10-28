@@ -236,7 +236,9 @@ with `Role.RadioButton`). Do not use it as a row of unrelated buttons.
 ### Salah
 
 - The sky hero remains the only full-bleed, atmospheric surface. It is not
-  glass and does not overlay content.
+  glass and does not overlay content. Its bottom edge wears
+  `ImmersiveHeaderShape` (24 dp) so it meets the grouped page like every other
+  surface instead of ending in a hard full-width seam.
 - Location pill is opaque `surfaceContainerHigh`; the next-prayer block uses a
   soft `secondaryContainer` row, not a vivid hero card.
 - Date switching uses shared circular icon buttons. Prayer rows are white cards

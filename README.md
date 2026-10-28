@@ -24,8 +24,10 @@ Nour calculates prayer times locally with an on-device astronomical engine, sche
 * **Hijri Calendar**: Daily conversion displayed with the prayer schedule and per-prayer minute adjustments.
 
 ### 2. Celestial Sky Visualizer
-* Bounded atmospheric canvas reflecting the time of day between prayer phases.
-* Live countdown with progress toward the upcoming Salah.
+* **Atmosphere, not illustration**: the Salah hero is a bounded sky canvas driven by the calculated prayer times. Eleven continuous phases (Tahajjud night → pre-dawn → Fajr twilight → dawn → sunrise → morning → noon → afternoon → Maghrib → dusk → night) blend across the sky gradient, horizon glow, drifting clouds and layered dunes. There are no sun rays, sparkles, diamond stars or shooting stars — the hero reads as the app's own atmosphere.
+* **True sun and moon**: the sun disc and a true-phase moon are placed from their real hour angle and altitude for your location and time, so the moon shows its actual lit fraction and a daytime moon can share the sky with the sun.
+* **Live countdown**: time and progress toward the upcoming Salah. The digits sample the sky directly behind them and fall back to a neutral text colour when the sky cannot carry 3:1 contrast.
+* **Reduced motion**: with *Remove animations*, cloud drift, star twinkle and the halo pulse settle on a still frame — the sky keeps its colours, it just stops moving.
 
 ### 3. Adhan Alarms
 * **Exact Scheduling**: `AlarmManager.setExactAndAllowWhileIdle()` for on-time prayer calls while the device sleeps (subject to the device's exact-alarm permission).
@@ -58,6 +60,8 @@ Nour calculates prayer times locally with an on-device astronomical engine, sche
 Nour follows a restrained Material 3 Expressive language: shared spacing/dimension/motion tokens, semantic color roles (with Android 12+ dynamic color), readable typography, 48 dp touch targets, wrapping rows that adapt to large font scales, bounded content widths on wide screens, and quiet transitions. Arabic scripture direction is independent of the interface language, and RTL layouts are supported.
 
 The current visual layer is an iOS 26/27-inspired, **opaque-only** refinement on top of that foundation: grouped surfaces, floating opaque navigation (bottom bar on compact windows, rail on wide ones), circular compact actions, capsule buttons, and a generated Apple-neutral blue palette. It deliberately avoids liquid glass, blur, and translucent chrome. See [`docs/ios27-design-system.md`](docs/ios27-design-system.md) for the tokens, component rules, screen guidance, and verification status.
+
+The Salah sky hero is the one full-bleed surface. It ends on `ImmersiveHeaderShape` (24 dp bottom corners) so it meets the grouped page like every other surface, and it absorbs the page's leftover height so the day switcher and times card land on the content reserve instead of leaving a gap — at large font scales or in short windows it keeps its natural height and the page scrolls.
 
 ## Accessibility
 

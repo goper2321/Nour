@@ -20,78 +20,93 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Google Weather-style SVG vector drawing primitives and atmospheric layers.
- * Provides subtle, soft, and atmospheric illustrations for:
- * - Multi-lobed Google Weather clouds with dimensional gradient fills and rim highlights
- * - Minimalist Google Weather Sun with 8 rounded pill rays and multi-stage corona
- * - True-phase Google Weather Moon with companion 4-point sparkle stars and earthshine
- * - Twinkling 4-point diamond sparkle stars and celestial stardust
- * - Angled rounded rain streaks and atmospheric precipitation vapor
+ * Atmospheric vector primitives for the immersive sky.
+ *
+ * The shapes are deliberately restrained: light, haze and celestial bodies,
+ * not weather-app iconography. Nour's chrome is opaque, typographic and
+ * iOS-styled, so the sky reads as atmosphere rather than a cartoon scene:
+ * - soft, low-contrast cloud masses without rim highlights
+ * - a luminous Sun disc and bloom (no icon-style rays or specular dot)
+ * - the Moon at its true phase with earthshine
+ * - plain star dots (no 4-point sparkle glyphs)
+ * - angled rounded rain streaks for the (currently disabled) precipitation layer
  */
 object GoogleWeatherSkyElements {
 
     /**
-     * Adds a Google Weather 4-point diamond sparkle star to a Path.
-     */
-    fun addSparkleStar(path: Path, cx: Float, cy: Float, radius: Float, pinch: Float = 0.22f) {
-        path.apply {
-            moveTo(cx, cy - radius)
-            cubicTo(cx, cy - radius * pinch, cx + radius * pinch, cy, cx + radius, cy)
-            cubicTo(cx + radius * pinch, cy, cx, cy + radius * pinch, cx, cy + radius)
-            cubicTo(cx, cy + radius * pinch, cx - radius * pinch, cy, cx - radius, cy)
-            cubicTo(cx - radius * pinch, cy, cx, cy - radius * pinch, cx, cy - radius)
-            close()
-        }
-    }
-
-    /**
-     * Adds an iconic Google Weather cloud silhouette composed of a rounded base capsule
-     * and 3 overlapping puffy lobes.
+     * Adds a soft cloud silhouette: a rounded base capsule with three
+     * overlapping lobes. The shape is only ever filled with a low-alpha
+     * gradient, so it reads as a distant mass rather than clip art.
      */
     fun addCloudSilhouette(path: Path, x: Float, y: Float, w: Float, h: Float) {
         path.apply {
             // Base rounded capsule
             addRoundRect(
                 RoundRect(
-                    left = x + w * 0.08f,
-                    top = y + h * 0.44f,
-                    right = x + w * 0.92f,
-                    bottom = y + h * 0.86f,
-                    cornerRadius = CornerRadius(h * 0.21f, h * 0.21f)
+                    left = x + w * 0.06f,
+                    top = y + h * 0.46f,
+                    right = x + w * 0.94f,
+                    bottom = y + h * 0.84f,
+                    cornerRadius = CornerRadius(h * 0.19f, h * 0.19f)
                 )
             )
             // Left puff
-            val rLeft = h * 0.28f
-            val cxLeft = x + w * 0.28f
-            val cyLeft = y + h * 0.54f
+            val rLeft = h * 0.25f
+            val cxLeft = x + w * 0.26f
+            val cyLeft = y + h * 0.56f
             addOval(Rect(cxLeft - rLeft, cyLeft - rLeft, cxLeft + rLeft, cyLeft + rLeft))
 
-            // Center tall dome
-            val rCenter = h * 0.38f
-            val cxCenter = x + w * 0.50f
-            val cyCenter = y + h * 0.36f
+            // Center dome (slightly off-centre; a perfectly symmetric crown
+            // reads as an icon)
+            val rCenter = h * 0.33f
+            val cxCenter = x + w * 0.48f
+            val cyCenter = y + h * 0.40f
             addOval(Rect(cxCenter - rCenter, cyCenter - rCenter, cxCenter + rCenter, cyCenter + rCenter))
 
             // Right shoulder puff
-            val rRight = h * 0.30f
+            val rRight = h * 0.27f
             val cxRight = x + w * 0.72f
-            val cyRight = y + h * 0.48f
+            val cyRight = y + h * 0.50f
             addOval(Rect(cxRight - rRight, cyRight - rRight, cxRight + rRight, cyRight + rRight))
+
+            // Soft belly: a wide, shallow bulge under the middle of the base.
+            // Without it the capsule left a dead-straight bottom edge, which is
+            // the one cue that still made the clouds read as vector stickers.
+            val bellyRx = w * 0.38f
+            val bellyRy = h * 0.11f
+            val bellyCy = y + h * 0.84f
+            addOval(
+                Rect(
+                    x + w * 0.5f - bellyRx,
+                    bellyCy - bellyRy,
+                    x + w * 0.5f + bellyRx,
+                    bellyCy + bellyRy
+                )
+            )
         }
     }
 
-    /**
-     * Draws a single Google Weather-style cloud with dimensional gradient fill and subtle crest highlight.
-     */
     /**
      * Size- and colour-dependent geometry for one cloud, precomputed in local
      * `(0,0)-(width,height)` space so a frame only translates and draws it.
      */
     class CloudArt internal constructor(
         internal val silhouette: Path,
-        internal val rim: Path,
         internal val bodyBrush: Brush,
-        internal val rimBrush: Brush
+        internal val midFeatherBrush: Brush,
+        internal val outerFeatherBrush: Brush,
+        internal val pivot: Offset
+    )
+
+    /**
+     * The three-stop cloud palette (lit crown, body, underside). Bundled
+     * because the stops always travel together and a four-parameter builder
+     * keeps detekt's `LongParameterList` rule quiet without suppression.
+     */
+    class CloudColors internal constructor(
+        internal val fill: Color,
+        internal val highlight: Color,
+        internal val shadow: Color
     )
 
     /**
@@ -100,59 +115,44 @@ object GoogleWeatherSkyElements {
      * translation shifts path points and gradient coordinates by exactly the
      * same amount. The caller rebuilds this only when colours/alpha/size
      * change, never per animation frame.
+     *
+     * The body alpha is split across three concentric, vertically stretched
+     * passes (68 / 22 / 10 %). Their sum keeps the old interior density, while
+     * the two outer passes leave a 6 px soft skirt instead of a traceable
+     * outline — the hard edge was what made the clouds read as vector icons.
      */
     fun buildCloudArt(
         width: Float,
         height: Float,
-        fillColor: Color,
-        highlightColor: Color,
-        shadowColor: Color,
-        alpha: Float,
-        isDarkNight: Boolean
+        colors: CloudColors,
+        alpha: Float
     ): CloudArt {
         val cloudPath = Path()
         addCloudSilhouette(cloudPath, 0f, 0f, width, height)
 
-        val rimPath = Path().apply {
-            val rCenter = height * 0.38f
-            val cxCenter = width * 0.50f
-            val cyCenter = height * 0.36f
-            addOval(Rect(cxCenter - rCenter, cyCenter - rCenter, cxCenter + rCenter, cyCenter + rCenter))
-
-            val rRight = height * 0.30f
-            val cxRight = width * 0.72f
-            val cyRight = height * 0.48f
-            addOval(Rect(cxRight - rRight, cyRight - rRight, cxRight + rRight, cyRight + rRight))
-        }
-
-        // Dimensional body gradient
-        val bodyBrush = Brush.verticalGradient(
+        fun body(alphaScale: Float) = Brush.verticalGradient(
             colors = listOf(
-                highlightColor.copy(alpha = alpha),
-                fillColor.copy(alpha = alpha * 0.95f),
-                shadowColor.copy(alpha = alpha * 0.85f)
+                colors.highlight.copy(alpha = alpha * alphaScale),
+                colors.fill.copy(alpha = alpha * 0.95f * alphaScale),
+                colors.shadow.copy(alpha = alpha * 0.85f * alphaScale)
             ),
             startY = height * 0.20f,
             endY = height * 0.88f
         )
 
-        // Soft sun/moon rim light across the upper crest
-        val rimAlpha = alpha * (if (isDarkNight) 0.30f else 0.45f)
-        val rimBrush = Brush.verticalGradient(
-            colors = listOf(
-                highlightColor.copy(alpha = rimAlpha),
-                Color.Transparent
-            ),
-            startY = height * 0.15f,
-            endY = height * 0.52f
+        return CloudArt(
+            silhouette = cloudPath,
+            bodyBrush = body(0.68f),
+            midFeatherBrush = body(0.22f),
+            outerFeatherBrush = body(0.10f),
+            pivot = Offset(width * 0.5f, height * 0.5f)
         )
-
-        return CloudArt(cloudPath, rimPath, bodyBrush, rimBrush)
     }
 
     /**
-     * Draws a precomputed [CloudArt] at [topLeft]. Allocating nothing per frame
-     * beyond the draw calls themselves.
+     * Draws a precomputed [CloudArt] at [topLeft], feathering the silhouette
+     * with two stretched passes. Allocating nothing per frame beyond the draw
+     * calls themselves.
      */
     fun drawCloud(
         drawScope: DrawScope,
@@ -161,37 +161,40 @@ object GoogleWeatherSkyElements {
     ) {
         with(drawScope) {
             translate(topLeft.x, topLeft.y) {
+                // Skirts are a fraction of the cloud, not a couple of pixels,
+                // but stay modest: stretching further ballooned each lobe into
+                // its own soft bubble, a bokeh look the starfield just shed.
+                scale(scaleX = 1.05f, scaleY = 1.18f, pivot = art.pivot) {
+                    drawPath(art.silhouette, brush = art.outerFeatherBrush)
+                }
+                scale(scaleX = 1.025f, scaleY = 1.09f, pivot = art.pivot) {
+                    drawPath(art.silhouette, brush = art.midFeatherBrush)
+                }
                 drawPath(art.silhouette, brush = art.bodyBrush)
-                drawPath(art.rim, brush = art.rimBrush)
             }
         }
     }
 
-    /**
-     * Draws the Google Weather-style Sun illustration at the calculated astronomical position.
-     */
-    /** Precomputed geometry/brushes for the Google Weather sun (rebuilt per minute-ish). */
+    /** Precomputed geometry/brushes for the Sun (rebuilt per minute-ish). */
     class SunArt internal constructor(
         internal val outerAuraBrush: Brush,
         internal val midAuraBrush: Brush,
         internal val diskBrush: Brush,
-        internal val rayColor: Color,
-        internal val specularColor: Color,
         internal val outerAuraRadius: Float,
         internal val midAuraRadius: Float,
-        internal val rayInnerRadius: Float,
-        internal val rayOuterRadius: Float,
-        internal val rayStrokeWidth: Float,
-        internal val coreRadius: Float,
-        internal val specularRadius: Float,
-        internal val specularOffset: Offset
+        internal val diskRadius: Float
     )
 
     /**
-     * Builds the sun's brushes and constants. Radii here are the un-pulsed base
+     * Builds the Sun's brushes and constants. Radii here are the un-pulsed base
      * values; [drawSun] applies the live corona pulse as a uniform scale, which
      * is mathematically identical to rebuilding each gradient brush at the
      * pulsed radius.
+     *
+     * The Sun is drawn as light, not as an icon: a soft-edged luminous disc
+     * inside a two-stage bloom. The old eight pill-shaped rays and white
+     * specular dot belonged to a weather illustration, not to Nour's flat,
+     * typographic surfaces.
      */
     fun buildSunArt(
         density: Density,
@@ -202,86 +205,77 @@ object GoogleWeatherSkyElements {
         atmosphericGlow: Color
     ): SunArt {
         with(density) {
-            // 1. Multi-Stage Ambient Corona Halo
-            val outerAuraRadius = 75.dp.toPx()
-            val midAuraRadius = 46.dp.toPx()
+            // 1. Multi-stage ambient corona
+            val outerAuraRadius = 84.dp.toPx()
+            val midAuraRadius = 50.dp.toPx()
 
-            val warmGlow = lerp(Color(0xFFFBBC04), Color(0xFFFF7043), duskWarmth)
-            val blendedAura = lerp(warmGlow, dynamicAccent, 0.15f)
+            // A high sun is white light, not an amber lamp: the corona only
+            // turns warm as the sun approaches the horizon. The old fixed
+            // amber glow, laid over a blue noon sky, mixed into an olive disc
+            // with a visible circular edge.
+            val warmGlow = lerp(Color(0xFFFFF6E4), Color(0xFFFF9E5A), duskWarmth)
+            val blendedAura = lerp(warmGlow, dynamicAccent, 0.12f)
 
-            // Outer soft atmospheric bloom
             val outerAuraBrush = Brush.radialGradient(
                 colors = listOf(
-                    blendedAura.copy(alpha = 0.32f * bodyAlpha),
-                    atmosphericGlow.copy(alpha = 0.12f * bodyAlpha),
+                    blendedAura.copy(alpha = 0.20f * bodyAlpha),
+                    atmosphericGlow.copy(alpha = 0.07f * bodyAlpha),
                     Color.Transparent
                 ),
                 center = center,
                 radius = outerAuraRadius
             )
-
-            // Mid warm halo
             val midAuraBrush = Brush.radialGradient(
                 colors = listOf(
-                    blendedAura.copy(alpha = 0.45f * bodyAlpha),
-                    blendedAura.copy(alpha = 0.15f * bodyAlpha),
+                    blendedAura.copy(alpha = 0.30f * bodyAlpha),
+                    blendedAura.copy(alpha = 0.10f * bodyAlpha),
                     Color.Transparent
                 ),
                 center = center,
                 radius = midAuraRadius
             )
 
-            // 2. Eight Signature Google Weather Rounded Pill Rays
-            val rayColor = lerp(
-                Color(0xFFFBBC04),
-                lerp(Color(0xFFFFA000), dynamicAccent, 0.12f),
-                duskWarmth
-            ).copy(alpha = bodyAlpha * 0.95f)
-
-            // 3. Central Clean Sun Disk with warm gradient & soft specular highlight
-            val coreRadius = 18.dp.toPx()
-            val sunTopColor = lerp(Color(0xFFFFE082), Color(0xFFFFB74D), duskWarmth)
-            val sunBottomColor = lerp(Color(0xFFFBBC04), Color(0xFFE65100), duskWarmth)
-
-            val diskBrush = Brush.verticalGradient(
+            // 2. Luminous disc: a warm-white core whose rim feathers into the
+            // bloom, so the limb reads as atmosphere rather than a sticker.
+            val diskRadius = 23.dp.toPx()
+            val coreColor = lerp(Color(0xFFFFFDF2), Color(0xFFFFF3E0), duskWarmth)
+            // Only the low sun is amber. Keeping a saturated gold rim at noon
+            // turned the disc into a glowing marble over the blue sky; in full
+            // daylight the limb is simply a warm white feather.
+            val rimColor = lerp(Color(0xFFFFF4DA), Color(0xFFFF9E5A), duskWarmth)
+            val diskBrush = Brush.radialGradient(
                 colors = listOf(
-                    sunTopColor.copy(alpha = bodyAlpha),
-                    sunBottomColor.copy(alpha = bodyAlpha)
+                    coreColor.copy(alpha = bodyAlpha),
+                    rimColor.copy(alpha = bodyAlpha * 0.96f),
+                    rimColor.copy(alpha = bodyAlpha * 0.55f),
+                    Color.Transparent
                 ),
-                startY = center.y - coreRadius,
-                endY = center.y + coreRadius
+                center = center,
+                radius = diskRadius
             )
 
             return SunArt(
                 outerAuraBrush = outerAuraBrush,
                 midAuraBrush = midAuraBrush,
                 diskBrush = diskBrush,
-                rayColor = rayColor,
-                specularColor = Color.White.copy(alpha = 0.40f * bodyAlpha),
                 outerAuraRadius = outerAuraRadius,
                 midAuraRadius = midAuraRadius,
-                rayInnerRadius = 24.dp.toPx(),
-                rayOuterRadius = 33.dp.toPx(),
-                rayStrokeWidth = 4.0.dp.toPx(),
-                coreRadius = coreRadius,
-                specularRadius = 3.2.dp.toPx(),
-                specularOffset = Offset(center.x - 4.dp.toPx(), center.y - 4.dp.toPx())
+                diskRadius = diskRadius
             )
         }
     }
 
     /**
-     * Draws the Google Weather-style Sun illustration at the calculated astronomical position.
+     * Draws the Sun as a luminous disc inside its bloom. The corona pulse is a
+     * barely-perceptible uniform scale, not a bounce.
      */
     fun drawSun(
         drawScope: DrawScope,
         art: SunArt,
         center: Offset,
-        coronaPulse: Float,
-        sunRayRotation: Float
+        coronaPulse: Float
     ) {
         with(drawScope) {
-            // 1. Multi-Stage Ambient Corona Halo (uniform pulse about the sun centre)
             scale(scale = coronaPulse, pivot = center) {
                 drawCircle(
                     brush = art.outerAuraBrush,
@@ -293,73 +287,42 @@ object GoogleWeatherSkyElements {
                     radius = art.midAuraRadius,
                     center = center
                 )
-            }
-
-            // 2. Eight Signature Google Weather Rounded Pill Rays
-            val rayCount = 8
-            val innerRayRadius = art.rayInnerRadius * (1f + 0.04f * (coronaPulse - 1f))
-            val outerRayRadius = art.rayOuterRadius * (1f + 0.08f * (coronaPulse - 1f))
-
-            for (i in 0 until rayCount) {
-                val angleDeg = i * (360.0 / rayCount) + (sunRayRotation * 0.22f)
-                val angleRad = Math.toRadians(angleDeg)
-
-                val rayStart = Offset(
-                    center.x + (innerRayRadius * cos(angleRad)).toFloat(),
-                    center.y + (innerRayRadius * sin(angleRad)).toFloat()
-                )
-                val rayEnd = Offset(
-                    center.x + (outerRayRadius * cos(angleRad)).toFloat(),
-                    center.y + (outerRayRadius * sin(angleRad)).toFloat()
-                )
-
-                drawLine(
-                    color = art.rayColor,
-                    start = rayStart,
-                    end = rayEnd,
-                    strokeWidth = art.rayStrokeWidth,
-                    cap = StrokeCap.Round
+                drawCircle(
+                    brush = art.diskBrush,
+                    radius = art.diskRadius,
+                    center = center
                 )
             }
-
-            // 3. Central Clean Sun Disk with warm gradient & soft specular highlight
-            drawCircle(
-                brush = art.diskBrush,
-                radius = art.coreRadius,
-                center = center
-            )
-            drawCircle(
-                color = art.specularColor,
-                radius = art.specularRadius,
-                center = art.specularOffset
-            )
         }
     }
 
-    /**
-     * Draws the Google Weather-style Moon illustration with true-phase illumination
-     * and companion 4-point sparkle stars.
-     */
-    /** Precomputed geometry/brushes for the Google Weather moon at its true phase. */
+    /** Precomputed geometry/brushes for the moon at its true phase. */
     class MoonArt internal constructor(
-        internal val auraBrush: Brush,
-        internal val auraRadius: Float,
-        internal val bodyAlpha: Float,
-        internal val moonColor: Color,
-        internal val moonRadius: Float,
-        internal val sparkle1Center: Offset,
-        internal val sparkle1BaseRadius: Float,
-        internal val sparkle1AuraRadius: Float,
-        internal val sparkle1Path: Path,
-        internal val sparkle2Center: Offset,
-        internal val sparkle2Path: Path,
-        internal val earthshineColor: Color,
-        internal val fullDiskBrush: Brush?,
-        internal val litPath: Path?,
-        internal val litBrush: Brush?
-    )
+        internal val aura: MoonAura,
+        internal val surface: MoonSurface,
+        internal val lit: MoonLit
+    ) {
+        /** The pulse-scaled halo drawn behind the disc. */
+        class MoonAura internal constructor(
+            internal val brush: Brush,
+            internal val radius: Float
+        )
 
-    /** Builds the moon's phase geometry once; [drawMoon] only applies the live twinkle/pulse. */
+        /** The whole disc as seen unlit: body radius plus the earthshine limb. */
+        class MoonSurface internal constructor(
+            internal val radius: Float,
+            internal val earthshineColor: Color
+        )
+
+        /** The illuminated part: a full-disk gradient, or a terminator path and fill. */
+        class MoonLit internal constructor(
+            internal val fullDiskBrush: Brush?,
+            internal val path: Path?,
+            internal val brush: Brush?
+        )
+    }
+
+    /** Builds the moon's phase geometry once; [drawMoon] only applies the live pulse. */
     fun buildMoonArt(
         density: Density,
         center: Offset,
@@ -369,10 +332,13 @@ object GoogleWeatherSkyElements {
     ): MoonArt {
         with(density) {
             val moonRadius = 20.dp.toPx()
-            val baseMoonColor = Color(0xFFFFE082) // Google Weather lunar amber-yellow
-            val moonColor = lerp(baseMoonColor, dynamicAccent, 0.10f)
+            // Moonlight is neutral. The old amber (#FFE082) read as a lit bulb,
+            // especially against the navy night, so the body keeps only a hint
+            // of warmth and the gradient lands on a cream shadow.
+            val baseMoonColor = Color(0xFFFFF6DE)
+            val moonColor = lerp(baseMoonColor, dynamicAccent, 0.06f)
 
-            // 1. Ambient Lunar Aura
+            // 1. Ambient lunar aura
             val moonAuraRadius = 52.dp.toPx()
             val auraBrush = Brush.radialGradient(
                 colors = listOf(
@@ -384,20 +350,7 @@ object GoogleWeatherSkyElements {
                 radius = moonAuraRadius
             )
 
-            // 2. Google Weather Companion 4-Point Sparkle Stars
-            // Star 1: Primary diamond sparkle beside the moon
-            val sparkle1Center = Offset(center.x + 21.dp.toPx(), center.y - 14.dp.toPx())
-            val sparkle1BaseRadius = 5.2.dp.toPx()
-            val sparkle1Path = Path()
-            addSparkleStar(sparkle1Path, sparkle1Center.x, sparkle1Center.y, sparkle1BaseRadius)
-
-            // Star 2: Subtle secondary micro-sparkle
-            val sparkle2Center = Offset(center.x + 28.dp.toPx(), center.y + 10.dp.toPx())
-            val sparkle2BaseRadius = 2.8.dp.toPx()
-            val sparkle2Path = Path()
-            addSparkleStar(sparkle2Path, sparkle2Center.x, sparkle2Center.y, sparkle2BaseRadius)
-
-            // 3. True-Phase Moon Body
+            // 2. True-phase moon body
             val illumination = moon.illumination.toFloat()
             val cosPhase = cos(2.0 * PI * moon.phase01).toFloat()
 
@@ -456,125 +409,107 @@ object GoogleWeatherSkyElements {
             }
 
             return MoonArt(
-                auraBrush = auraBrush,
-                auraRadius = moonAuraRadius,
-                bodyAlpha = bodyAlpha,
-                moonColor = moonColor,
-                moonRadius = moonRadius,
-                sparkle1Center = sparkle1Center,
-                sparkle1BaseRadius = sparkle1BaseRadius,
-                sparkle1AuraRadius = sparkle1BaseRadius * 1.8f,
-                sparkle1Path = sparkle1Path,
-                sparkle2Center = sparkle2Center,
-                sparkle2Path = sparkle2Path,
-                earthshineColor = moonColor.copy(alpha = 0.16f * bodyAlpha),
-                fullDiskBrush = fullDiskBrush,
-                litPath = litPath,
-                litBrush = litBrush
+                aura = MoonArt.MoonAura(auraBrush, moonAuraRadius),
+                surface = MoonArt.MoonSurface(
+                    radius = moonRadius,
+                    earthshineColor = moonColor.copy(alpha = 0.16f * bodyAlpha)
+                ),
+                lit = MoonArt.MoonLit(fullDiskBrush, litPath, litBrush)
             )
         }
     }
 
     /**
-     * Draws the Google Weather-style Moon illustration with true-phase illumination.
-     * The live star twinkle / corona pulse are applied as uniform scales of the
-     * cached geometry, which keeps the per-frame cost allocation-free.
+     * Draws the moon at its true phase. The companion four-point sparkle stars
+     * were removed: they read as decorative glyphs next to the app's restrained
+     * typography. The sky's own starfield supplies the surrounding light.
      */
     fun drawMoon(
         drawScope: DrawScope,
         art: MoonArt,
         center: Offset,
-        coronaPulse: Float,
-        starTwinkle: Float
+        coronaPulse: Float
     ) {
         with(drawScope) {
-            // 1. Ambient Lunar Aura (uniform pulse about the moon centre)
+            // 1. Ambient lunar aura (uniform pulse about the moon centre)
             scale(scale = coronaPulse, pivot = center) {
                 drawCircle(
-                    brush = art.auraBrush,
-                    radius = art.auraRadius,
+                    brush = art.aura.brush,
+                    radius = art.aura.radius,
                     center = center
                 )
             }
 
-            // 2. Google Weather Companion 4-Point Sparkle Stars
-            scale(scale = starTwinkle, pivot = art.sparkle1Center) {
-                drawCircle(
-                    color = art.moonColor.copy(alpha = 0.30f * starTwinkle * art.bodyAlpha),
-                    radius = art.sparkle1AuraRadius,
-                    center = art.sparkle1Center
-                )
-                drawPath(
-                    path = art.sparkle1Path,
-                    color = Color.White.copy(alpha = 0.95f * art.bodyAlpha)
-                )
-            }
-
-            val sparkle2Factor = (1.2f - starTwinkle).coerceIn(0.4f, 1.0f)
-            scale(scale = sparkle2Factor, pivot = art.sparkle2Center) {
-                drawPath(
-                    path = art.sparkle2Path,
-                    color = art.moonColor.copy(alpha = 0.85f * art.bodyAlpha)
-                )
-            }
-
-            // 3. True-Phase Moon Body
+            // 2. True-phase moon body
             // Earthshine limb: delicate faint orb so the dark disk is softly perceivable
             drawCircle(
-                color = art.earthshineColor,
-                radius = art.moonRadius,
+                color = art.surface.earthshineColor,
+                radius = art.surface.radius,
                 center = center
             )
 
-            if (art.fullDiskBrush != null) {
+            val fullDiskBrush = art.lit.fullDiskBrush
+            val litPath = art.lit.path
+            val litBrush = art.lit.brush
+            if (fullDiskBrush != null) {
                 drawCircle(
-                    brush = art.fullDiskBrush,
-                    radius = art.moonRadius,
+                    brush = fullDiskBrush,
+                    radius = art.surface.radius,
                     center = center
                 )
-            } else if (art.litPath != null && art.litBrush != null) {
+            } else if (litPath != null && litBrush != null) {
                 drawPath(
-                    path = art.litPath,
-                    brush = art.litBrush
+                    path = litPath,
+                    brush = litBrush
                 )
             }
         }
     }
 
     /**
-     * Static starfield layout `(xFrac, yFrac, radiusDp, isSparkle)`, hoisted so no
-     * per-frame star table is allocated. The twinkle factor still modulates each
-     * star live at draw time.
+     * Static starfield layout `(xFrac, yFrac, radiusDp)`, hoisted so no per-frame
+     * star table is allocated. All stars are plain dots; the sky deliberately
+     * has no four-point "sparkle" glyphs. The twinkle factor still modulates
+     * each star live at draw time, in four phase groups.
      */
     private val STARS = listOf(
-        StarDef(0.06f, 0.04f, 2.2f, true),
-        StarDef(0.18f, 0.06f, 1.2f, false),
-        StarDef(0.32f, 0.03f, 2.6f, true),
-        StarDef(0.48f, 0.07f, 1.4f, false),
-        StarDef(0.64f, 0.04f, 2.4f, true),
-        StarDef(0.79f, 0.08f, 1.3f, false),
-        StarDef(0.92f, 0.05f, 2.0f, true),
-        StarDef(0.12f, 0.12f, 1.1f, false),
-        StarDef(0.27f, 0.15f, 2.2f, true),
-        StarDef(0.58f, 0.12f, 2.8f, true),
-        StarDef(0.73f, 0.16f, 1.2f, false),
-        StarDef(0.88f, 0.11f, 2.0f, true),
-        StarDef(0.96f, 0.18f, 1.0f, false),
-        StarDef(0.08f, 0.22f, 1.8f, false),
-        StarDef(0.22f, 0.25f, 1.1f, false),
-        StarDef(0.42f, 0.20f, 2.4f, true),
-        StarDef(0.68f, 0.22f, 1.4f, false),
-        StarDef(0.84f, 0.24f, 2.0f, true),
-        StarDef(0.15f, 0.30f, 1.2f, false),
-        StarDef(0.35f, 0.29f, 1.0f, false),
-        StarDef(0.60f, 0.31f, 1.6f, false),
-        StarDef(0.90f, 0.30f, 1.3f, false),
-        StarDef(0.03f, 0.15f, 1.4f, false),
-        StarDef(0.52f, 0.02f, 2.1f, true),
-        StarDef(0.70f, 0.06f, 1.1f, false),
-        StarDef(0.38f, 0.11f, 1.3f, false),
-        StarDef(0.81f, 0.03f, 1.8f, true),
-        StarDef(0.25f, 0.08f, 1.2f, false)
+        StarDef(0.06f, 0.04f, 2.2f),
+        StarDef(0.18f, 0.06f, 1.2f),
+        StarDef(0.32f, 0.03f, 2.6f),
+        StarDef(0.48f, 0.07f, 1.4f),
+        StarDef(0.64f, 0.04f, 2.4f),
+        StarDef(0.79f, 0.08f, 1.3f),
+        StarDef(0.92f, 0.05f, 2.0f),
+        StarDef(0.12f, 0.12f, 1.1f),
+        StarDef(0.27f, 0.15f, 2.2f),
+        StarDef(0.58f, 0.12f, 2.8f),
+        StarDef(0.73f, 0.16f, 1.2f),
+        StarDef(0.88f, 0.11f, 2.0f),
+        StarDef(0.96f, 0.18f, 1.0f),
+        StarDef(0.08f, 0.22f, 1.8f),
+        StarDef(0.22f, 0.25f, 1.1f),
+        StarDef(0.42f, 0.20f, 2.4f),
+        StarDef(0.68f, 0.22f, 1.4f),
+        StarDef(0.84f, 0.24f, 2.0f),
+        StarDef(0.15f, 0.30f, 1.2f),
+        StarDef(0.35f, 0.29f, 1.0f),
+        StarDef(0.60f, 0.31f, 1.6f),
+        StarDef(0.90f, 0.30f, 1.3f),
+        StarDef(0.03f, 0.15f, 1.4f),
+        StarDef(0.52f, 0.02f, 2.1f),
+        StarDef(0.70f, 0.06f, 1.1f),
+        StarDef(0.38f, 0.11f, 1.3f),
+        StarDef(0.81f, 0.03f, 1.8f),
+        StarDef(0.25f, 0.08f, 1.2f),
+        // Faint lower-sky stars: the tall stretched hero would otherwise leave
+        // the middle band as an empty wash between the cloud shelf and the
+        // countdown.
+        StarDef(0.11f, 0.36f, 0.9f),
+        StarDef(0.34f, 0.41f, 1.0f),
+        StarDef(0.55f, 0.37f, 0.8f),
+        StarDef(0.72f, 0.44f, 0.9f),
+        StarDef(0.86f, 0.39f, 0.8f),
+        StarDef(0.47f, 0.46f, 0.7f)
     )
 
     private val STAR_TINTS = listOf(Color.White, Color(0xFFCFE4FF), Color(0xFFFFE9C9))
@@ -589,11 +524,7 @@ object GoogleWeatherSkyElements {
         class Star internal constructor(
             internal val center: Offset,
             internal val radiusPx: Float,
-            internal val tint: Color,
-            internal val isSparkle: Boolean,
-            internal val sparkleBaseRadius: Float,
-            internal val sparkleAuraRadius: Float,
-            internal val sparklePath: Path?
+            internal val tint: Color
         )
     }
 
@@ -620,33 +551,11 @@ object GoogleWeatherSkyElements {
             )
 
             val stars = STARS.mapIndexed { idx, star ->
-                val center = Offset(width * star.xFrac, height * star.yFrac)
-                val tint = STAR_TINTS[idx % STAR_TINTS.size]
-                if (star.isSparkle && star.radiusDp >= 2.0f) {
-                    // Google Weather 4-Point Diamond Sparkle Star
-                    val sparkleBaseRadius = star.radiusDp.dp.toPx() * 1.8f
-                    val sparklePath = Path()
-                    addSparkleStar(sparklePath, center.x, center.y, sparkleBaseRadius)
-                    StarfieldArt.Star(
-                        center = center,
-                        radiusPx = star.radiusDp.dp.toPx(),
-                        tint = tint,
-                        isSparkle = true,
-                        sparkleBaseRadius = sparkleBaseRadius,
-                        sparkleAuraRadius = sparkleBaseRadius * 1.6f,
-                        sparklePath = sparklePath
-                    )
-                } else {
-                    StarfieldArt.Star(
-                        center = center,
-                        radiusPx = star.radiusDp.dp.toPx(),
-                        tint = tint,
-                        isSparkle = false,
-                        sparkleBaseRadius = 0f,
-                        sparkleAuraRadius = 0f,
-                        sparklePath = null
-                    )
-                }
+                StarfieldArt.Star(
+                    center = Offset(width * star.xFrac, height * star.yFrac),
+                    radiusPx = star.radiusDp.dp.toPx(),
+                    tint = STAR_TINTS[idx % STAR_TINTS.size]
+                )
             }
 
             return StarfieldArt(stars, bloomBrush, bloomCenter, bloomRadius)
@@ -654,14 +563,15 @@ object GoogleWeatherSkyElements {
     }
 
     /**
-     * Draws Google Weather-style 4-point diamond sparkle stars and celestial stardust.
+     * Draws the starfield. [twinklePhase] advances continuously (0..2π);
+     * four phase buckets keep the field from pulsing in unison, which was the
+     * synthetic-looking part of the old two-group twinkle.
      */
     fun drawStarfield(
         drawScope: DrawScope,
         art: StarfieldArt,
         starOpacity: Float,
-        starTwinkle: Float,
-        shootingStarProgress: Float
+        twinklePhase: Float
     ) {
         if (starOpacity <= 0.04f) return
 
@@ -674,57 +584,17 @@ object GoogleWeatherSkyElements {
             )
 
             art.stars.forEachIndexed { idx, star ->
-                val isAlternate = idx % 3 == 0
-                val factor = if (isAlternate) starTwinkle else (1.2f - starTwinkle).coerceIn(0.25f, 1.0f)
+                val bucket = idx % 4
+                val factor = (0.65f + 0.25f * sin(twinklePhase + bucket * (PI / 2).toFloat()))
+                    .coerceIn(0.30f, 0.95f)
 
-                if (star.isSparkle) {
-                    // Google Weather 4-Point Diamond Sparkle Star: the live twinkle
-                    // factor scales the cached path/aura uniformly about its centre.
-                    scale(scale = factor, pivot = star.center) {
-                        // Soft aura
-                        drawCircle(
-                            color = star.tint.copy(alpha = factor * starOpacity * 0.25f),
-                            radius = star.sparkleAuraRadius,
-                            center = star.center
-                        )
-                        drawPath(
-                            path = star.sparklePath!!,
-                            color = star.tint.copy(alpha = factor * starOpacity * 0.92f)
-                        )
-                    }
-                } else {
-                    // Delicate magnitude star dot
-                    drawCircle(
-                        color = star.tint.copy(alpha = factor * starOpacity * 0.85f),
-                        radius = star.radiusPx,
-                        center = star.center
-                    )
-                }
-            }
-
-            // Rare shooting star streak with tapered gradient tail
-            if (shootingStarProgress in 0.20f..0.36f) {
-                val sp = (shootingStarProgress - 0.20f) / 0.16f
-                val startX = size.width * (0.18f + 0.48f * sp)
-                val startY = size.height * (0.03f + 0.12f * sp)
-                val streakLen = 48.dp.toPx()
-                val endX = startX + streakLen * 0.86f
-                val endY = startY + streakLen * 0.50f
-
-                drawLine(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.85f * starOpacity),
-                            Color.Transparent
-                        ),
-                        start = Offset(startX, startY),
-                        end = Offset(endX, endY)
-                    ),
-                    start = Offset(startX, startY),
-                    end = Offset(endX, endY),
-                    strokeWidth = 1.4.dp.toPx(),
-                    cap = StrokeCap.Round
+                // Plain dots only. The old 3.6x halo around the brightest stars
+                // rendered as a hard-edged grey disc — bokeh, not sky — at hero
+                // size, so the star reads as light on a gradient instead.
+                drawCircle(
+                    color = star.tint.copy(alpha = factor * starOpacity * 0.85f),
+                    radius = star.radiusPx,
+                    center = star.center
                 )
             }
         }
@@ -741,7 +611,8 @@ object GoogleWeatherSkyElements {
     )
 
     /**
-     * Draws Google Weather signature angled rounded rain streaks and atmospheric vapor mist.
+     * Draws angled rounded rain streaks and atmospheric vapor mist. No caller
+     * enables precipitation today; the layer is kept for a future weather hook.
      */
     fun drawRain(
         drawScope: DrawScope,
@@ -801,7 +672,6 @@ object GoogleWeatherSkyElements {
     private data class StarDef(
         val xFrac: Float,
         val yFrac: Float,
-        val radiusDp: Float,
-        val isSparkle: Boolean
+        val radiusDp: Float
     )
 }

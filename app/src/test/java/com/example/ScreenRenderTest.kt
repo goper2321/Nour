@@ -434,6 +434,8 @@ class ScreenRenderTest {
                         prayerTimes = times,
                         location = location,
                         now = instant,
+                        // Match the shipping hero, which draws no scrim.
+                        showSurfaceScrim = false,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -444,7 +446,7 @@ class ScreenRenderTest {
 
     /**
      * The starfield only draws once the sky is dark, so the day-time two-body
-     * capture above never exercises its sparkle/twinkle path. This renders a
+     * capture above never exercises its twinkle path. This renders a
      * deterministic night instant (fixed date, Makkah) so the night sky drawing
      * is covered on the JVM too.
      */
@@ -469,6 +471,10 @@ class ScreenRenderTest {
                         prayerTimes = times,
                         location = location,
                         now = night,
+                        // The app's only sky surface (the prayer hero) disables
+                        // the scrim, so capture what ships rather than the
+                        // generic default.
+                        showSurfaceScrim = false,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

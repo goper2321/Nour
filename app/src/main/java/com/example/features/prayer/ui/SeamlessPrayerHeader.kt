@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.features.prayer.calculation.CelestialMath
 import com.example.features.prayer.models.CountdownState
@@ -68,6 +70,7 @@ import com.example.localization.LocalAppStrings
 import com.example.localization.formatNumerals
 import com.example.localization.LocalUse24HourFormat
 import com.example.ui.components.nourFloatingSurfaceColor
+import com.example.ui.theme.ImmersiveHeaderShape
 import com.example.ui.theme.NourAlpha
 import com.example.ui.theme.NourMotion
 import com.example.ui.theme.NourSize
@@ -83,27 +86,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
-
-private enum class CountdownTextRole {
-    Primary,
-    Muted,
-    Accent
-}
-
-private data class CountdownTextPalette(
-    val primaryDark: Color,
-    val primaryLight: Color,
-    val mutedDark: Color,
-    val mutedLight: Color,
-    val accentDark: Color,
-    val accentLight: Color
-)
-
-private data class CountdownLuminance(
-    val mean: Float = 0.5f,
-    val low: Float = 0.25f,
-    val high: Float = 0.75f
-)
 
 private data class CountdownSkyProbe(
     val atmosphere: AtmosphericState,
@@ -291,14 +273,17 @@ private fun createCountdownSkyProbe(
     val maxElevation = (90.0 - abs(location.latitude - declination)).coerceIn(15.0, 90.0)
     val sun = CelestialMath.sunPosition(nowMillis, location.latitude, location.longitude)
     val moon = CelestialMath.moonInfo(nowMillis, location.latitude, location.longitude)
-    val horizonY = safeHeight * 0.62f
+    // These mirror SkyVisualizer's placement exactly, so the contrast probe
+    // samples the same pixels the renderer paints (they had drifted: horizon
+    // 0.62 vs 0.75, top 0.02 vs 0.12 of sky band, no 26 dp body inset).
+    val horizonY = safeHeight * 0.75f
     val skyBand = (safeHeight * 0.18f).coerceIn(48f * safeDensity, 144f * safeDensity)
-    val top = skyBand * 0.02f
+    val top = skyBand * 0.12f
     fun xFor(hourAngleDeg: Double): Float =
         safeWidth * (0.12f + 0.76f * ((hourAngleDeg + 120.0) / 240.0).coerceIn(0.0, 1.0)).toFloat()
     fun yFor(altitudeDeg: Double): Float =
         (horizonY - (altitudeDeg / maxElevation) * (horizonY - top)).toFloat()
-            .coerceIn(0f, horizonY + 36f * safeDensity)
+            .coerceIn(26f * safeDensity, horizonY + 48f * safeDensity)
     // Mirror the renderer: each body is visible on its own altitude.
     val sunAlpha = ((sun.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
     val moonAlpha = ((moon.position.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
@@ -357,57 +342,25 @@ private fun mixColors(first: Color, second: Color, fraction: Float): Color {
 private fun TextStyle.withFontScaleCap(fontScale: Float, cap: Float = 1.3f): TextStyle =
     if (fontScale <= cap) this else copy(fontSize = fontSize * (cap / fontScale))
 
-private fun contrastRatio(first: Float, second: Float): Float {
-    val lighter = max(first, second)
-    val darker = min(first, second)
-    return (lighter + 0.05f) / (darker + 0.05f)
-}
-
-/** Contrast against the darkest *and* the brightest part of the sampled area. */
-private fun worstCaseContrast(color: Color, sample: CountdownLuminance): Float {
-    val foreground = color.luminance()
-    return min(
-        contrastRatio(foreground, sample.low),
-        contrastRatio(foreground, sample.high)
-    )
-}
-
-private fun adaptiveTextColor(
-    sample: CountdownLuminance,
-    palette: CountdownTextPalette,
-    role: CountdownTextRole
-): Color {
-    val dark = when (role) {
-        CountdownTextRole.Primary -> palette.primaryDark
-        CountdownTextRole.Muted -> palette.mutedDark
-        CountdownTextRole.Accent -> palette.accentDark
-    }
-    val light = when (role) {
-        CountdownTextRole.Primary -> palette.primaryLight
-        CountdownTextRole.Muted -> palette.mutedLight
-        CountdownTextRole.Accent -> palette.accentLight
-    }
-
-    fun score(color: Color): Float {
-        val foreground = color.luminance()
-        val averageCase = contrastRatio(foreground, sample.mean)
-        return worstCaseContrast(color, sample) * 0.68f + averageCase * 0.32f
-    }
-
-    val darkScore = score(dark)
-    val lightScore = score(light)
-    return when {
-        lightScore > darkScore + 0.18f -> light
-        darkScore > lightScore + 0.18f -> dark
-        // The scores are within a coin flip; break the tie by the mean. The
-        // light/dark contrast curves of these palettes cross near luminance
-        // 0.18-0.21, so anything brighter than 0.20 favours the dark variant.
-        // (0.45 used to keep white far past the crossover: on mid-luminance
-        // skies that cost the small time line 1-1.5:1 — measured 3.44:1 in
-        // `m13_hero_noon_settled.png` where dark measures 4.9:1.)
-        sample.mean >= 0.20f -> dark
-        else -> light
-    }
+/**
+ * Narrows the sky probe's sample box to the glyphs' laid-out line box.
+ *
+ * A weighted single-line Text fills its share of the row even when its glyphs
+ * are much narrower. Sampling that empty space let the noonday Sun sit inside
+ * the kicker label's sample box and vote for dark text on a dark-blue sky
+ * (measured 2.7:1 on `m13_hero_noon_settled`). The narrowed box is anchored at
+ * the text's start edge so RTL mirrors correctly.
+ */
+private fun inkSampleBounds(
+    lineBounds: Rect,
+    textWidth: Float,
+    layoutDirection: LayoutDirection
+): Rect = when {
+    textWidth <= 0.5f || textWidth >= lineBounds.width -> lineBounds
+    layoutDirection == LayoutDirection.Rtl ->
+        Rect(lineBounds.right - textWidth, lineBounds.top, lineBounds.right, lineBounds.bottom)
+    else ->
+        Rect(lineBounds.left, lineBounds.top, lineBounds.left + textWidth, lineBounds.bottom)
 }
 
 @Composable
@@ -424,6 +377,9 @@ private fun AdaptiveCountdownText(
     softWrap: Boolean = true
 ) {
     var measuredRootBounds by remember { mutableStateOf(Rect.Zero) }
+    // The probe samples the glyphs' line box only — see [inkSampleBounds].
+    var measuredTextWidth by remember { mutableStateOf(0f) }
+    val layoutDirection = LocalLayoutDirection.current
     val localBounds = remember(measuredRootBounds, cardBounds) {
         val left = (measuredRootBounds.left - cardBounds.left).coerceIn(0f, cardBounds.width)
         val top = (measuredRootBounds.top - cardBounds.top).coerceIn(0f, cardBounds.height)
@@ -431,8 +387,11 @@ private fun AdaptiveCountdownText(
         val bottom = (measuredRootBounds.bottom - cardBounds.top).coerceIn(0f, cardBounds.height)
         Rect(left, top, right, bottom)
     }
-    val sample = remember(probe, localBounds) {
-        probe.sample(localBounds)
+    val sampleBounds = remember(localBounds, measuredTextWidth, layoutDirection) {
+        inkSampleBounds(localBounds, measuredTextWidth, layoutDirection)
+    }
+    val sample = remember(probe, sampleBounds) {
+        probe.sample(sampleBounds)
     }
     val targetColor = remember(sample, palette, role) {
         adaptiveTextColor(sample, palette, role)
@@ -474,6 +433,10 @@ private fun AdaptiveCountdownText(
                 position.y + size.height
             )
             if (rootBounds != measuredRootBounds) measuredRootBounds = rootBounds
+        },
+        onTextLayout = { result ->
+            val width = result.size.width.toFloat()
+            if (width != measuredTextWidth) measuredTextWidth = width
         }
     )
 }
@@ -552,12 +515,15 @@ fun SeamlessPrayerHeader(
         verticalArrangement = Arrangement.spacedBy(NourSpace.md)
     ) {
         // Hero sky: full-bleed by design (the screen opts out of the frame
-        // gutter), so there is deliberately no card background, border or
-        // rounding here — the rendered sky itself is the backdrop and the
-        // content below floats on it with the shared side measure.
+        // gutter), so there is deliberately no card background or border here —
+        // the rendered sky itself is the backdrop. The bottom edge still wears
+        // `ImmersiveHeaderShape`: it is the one full-bleed surface in the app,
+        // and meeting the grouped page in a hard razored line made it read as a
+        // screenshot dropped into the layout rather than a header.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(ImmersiveHeaderShape)
                 .then(heroHeight?.let { Modifier.height(it) } ?: Modifier)
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()

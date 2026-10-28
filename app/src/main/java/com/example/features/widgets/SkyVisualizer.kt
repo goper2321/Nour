@@ -54,7 +54,7 @@ private fun hash01(index: Int, salt: Int): Float {
     return x - floor(x)
 }
 
-/** A Google Weather drifting cloud: base slot, vertical band, scale, drift speed, and layer. */
+/** A drifting cloud: base slot, vertical band, scale, drift speed, and layer. */
 private data class GoogleWeatherCloudSpec(
     val baseX: Float,
     val yFrac: Float,
@@ -62,21 +62,22 @@ private data class GoogleWeatherCloudSpec(
     val hFrac: Float,
     val speed: Float,
     val bobPhase: Float,
-    val layer: Int // 0: Distant ambient, 1: Midground Google Weather, 2: Foreground wisp
+    val layer: Int // 0: distant haze, 1: midground mass
 )
 
-/** Procedural Google Weather cloud layers with varied depths, speeds, and bobbing phases. */
+/**
+ * Procedural cloud layers with varied depth, speed and bobbing phase. Kept to
+ * five soft masses: the previous seven included two foreground "puffs" whose
+ * crisp silhouettes read as weather-icon clip art against Nour's flat chrome.
+ */
 private fun googleWeatherCloudSpecs(): List<GoogleWeatherCloudSpec> = listOf(
     // Distant background clouds (softer, higher, slower drift)
     GoogleWeatherCloudSpec(baseX = 0.05f, yFrac = 0.08f, wFrac = 0.44f, hFrac = 0.12f, speed = 0.0016f, bobPhase = 0f, layer = 0),
     GoogleWeatherCloudSpec(baseX = 0.62f, yFrac = 0.12f, wFrac = 0.40f, hFrac = 0.11f, speed = 0.0019f, bobPhase = 1.8f, layer = 0),
-    // Midground signature Google Weather clouds (classic puffy silhouettes)
+    // Midground cloud masses
     GoogleWeatherCloudSpec(baseX = 0.18f, yFrac = 0.17f, wFrac = 0.36f, hFrac = 0.11f, speed = 0.0032f, bobPhase = 0.8f, layer = 1),
     GoogleWeatherCloudSpec(baseX = 0.54f, yFrac = 0.22f, wFrac = 0.34f, hFrac = 0.10f, speed = 0.0036f, bobPhase = 2.4f, layer = 1),
-    GoogleWeatherCloudSpec(baseX = 0.88f, yFrac = 0.16f, wFrac = 0.35f, hFrac = 0.10f, speed = 0.0028f, bobPhase = 3.6f, layer = 1),
-    // Foreground delicate wisps (lower, drifting slightly faster)
-    GoogleWeatherCloudSpec(baseX = 0.30f, yFrac = 0.27f, wFrac = 0.27f, hFrac = 0.08f, speed = 0.0046f, bobPhase = 4.2f, layer = 2),
-    GoogleWeatherCloudSpec(baseX = 0.76f, yFrac = 0.29f, wFrac = 0.25f, hFrac = 0.075f, speed = 0.0042f, bobPhase = 5.0f, layer = 2)
+    GoogleWeatherCloudSpec(baseX = 0.88f, yFrac = 0.16f, wFrac = 0.35f, hFrac = 0.10f, speed = 0.0028f, bobPhase = 3.6f, layer = 1)
 )
 
 /**
@@ -119,8 +120,11 @@ private fun buildGlareArt(
     return GlareArt(
         brush = Brush.radialGradient(
             colors = listOf(
-                glareGlow.copy(alpha = (if (isDaytime) 0.35f else 0.20f) * glareAlpha),
-                glareGlow.copy(alpha = 0.12f * glareAlpha),
+                // A daylight sun does not wash the whole sky yellow: the wide
+                // glare stayed strong enough to tint the sector around the disc
+                // olive against a blue or mauve sky.
+                glareGlow.copy(alpha = (if (isDaytime) 0.22f else 0.20f) * glareAlpha),
+                glareGlow.copy(alpha = (if (isDaytime) 0.08f else 0.10f) * glareAlpha),
                 Color.Transparent
             ),
             center = center,
@@ -139,7 +143,7 @@ private fun buildCloudArts(
     isReadingMode: Boolean
 ): List<GoogleWeatherSkyElements.CloudArt?> {
     val cloudLuminosity = atmosphericState.skyLuminosity
-    val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
+    val duskWarmth = duskWarmthFor(cloudLuminosity)
     val isDarkNight = cloudLuminosity < 0.25f
     return clouds.map { cloud ->
         // Time-of-day and dynamic accent responsive colors
@@ -170,7 +174,8 @@ private fun buildCloudArts(
             1 -> 1.0f  // midground
             else -> 0.65f // foreground wisp
         }
-        val baseAlpha = (0.12f + 0.15f * cloudLuminosity) * layerMultiplier
+        // Low, haze-like alpha: the sky is a backdrop, not a weather illustration.
+        val baseAlpha = (0.07f + 0.09f * cloudLuminosity) * layerMultiplier
         val finalAlpha = if (isReadingMode) baseAlpha * 0.70f else baseAlpha
 
         if (finalAlpha <= 0.005f) {
@@ -179,11 +184,12 @@ private fun buildCloudArts(
             GoogleWeatherSkyElements.buildCloudArt(
                 width = width * cloud.wFrac,
                 height = height * cloud.hFrac,
-                fillColor = fillColor,
-                highlightColor = highlightColor,
-                shadowColor = shadowColor,
-                alpha = finalAlpha,
-                isDarkNight = isDarkNight
+                colors = GoogleWeatherSkyElements.CloudColors(
+                    fill = fillColor,
+                    highlight = highlightColor,
+                    shadow = shadowColor
+                ),
+                alpha = finalAlpha
             )
         }
     }
@@ -206,18 +212,25 @@ private fun buildSkySceneArt(
         val horizonBloomBrush = Brush.verticalGradient(
             colors = listOf(
                 Color.Transparent,
-                horizonBloomColor.copy(alpha = 0.25f),
-                horizonBloomColor.copy(alpha = 0.55f)
+                horizonBloomColor.copy(alpha = 0.20f),
+                horizonBloomColor.copy(alpha = 0.42f)
             ),
-            startY = horizonY - 60.dp.toPx(),
+            // Starts just below the hero's countdown headline (it used to begin
+            // 60 dp up, which washed the lower half of the numerals with a pale
+            // ramp and left no single text colour readable across them).
+            startY = horizonY - 34.dp.toPx(),
             endY = horizonY + 5.dp.toPx()
         )
+        // The rim of light on the horizon only exists while the sun is near it.
+        // At night the old fixed white line drew the brightest stroke in the
+        // lower sky, which read as a drawn rule rather than a horizon.
+        val horizonLineLevel = atmosphericState.skyLuminosity.coerceIn(0.08f, 1f)
         val horizonLineBrush = Brush.horizontalGradient(
             colors = listOf(
                 Color.Transparent,
-                horizonBloomColor.copy(alpha = 0.50f),
-                Color.White.copy(alpha = 0.40f),
-                horizonBloomColor.copy(alpha = 0.50f),
+                horizonBloomColor.copy(alpha = 0.50f * horizonLineLevel),
+                Color.White.copy(alpha = 0.40f * horizonLineLevel),
+                horizonBloomColor.copy(alpha = 0.50f * horizonLineLevel),
                 Color.Transparent
             ),
             startX = 0f,
@@ -381,6 +394,18 @@ private fun lerpColorList(list1: List<Color>, list2: List<Color>, fraction: Floa
 private fun lerpFloat(v1: Float, v2: Float, fraction: Float): Float {
     return v1 + (v2 - v1) * fraction.coerceIn(0f, 1f)
 }
+
+/**
+ * How "golden hour" the light is, from the sky's own luminosity.
+ *
+ * A bell centred on the low, warm sun (≈0.45) that genuinely falls to zero by
+ * full daylight. The previous formula subtracted the distance from a constant
+ * with too narrow a denominator, so it never reached zero: at a luminous noon
+ * sky it still returned 0.5, painting an amber sun and cream clouds over a
+ * blue midday sky.
+ */
+private fun duskWarmthFor(skyLuminosity: Float): Float =
+    ((0.55f - abs(skyLuminosity - 0.45f)) / 0.55f).coerceIn(0f, 1f)
 
 /**
  * Evaluates the 11-Phase Atmospheric System at the specified time.
@@ -656,13 +681,14 @@ fun getCelestialStage(prayerTimes: PrayerTimes, nowMillis: Long): Pair<String, S
  * Immersive Celestial Sky Background
  *
  * A boundless, atmospheric celestial canvas:
- * 1. Clean, boundless sky with no orbit/trajectory lines for complete natural immersion.
- * 2. Prominent, majestic celestial body (Sun or Crescent Moon) with rich multi-stage corona and atmospheric glare.
- * 3. 11-Phase continuous atmospheric engine blending color gradients, celestial glows, and horizon luminescence.
+ * 1. Clean sky with no orbit/trajectory lines for complete natural immersion.
+ * 2. One soft celestial body (Sun disc or true-phase Moon) inside a restrained bloom.
+ * 3. 11-Phase continuous atmospheric engine blending colour gradients and horizon luminescence.
  * 4. Atmospheric horizon bloom simulating Rayleigh and Mie light scattering.
  * 5. Minimalist layered desert dunes anchoring the distant horizon.
- * 6. Expansive starfield with subtle twinkling, stardust haze, and occasional shooting star streak.
- * 7. Soft atmospheric scrim ensuring foreground cards and navigation remain clear and readable.
+ * 6. Sparse starfield of plain dots in four slow twinkle groups.
+ * 7. Optional soft surface scrim for foreground content (off in the prayer hero,
+ *    which keeps its own opaque cards).
  */
 @Composable
 fun ImmersiveSkyBackground(
@@ -693,85 +719,84 @@ fun ImmersiveSkyBackground(
     // Maximum solar elevation at solar noon for user latitude
     val maxElevation = (90.0 - abs(location.latitude - declination)).coerceIn(15.0, 90.0)
 
+    // The sky is a slow surface: colour and cached art step once a minute, not
+    // on every countdown tick. The per-minute delta is far below perception and
+    // it keeps paths/brushes from being rebuilt at 1 Hz.
+    val skyMinuteMillis = (nowMillis / 60_000L) * 60_000L
+
     // 11-Phase continuous atmospheric state evaluation
-    val atmosphericState = remember(nowMillis, prayerTimes) {
-        getInterpolatedAtmosphericState(prayerTimes, nowMillis)
+    val atmosphericState = remember(skyMinuteMillis, prayerTimes) {
+        getInterpolatedAtmosphericState(prayerTimes, skyMinuteMillis)
     }
 
-    // Restrained, subtle ambient animations.
-    // Rain is gated: no caller enables precipitation today, so avoid a free 60fps loop.
-    // Reduced-motion (animator duration scale = 0) freezes ambient loops: every
-    // duration below flows through NourMotion.duration(...), which collapses to
-    // 0 ms under the "Remove animations" setting. Infinite animations cannot
-    // legally run at 0 ms (zero-duration infiniteRepeatable spins every frame),
-    // so the pinned floor is 1 ms — paired with the frozen default/target pairs
-    // above, no visible motion remains while the value stays a legal tween.
+    // Restrained ambient animation.
+    // Rain is gated: no caller enables precipitation today, so avoid a free 60 fps loop.
+    // Reduced motion stops the loops outright. The old `coerceAtLeast(1)` floor
+    // turned "Remove animations" into an infinite 1 ms tween of a frozen value:
+    // nothing moved, but the frame clock still ran. Plain state is used instead,
+    // exactly like the rain branch below.
     val rainEnabled = precipitationIntensity > 0f || showPrecipitation
     val reducedMotion = NourReduceMotion.isEnabled(context)
     val infiniteTransition = rememberInfiniteTransition(label = "celestial_background_anim")
 
-    // Monotonic cloud clock: linear 0..1 progress over a long cycle, scaled in draw.
-    // Restart is invisible because cloud placement uses continuous modulo drift.
-    val cloudProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (reducedMotion) 0f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = NourMotion.duration(600_000).coerceAtLeast(1),
-                easing = LinearEasing
+    // Monotonic cloud clock: accumulate real frame deltas and never reset. The
+    // old 0..1 / 600 s cycle restarted the clock every ten minutes, snapping the
+    // mid and background clouds across 20–60% of the card in a single frame.
+    // Seeded from the wall clock so a fresh composition lands at an arbitrary,
+    // natural phase rather than always at the same baseX slots.
+    var cloudSeconds by remember {
+        mutableFloatStateOf(((nowMillis / 1000L) % 86_400L).toFloat())
+    }
+    if (!reducedMotion) {
+        LaunchedEffect(Unit) {
+            var last = withFrameNanos { it }
+            while (true) {
+                val frame = withFrameNanos { it }
+                val delta = ((frame - last) / 1_000_000_000.0).toFloat().coerceIn(0f, 0.25f)
+                last = frame
+                cloudSeconds += delta
+            }
+        }
+    }
+
+    // Star twinkle: one slow phase, split into four buckets at draw time. A full
+    // 2π lap repeats seamlessly, and the field no longer breathes in unison.
+    val starTwinklePhase by if (reducedMotion) {
+        remember { mutableFloatStateOf(0f) }
+    } else {
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = (2f * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = NourMotion.duration(7000).coerceAtLeast(1),
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
             ),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "smooth_cloud_seconds"
-    )
-    val cloudCycleSeconds = 600.0
-    val wallBaseSeconds = remember { nowMillis / 1000.0 }
+            label = "star_twinkle_phase"
+        )
+    }
 
-    // Star twinkle oscillation
-    val starTwinkle by infiniteTransition.animateFloat(
-        initialValue = if (reducedMotion) 0.65f else 0.35f,
-        targetValue = if (reducedMotion) 0.65f else 0.95f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = NourMotion.duration(3200).coerceAtLeast(1), easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "star_twinkle"
-    )
+    // Corona breath: long and shallow. A slow light swell, not a bounce.
+    val coronaPulse by if (reducedMotion) {
+        remember { mutableFloatStateOf(1f) }
+    } else {
+        infiniteTransition.animateFloat(
+            initialValue = 0.985f,
+            targetValue = 1.015f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = NourMotion.duration(9000).coerceAtLeast(1),
+                    easing = FastOutSlowInEasing
+                ),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "corona_pulse"
+        )
+    }
 
-    // Corona & Celestial halo gentle pulse
-    val coronaPulse by infiniteTransition.animateFloat(
-        initialValue = if (reducedMotion) 1f else 0.95f,
-        targetValue = if (reducedMotion) 1f else 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = NourMotion.duration(3600).coerceAtLeast(1), easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "corona_pulse"
-    )
-
-    // Stately Sun ray rotation (50 seconds per full 360° rotation)
-    val sunRayRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (reducedMotion) 0f else 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = NourMotion.duration(50000).coerceAtLeast(1), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "sun_ray_rotation"
-    )
-
-    // Shooting star streak
-    val shootingStarProgress by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = if (reducedMotion) 0f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = NourMotion.duration(15000).coerceAtLeast(1), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shooting_star"
-    )
-
-    // Google Weather rain loop — only while precipitation is actually shown.
+    // Rain loop — only while precipitation is actually shown.
     val rainProgress by if (rainEnabled && !reducedMotion) {
         infiniteTransition.animateFloat(
             initialValue = 0f,
@@ -780,7 +805,7 @@ fun ImmersiveSkyBackground(
                 animation = tween(durationMillis = NourMotion.duration(1600).coerceAtLeast(1), easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
-            label = "google_weather_rain"
+            label = "precipitation_rain"
         )
     } else {
         remember { mutableFloatStateOf(0f) }
@@ -808,18 +833,22 @@ fun ImmersiveSkyBackground(
         // be on the canvas at once exactly as in a real sky (the Moon is often
         // above the horizon during the day).
         val cloudDrift = remember { googleWeatherCloudSpecs() }
-        val sunPos = remember(nowMillis, location.latitude, location.longitude) {
-            CelestialMath.sunPosition(nowMillis, location.latitude, location.longitude)
+        val sunPos = remember(skyMinuteMillis, location.latitude, location.longitude) {
+            CelestialMath.sunPosition(skyMinuteMillis, location.latitude, location.longitude)
         }
-        val moon = remember(nowMillis, location.latitude, location.longitude) {
-            CelestialMath.moonInfo(nowMillis, location.latitude, location.longitude)
+        val moon = remember(skyMinuteMillis, location.latitude, location.longitude) {
+            CelestialMath.moonInfo(skyMinuteMillis, location.latitude, location.longitude)
         }
         val yTop = skyBand * 0.12f
+        // Keep the whole solar/lunar disc inside the canvas. Altitude alone
+        // pushed a high Moon to yTop (the sky band's top edge), cropping half
+        // its face off-screen — the opposite of a calm sky.
+        val bodyTopInset = with(density) { 26.dp.toPx() }
         fun bodyX(hourAngleDeg: Double): Float =
             widthPx * (0.12f + 0.76f * ((hourAngleDeg + 120.0) / 240.0).coerceIn(0.0, 1.0)).toFloat()
         fun bodyY(altitudeDeg: Double): Float =
             (horizonY - (altitudeDeg / maxElevation) * (horizonY - yTop)).toFloat()
-                .coerceIn(0f, horizonY + with(density) { 48.dp.toPx() })
+                .coerceIn(bodyTopInset, horizonY + with(density) { 48.dp.toPx() })
         // Each body fades smoothly across the horizon line instead of popping.
         val sunAlpha = ((sunPos.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
         val moonAlpha = ((moon.position.altitudeDeg + 1.5) / 3.0).toFloat().coerceIn(0f, 1f)
@@ -831,7 +860,7 @@ fun ImmersiveSkyBackground(
 
         // Slow-moving values that feed the cached scene below.
         val cloudLuminosity = atmosphericState.skyLuminosity
-        val duskWarmth = ((0.65f - abs(cloudLuminosity - 0.45f)) / 0.2f).coerceIn(0f, 1f)
+        val duskWarmth = duskWarmthFor(cloudLuminosity)
 
         // Expensive sky geometry (paths, gradient brushes, star tables) is built
         // here and only rebuilt when a slow colour/size input changes — not once
@@ -898,8 +927,9 @@ fun ImmersiveSkyBackground(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            // Smooth cloud time: wall base (layout-preserving) + cycle progress.
-            val timeSeconds = wallBaseSeconds + (cloudProgress.toDouble() * cloudCycleSeconds)
+            // Monotonic cloud clock (see the LaunchedEffect above). It advances
+            // with real frame time, so drift never snaps back to a start slot.
+            val timeSeconds = cloudSeconds.toDouble()
 
             // -------------------------------------------------------------
             // 1. Immersive Atmospheric Light Wash & Celestial Glare
@@ -913,18 +943,17 @@ fun ImmersiveSkyBackground(
             }
 
             // -------------------------------------------------------------
-            // 2. Google Weather Starfield & Cosmic Serenity
+            // 2. Starfield (plain dots, four slow twinkle buckets)
             // -------------------------------------------------------------
             GoogleWeatherSkyElements.drawStarfield(
                 drawScope = this,
                 art = starfieldArt,
                 starOpacity = atmosphericState.starOpacity,
-                starTwinkle = starTwinkle,
-                shootingStarProgress = shootingStarProgress
+                twinklePhase = starTwinklePhase
             )
 
             // -------------------------------------------------------------
-            // 3. Multi-Layered Google Weather Clouds (Procedural drift & gentle floating bob)
+            // 3. Cloud haze (procedural drift & a barely-there bob)
             // -------------------------------------------------------------
             cloudDrift.forEachIndexed { index, cloud ->
                 val art = cloudArts[index] ?: return@forEachIndexed
@@ -943,7 +972,7 @@ fun ImmersiveSkyBackground(
             }
 
             // -------------------------------------------------------------
-            // 4. Celestial Body (Google Weather Sun or True-Phase Moon)
+            // 4. Celestial body (luminous Sun disc or the true-phase Moon)
             // -------------------------------------------------------------
             // Both bodies draw independently: the Moon keeps its true illuminated
             // phase, so a day-time Moon and the Sun can share the sky.
@@ -952,8 +981,7 @@ fun ImmersiveSkyBackground(
                     drawScope = this,
                     art = sunArt,
                     center = sunCenter,
-                    coronaPulse = coronaPulse,
-                    sunRayRotation = sunRayRotation
+                    coronaPulse = coronaPulse
                 )
             }
             if (moonAlpha > 0.005f) {
@@ -961,13 +989,12 @@ fun ImmersiveSkyBackground(
                     drawScope = this,
                     art = moonArt,
                     center = moonCenter,
-                    coronaPulse = coronaPulse,
-                    starTwinkle = starTwinkle
+                    coronaPulse = coronaPulse
                 )
             }
 
             // -------------------------------------------------------------
-            // 5. Google Weather Rain & Precipitation Layer
+            // 5. Rain & precipitation layer (currently unused by any caller)
             // -------------------------------------------------------------
             val effectiveRainIntensity = when {
                 precipitationIntensity > 0f -> precipitationIntensity
